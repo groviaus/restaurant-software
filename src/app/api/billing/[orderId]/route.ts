@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth';
+import { billOrderIdSchema } from '@/lib/schemas';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { orderId: string } }
+) {
+  try {
+    await requireAuth();
+    const supabase = await createClient();
+    
+    const { orderId } = billOrderIdSchema.parse({ orderId: params.orderId });
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        order_items (
+          *,
+          items (*)
+        ),
+        tables (*),
+        users (*)
+      `)
+      .eq('id', orderId)
+      .single();
+
+    if (error) throw error;
+
+    if (!order) {
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      order_id: order.id,
+      subtotal: Number(order.subtotal),
+      tax: Number(order.tax),
+      total: Number(order.total),
+      payment_method: order.payment_method,
+      items: order.order_items,
+      created_at: order.created_at,
+      order: order,
+    });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch bill' },
+      { status: 500 }
+    );
+  }
+}
+
