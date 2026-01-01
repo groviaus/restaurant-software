@@ -155,3 +155,7 @@ WHERE quantity_type IS NULL;
 - Existing orders without quantity_type will default to "FULL" (1kg)
 - Quantity types are only applicable to weight-based items
 
+
+
+
+

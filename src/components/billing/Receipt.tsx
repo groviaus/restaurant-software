@@ -2,8 +2,9 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Printer } from 'lucide-react';
+import { Printer, QrCode } from 'lucide-react';
 import { getQuantityTypeLabel, getQuantityTypeMultiplier } from '@/lib/utils/quantity';
+import { PaymentMethod } from '@/lib/types';
 
 interface ReceiptProps {
   billData: any;
@@ -56,7 +57,16 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
               )}
               <div className="flex justify-between">
                 <span className="text-gray-600">Payment Method:</span>
+                <span className="flex items-center gap-2">
+                  {billData.payment_method === PaymentMethod.UPI ? (
+                    <>
+                      <QrCode className="h-4 w-4" />
+                      <span>UPI</span>
+                    </>
+                  ) : (
                 <span>{billData.payment_method}</span>
+                  )}
+                </span>
               </div>
             </div>
 

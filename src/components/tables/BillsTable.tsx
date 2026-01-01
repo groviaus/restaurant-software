@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { OrderWithItems } from '@/lib/types';
-import { Receipt, Eye, Search, Download } from 'lucide-react';
+import { Receipt, Eye, Search, Download, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { BillModal } from '@/components/billing/BillModal';
 import { format } from 'date-fns';
@@ -130,8 +130,15 @@ export function BillsTable({ bills }: BillsTableProps) {
                       {bill.table?.name || '-'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">
-                        {bill.payment_method || 'N/A'}
+                      <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                        {bill.payment_method === 'UPI' ? (
+                          <>
+                            <QrCode className="h-3 w-3" />
+                            <span>UPI</span>
+                          </>
+                        ) : (
+                          <span>{bill.payment_method || 'N/A'}</span>
+                        )}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">
@@ -179,4 +186,6 @@ export function BillsTable({ bills }: BillsTableProps) {
     </>
   );
 }
+
+
 

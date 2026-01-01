@@ -8,9 +8,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { OrderWithItems, OrderStatus } from '@/lib/types';
+import { OrderWithItems, OrderStatus, PaymentMethod } from '@/lib/types';
 import { format } from 'date-fns';
 import { getQuantityTypeLabel, getQuantityTypeMultiplier } from '@/lib/utils/quantity';
+import { QrCode } from 'lucide-react';
 
 interface OrderDetailsModalProps {
   open: boolean;
@@ -69,7 +70,7 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Table</p>
-              <p className="text-sm">{order.table?.name || '-'}</p>
+              <p className="text-sm">{(order as any).tables?.name || (order as any).table?.name || (order.order_type === 'DINE_IN' ? '-' : 'N/A')}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Created At</p>
@@ -81,9 +82,9 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
             </div>
             {order.cancellation_reason && (
               <div className="col-span-2">
-              <p className="text-sm font-medium text-gray-500">Cancellation Reason</p>
-              <p className="text-sm text-red-600">{order.cancellation_reason}</p>
-            </div>
+                <p className="text-sm font-medium text-gray-500">Cancellation Reason</p>
+                <p className="text-sm text-red-600">{order.cancellation_reason}</p>
+              </div>
             )}
           </div>
 
@@ -108,9 +109,9 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
             <div className="space-y-2">
               {(order.order_items || order.items) && (order.order_items || order.items).length > 0 ? (
                 (order.order_items || order.items).map((item: any) => {
-                  const multiplier = getQuantityTypeMultiplier(item.quantity_type);
-                  const effectivePrice = Number(item.price) * multiplier;
-                  const total = effectivePrice * item.quantity;
+                  // Price is already the effective price (base_price * multiplier) stored in order_items
+                  const itemPrice = Number(item.price);
+                  const total = itemPrice * item.quantity;
                   return (
                     <div key={item.id} className="border rounded-lg p-3">
                       <div className="flex justify-between items-start">
@@ -155,7 +156,16 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
               {order.payment_method && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Payment Method</span>
-                  <span className="font-medium">{order.payment_method}</span>
+                  <span className="font-medium flex items-center gap-2">
+                    {order.payment_method === PaymentMethod.UPI ? (
+                      <>
+                        <QrCode className="h-4 w-4" />
+                        <span>UPI</span>
+                      </>
+                    ) : (
+                      <span>{order.payment_method}</span>
+                    )}
+                  </span>
                 </div>
               )}
             </div>

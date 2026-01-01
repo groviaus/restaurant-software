@@ -10,3 +10,7 @@ WHERE quantity_type IS NULL;
 -- Add comment to explain quantity_type values
 COMMENT ON COLUMN order_items.quantity_type IS 'Quantity type: QUARTER (250gm), HALF (500gm), THREE_QUARTER (750gm), FULL (1kg), or CUSTOM for numeric quantities';
 
+
+
+
+

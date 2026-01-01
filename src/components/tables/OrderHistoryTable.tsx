@@ -66,14 +66,13 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
               <TableHead>Status</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead>Staff</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <div className="space-y-2">
                     <p className="text-muted-foreground">No order history found</p>
                     <p className="text-sm text-muted-foreground">
@@ -94,7 +93,7 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {order.table?.name || '-'}
+                    {order.tables?.name || order.table?.name || '-'}
                   </TableCell>
                   <TableCell>
                     <Badge variant={getStatusColor(order.status)}>
@@ -107,7 +106,6 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                   <TableCell>
                     {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
                   </TableCell>
-                  <TableCell>{order.user?.name || '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button

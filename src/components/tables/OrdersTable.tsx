@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { OrderStatus } from '@/lib/types';
 import { OrderWithItems } from '@/lib/types';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BillModal } from '@/components/billing/BillModal';
 import { OrderForm } from '@/components/forms/OrderForm';
 import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
@@ -22,6 +22,8 @@ import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { Table as TableType } from '@/lib/types';
 import { Plus, Eye, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { useTableOrderStore } from '@/store/tableOrderStore';
+import { OrdersFilters, OrdersFilters as FiltersType } from '@/components/orders/OrdersFilters';
 
 interface OrdersTableProps {
   orders: any[];
@@ -29,15 +31,113 @@ interface OrdersTableProps {
   tables: TableType[];
 }
 
-export function OrdersTable({ orders, outletId, tables: initialTables }: OrdersTableProps) {
+export function OrdersTable({ orders: initialOrders, outletId, tables: initialTables }: OrdersTableProps) {
   const router = useRouter();
+  const { 
+    orders: storeOrders, 
+    tables: storeTables, 
+    setOrders, 
+    setTables, 
+    updateOrder 
+  } = useTableOrderStore();
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [billModalOpen, setBillModalOpen] = useState(false);
   const [orderFormOpen, setOrderFormOpen] = useState(false);
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
-  const [tables, setTables] = useState(initialTables);
+  const [filters, setFilters] = useState<FiltersType>({
+    datePreset: 'today',
+    statuses: [],
+    orderTypes: [],
+  });
+
+  // Initialize store with data from server
+  useEffect(() => {
+    if (initialOrders && initialOrders.length > 0) {
+      setOrders(initialOrders);
+    }
+    if (initialTables && initialTables.length > 0) {
+      setTables(initialTables);
+    }
+  }, [initialOrders, initialTables, setOrders, setTables]);
+
+  // Use store data, fallback to initial data
+  const allOrders = storeOrders.length > 0 ? storeOrders : initialOrders;
+  const tables = storeTables.length > 0 ? storeTables : initialTables;
+
+  // Apply filters
+  const getDateRange = (preset: string, customStart?: string, customEnd?: string) => {
+    const now = new Date();
+    const localYear = now.getFullYear();
+    const localMonth = now.getMonth();
+    const localDate = now.getDate();
+
+    switch (preset) {
+      case 'today': {
+        const start = new Date(localYear, localMonth, localDate, 0, 0, 0, 0);
+        const end = new Date(localYear, localMonth, localDate + 1, 0, 0, 0, 0);
+        return { start: start.toISOString(), end: end.toISOString() };
+      }
+      case 'yesterday': {
+        const start = new Date(localYear, localMonth, localDate - 1, 0, 0, 0, 0);
+        const end = new Date(localYear, localMonth, localDate, 0, 0, 0, 0);
+        return { start: start.toISOString(), end: end.toISOString() };
+      }
+      case 'last7days': {
+        const start = new Date(localYear, localMonth, localDate - 6, 0, 0, 0, 0);
+        const end = new Date(localYear, localMonth, localDate + 1, 0, 0, 0, 0);
+        return { start: start.toISOString(), end: end.toISOString() };
+      }
+      case 'last30days': {
+        const start = new Date(localYear, localMonth, localDate - 29, 0, 0, 0, 0);
+        const end = new Date(localYear, localMonth, localDate + 1, 0, 0, 0, 0);
+        return { start: start.toISOString(), end: end.toISOString() };
+      }
+      case 'custom': {
+        if (customStart && customEnd) {
+          const start = new Date(customStart);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(customEnd);
+          end.setHours(23, 59, 59, 999);
+          return { start: start.toISOString(), end: end.toISOString() };
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
+  };
+
+  const filteredOrders = allOrders.filter((order) => {
+    // Date filter
+    const dateRange = getDateRange(filters.datePreset, filters.customStartDate, filters.customEndDate);
+    if (dateRange) {
+      const orderDate = new Date(order.created_at);
+      if (orderDate < new Date(dateRange.start) || orderDate >= new Date(dateRange.end)) {
+        return false;
+      }
+    }
+
+    // Status filter
+    if (filters.statuses.length > 0 && !filters.statuses.includes(order.status)) {
+      return false;
+    }
+
+    // Order type filter
+    if (filters.orderTypes.length > 0 && !filters.orderTypes.includes(order.order_type)) {
+      return false;
+    }
+
+    // Table filter
+    if (filters.tableId && order.table_id !== filters.tableId) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const orders = filteredOrders;
 
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
@@ -71,6 +171,11 @@ export function OrdersTable({ orders, outletId, tables: initialTables }: OrdersT
         throw new Error(error.error || 'Failed to update order status');
       }
 
+      const updatedOrder = await response.json();
+      
+      // Update store with the updated order (this will handle table status changes)
+      updateOrder(updatedOrder);
+
       toast.success('Order status updated');
       router.refresh();
     } catch (error: any) {
@@ -95,12 +200,23 @@ export function OrdersTable({ orders, outletId, tables: initialTables }: OrdersT
 
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <p className="text-sm text-gray-600">
+            Showing {orders.length} of {allOrders.length} orders
+          </p>
+        </div>
         <Button onClick={() => setOrderFormOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Create Order
         </Button>
       </div>
+      <OrdersFilters
+        tables={tables}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+      <div className="mt-4" />
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -231,11 +347,12 @@ export function OrdersTable({ orders, outletId, tables: initialTables }: OrdersT
         outletId={outletId}
         tables={tables}
         onSuccess={async () => {
-          // Refresh tables and orders
+          // Refresh tables and orders from server
           const tablesRes = await fetch(`/api/tables?outlet_id=${outletId}`);
           if (tablesRes.ok) {
             const tablesData = await tablesRes.json();
-            setTables(tablesData.tables || tablesData || []);
+            const updatedTables = tablesData.tables || tablesData || [];
+            setTables(updatedTables);
           }
           router.refresh();
         }}
@@ -252,8 +369,14 @@ export function OrdersTable({ orders, outletId, tables: initialTables }: OrdersT
           open={cancelDialogOpen}
           onOpenChange={setCancelDialogOpen}
           orderId={orderToCancel}
-          onSuccess={() => {
+          onSuccess={async () => {
             setOrderToCancel(null);
+            // Refresh orders from server to get updated data
+            const ordersRes = await fetch(`/api/orders?outlet_id=${outletId}`);
+            if (ordersRes.ok) {
+              const ordersData = await ordersRes.json();
+              setOrders(ordersData);
+            }
             router.refresh();
           }}
         />

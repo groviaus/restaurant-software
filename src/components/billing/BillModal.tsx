@@ -22,6 +22,7 @@ import {
 import { PaymentMethod } from '@/lib/types';
 import { toast } from 'sonner';
 import { Receipt } from './Receipt';
+import { useTableOrderStore } from '@/store/tableOrderStore';
 
 interface BillModalProps {
   open: boolean;
@@ -32,6 +33,7 @@ interface BillModalProps {
 
 export function BillModal({ open, onOpenChange, order, readOnly = false }: BillModalProps) {
   const router = useRouter();
+  const { markOrderBilled, updateOrder } = useTableOrderStore();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
   const [loading, setLoading] = useState(false);
   const [billData, setBillData] = useState<any>(null);
@@ -71,6 +73,25 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
       }
 
       const data = await response.json();
+      
+      // Update store - mark order as billed and set table to EMPTY
+      markOrderBilled(order.id);
+      
+      // Also update the order in store with the complete order data if available
+      if (data.order_id) {
+        // Fetch the updated order to get complete data
+        try {
+          const orderResponse = await fetch(`/api/orders/${order.id}`);
+          if (orderResponse.ok) {
+            const updatedOrder = await orderResponse.json();
+            updateOrder(updatedOrder);
+          }
+        } catch (error) {
+          // If fetch fails, markOrderBilled already handled the table status
+          console.error('Failed to fetch updated order:', error);
+        }
+      }
+      
       setBillData(data);
       setShowReceipt(true);
       toast.success('Bill generated successfully');

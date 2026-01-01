@@ -36,11 +36,11 @@ export async function POST(
 
     if (error) throw error;
 
-    // Update table status if dine-in
+    // Update table status to EMPTY if dine-in (table is now available for new orders)
     if (data.table_id && data.order_type === 'DINE_IN') {
       await supabase
         .from('tables')
-        .update({ status: 'BILLED' })
+        .update({ status: 'EMPTY' })
         .eq('id', data.table_id);
     }
 

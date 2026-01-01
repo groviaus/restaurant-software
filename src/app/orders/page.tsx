@@ -16,7 +16,16 @@ export default async function OrdersPage() {
     );
   }
 
-  const { data: orders, error } = await supabase
+  // Calculate today's date range (00:00:00 to 23:59:59)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStart = today.toISOString();
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const todayEnd = tomorrow.toISOString();
+
+  const { data: orders, error: ordersError } = await supabase
     .from('orders')
     .select(`
       *,
@@ -28,14 +37,21 @@ export default async function OrdersPage() {
       users (*)
     `)
     .eq('outlet_id', profile.outlet_id)
-    .order('created_at', { ascending: false })
-    .limit(50);
+    .gte('created_at', todayStart)
+    .lt('created_at', todayEnd)
+    .order('created_at', { ascending: false });
 
-  if (error) {
+  const { data: tables, error: tablesError } = await supabase
+    .from('tables')
+    .select('*')
+    .eq('outlet_id', profile.outlet_id)
+    .order('name', { ascending: true });
+
+  if (ordersError) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Orders</h1>
-        <p className="text-red-600">Error loading orders: {error.message}</p>
+        <p className="text-red-600">Error loading orders: {ordersError.message}</p>
       </div>
     );
   }
@@ -46,7 +62,11 @@ export default async function OrdersPage() {
         <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
         <p className="text-gray-600">Manage and track orders</p>
       </div>
-      <OrdersTable orders={orders || []} outletId={profile.outlet_id} />
+      <OrdersTable 
+        orders={orders || []} 
+        outletId={profile.outlet_id}
+        tables={tables || []}
+      />
     </div>
   );
 }

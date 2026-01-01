@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const body = await request.json();
     const validatedData = billRequestSchema.parse(body);
 
@@ -65,11 +65,11 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw updateError;
 
-    // Update table status if dine-in
+    // Update table status to EMPTY if dine-in (table is now available for new orders)
     if (updatedOrder.table_id && updatedOrder.order_type === 'DINE_IN') {
       await supabase
         .from('tables')
-        .update({ status: 'BILLED' })
+        .update({ status: 'EMPTY' })
         .eq('id', updatedOrder.table_id);
     }
 
