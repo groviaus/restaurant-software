@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { OrderHistoryPageClient } from '@/components/orders/OrderHistoryPageClient';
 
 export default async function OrderHistoryPage() {
   await requireAuth();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
 
-  if (!profile?.outlet_id) {
+  if (!effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Order History</h1>
@@ -27,7 +28,7 @@ export default async function OrderHistoryPage() {
       tables (*),
       users (*)
     `)
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .in('status', ['COMPLETED', 'CANCELLED'])
     .order('created_at', { ascending: false })
     .limit(1000);
@@ -35,7 +36,7 @@ export default async function OrderHistoryPage() {
   const { data: tables } = await supabase
     .from('tables')
     .select('*')
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .order('name', { ascending: true });
 
   if (error) {
@@ -51,7 +52,7 @@ export default async function OrderHistoryPage() {
     <OrderHistoryPageClient
       initialOrders={orders || []}
       tables={tables || []}
-      outletId={profile.outlet_id}
+      outletId={effectiveOutletId}
     />
   );
 }

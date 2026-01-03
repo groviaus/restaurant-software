@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile } from '@/lib/auth';
+import { getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { z } from 'zod';
 
 const updateInventorySchema = z.object({
@@ -12,7 +12,8 @@ const updateInventorySchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const profile = await getUserProfile();
-    if (!profile?.outlet_id) {
+    const effectiveOutletId = getEffectiveOutletId(profile);
+    if (!effectiveOutletId) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
         { status: 403 }
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
         *,
         item:items(*)
       `)
-      .eq('outlet_id', profile.outlet_id)
+      .eq('outlet_id', effectiveOutletId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -45,7 +46,14 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const profile = await getUserProfile();
-    if (!profile?.outlet_id) {
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    const effectiveOutletId = getEffectiveOutletId(profile);
+    if (!effectiveOutletId) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
         { status: 403 }
@@ -61,7 +69,7 @@ export async function PATCH(request: NextRequest) {
     const { data: existing } = await supabase
       .from('inventory')
       .select('*')
-      .eq('outlet_id', profile.outlet_id)
+      .eq('outlet_id', effectiveOutletId)
       .eq('item_id', validated.item_id)
       .single();
 
@@ -87,7 +95,7 @@ export async function PATCH(request: NextRequest) {
 
       // Log the change
       const logData: any = {
-        outlet_id: profile.outlet_id,
+        outlet_id: effectiveOutletId,
         item_id: validated.item_id,
         change: validated.stock - oldStock,
         reason: 'Manual adjustment',
@@ -99,7 +107,7 @@ export async function PATCH(request: NextRequest) {
     } else {
       // Create new
       const insertData: any = {
-        outlet_id: profile.outlet_id,
+        outlet_id: effectiveOutletId,
         item_id: validated.item_id,
         stock: validated.stock,
         low_stock_threshold: validated.low_stock_threshold ?? 10,
@@ -116,7 +124,7 @@ export async function PATCH(request: NextRequest) {
 
       // Log the change
       const initialLogData: any = {
-        outlet_id: profile.outlet_id,
+        outlet_id: effectiveOutletId,
         item_id: validated.item_id,
         change: validated.stock,
         reason: 'Initial stock',

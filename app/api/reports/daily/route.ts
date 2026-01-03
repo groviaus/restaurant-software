@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile } from '@/lib/auth';
+import { getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
     const profile = await getUserProfile();
-    if (!profile?.outlet_id) {
+    const effectiveOutletId = getEffectiveOutletId(profile);
+    if (!effectiveOutletId) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
         { status: 403 }
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
         ),
         users (*)
       `)
-      .eq('outlet_id', profile.outlet_id)
+      .eq('outlet_id', effectiveOutletId)
       .eq('status', 'COMPLETED')
       .gte('created_at', startDate.toISOString())
       .lte('created_at', endDate.toISOString())

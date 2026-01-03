@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { TableGrid } from '@/components/tables/TableGrid';
 
 export default async function TablesPage() {
   await requireAuth();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
 
-  if (!profile?.outlet_id) {
+  if (!effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Table Management</h1>
@@ -19,7 +20,7 @@ export default async function TablesPage() {
   const { data: tables, error } = await supabase
     .from('tables')
     .select('*')
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .order('name', { ascending: true });
 
   if (error) {
@@ -37,7 +38,7 @@ export default async function TablesPage() {
         <h1 className="text-3xl font-bold text-gray-900">Table Management</h1>
         <p className="text-gray-600">Manage your restaurant tables</p>
       </div>
-      <TableGrid tables={tables || []} outletId={profile.outlet_id} />
+      <TableGrid tables={tables || []} outletId={effectiveOutletId} />
     </div>
   );
 }

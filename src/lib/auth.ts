@@ -75,3 +75,20 @@ export async function checkRole(userId: string, allowedRoles: UserRole[]): Promi
   return allowedRoles.includes(profileData.role as UserRole);
 }
 
+/**
+ * Get the effective outlet ID for a user profile.
+ * For admins: returns current_outlet_id if set, otherwise outlet_id
+ * For non-admins: returns outlet_id
+ */
+export function getEffectiveOutletId(profile: User | null): string | null {
+  if (!profile) {
+    return null;
+  }
+
+  if (profile.role === UserRole.ADMIN) {
+    return profile.current_outlet_id || profile.outlet_id || null;
+  }
+
+  return profile.outlet_id || null;
+}
+

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile } from '@/lib/auth';
+import { getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { z } from 'zod';
 
 const createOutletSchema = z.object({
@@ -25,21 +25,24 @@ export async function GET() {
       }
 
       return NextResponse.json({ outlets: outlets || [] });
-    } else if (profile?.outlet_id) {
-      const { data: outlet, error } = await supabase
-        .from('outlets')
-        .select('*')
-        .eq('id', profile.outlet_id)
-        .single();
+    } else {
+      const effectiveOutletId = getEffectiveOutletId(profile);
+      if (effectiveOutletId) {
+        const { data: outlet, error } = await supabase
+          .from('outlets')
+          .select('*')
+          .eq('id', effectiveOutletId)
+          .single();
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ outlets: outlet ? [outlet] : [] });
       }
 
-      return NextResponse.json({ outlets: outlet ? [outlet] : [] });
+      return NextResponse.json({ outlets: [] });
     }
-
-    return NextResponse.json({ outlets: [] });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch outlets' },

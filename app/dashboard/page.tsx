@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getSession, getUserProfile } from '@/lib/auth';
+import { getSession, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { SalesTrendChart } from '@/components/charts/SalesTrendChart';
 import { PaymentBreakdownChart } from '@/components/charts/PaymentBreakdownChart';
 import { PeakHoursChart } from '@/components/charts/PeakHoursChart';
@@ -11,8 +11,9 @@ export default async function DashboardPage() {
   // ProtectedRoute handles authentication, but we still need to check for session
   const session = await getSession();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
 
-  if (!session || !profile?.outlet_id) {
+  if (!session || !effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
@@ -38,7 +39,7 @@ export default async function DashboardPage() {
   const todayEnd = new Date(localYear, localMonth, localDate + 1, 0, 0, 0, 0);
 
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:28',message:'Date range calculation',data:{todayLocal:todayStart.toString(),todayISO:todayStart.toISOString(),todayEndISO:todayEnd.toISOString(),outletId:profile.outlet_id},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:28',message:'Date range calculation',data:{todayLocal:todayStart.toString(),todayISO:todayStart.toISOString(),todayEndISO:todayEnd.toISOString(),outletId:effectiveOutletId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
   // #endregion
 
   // Fetch today's sales with error handling
@@ -50,13 +51,13 @@ export default async function DashboardPage() {
 
   try {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:42',message:'Before orders query',data:{outletId:profile.outlet_id,dateFrom:todayStart.toISOString(),dateTo:todayEnd.toISOString()},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:42',message:'Before orders query',data:{outletId:effectiveOutletId,dateFrom:todayStart.toISOString(),dateTo:todayEnd.toISOString()},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
 
     const { data: todayOrders, error: ordersError } = await serviceClient
       .from('orders')
       .select('total, status, created_at')
-      .eq('outlet_id', profile.outlet_id)
+      .eq('outlet_id', effectiveOutletId)
       .gte('created_at', todayStart.toISOString())
       .lt('created_at', todayEnd.toISOString());
 
@@ -88,7 +89,7 @@ export default async function DashboardPage() {
 
     // Get top selling item with error handling
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:68',message:'Before top items query',data:{outletId:profile.outlet_id,dateFrom:todayStart.toISOString(),dateTo:todayEnd.toISOString()},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:68',message:'Before top items query',data:{outletId:effectiveOutletId,dateFrom:todayStart.toISOString(),dateTo:todayEnd.toISOString()},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
 
     const { data: topItemsData, error: topItemsError } = await serviceClient
@@ -101,7 +102,7 @@ export default async function DashboardPage() {
           )
         )
       `)
-      .eq('outlet_id', profile.outlet_id)
+      .eq('outlet_id', effectiveOutletId)
       .eq('status', 'COMPLETED')
       .gte('created_at', todayStart.toISOString())
       .lt('created_at', todayEnd.toISOString())

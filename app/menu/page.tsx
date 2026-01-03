@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { MenuTable } from '@/components/tables/MenuTable';
 
 export default async function MenuPage() {
   await requireAuth();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
 
-  if (!profile?.outlet_id) {
+  if (!effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Menu Management</h1>
@@ -19,7 +20,7 @@ export default async function MenuPage() {
   const { data: items, error } = await supabase
     .from('items')
     .select('*')
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -37,7 +38,7 @@ export default async function MenuPage() {
         <h1 className="text-3xl font-bold text-gray-900">Menu Management</h1>
         <p className="text-gray-600">Manage your restaurant menu items</p>
       </div>
-      <MenuTable items={items || []} outletId={profile.outlet_id} />
+      <MenuTable items={items || []} outletId={effectiveOutletId} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { createOrderSchema, ordersQuerySchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
@@ -33,11 +33,12 @@ export async function GET(request: NextRequest) {
       `)
       .order('created_at', { ascending: false });
 
+    const effectiveOutletId = getEffectiveOutletId(profile);
     if (query.outlet_id) {
       queryBuilder = queryBuilder.eq('outlet_id', query.outlet_id);
-    } else if (profile?.outlet_id) {
-      // Filter by user's outlet if not admin
-      queryBuilder = queryBuilder.eq('outlet_id', profile.outlet_id);
+    } else if (effectiveOutletId) {
+      // Filter by user's effective outlet
+      queryBuilder = queryBuilder.eq('outlet_id', effectiveOutletId);
     }
 
     if (query.status) {

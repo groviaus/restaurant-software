@@ -40,6 +40,7 @@ export function SalesTrendChart() {
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
+    setLoading(true);
     fetch(`/api/analytics/sales-trend?startDate=${startDateStr}&endDate=${endDateStr}&period=week`)
       .then((res) => {
         if (!res.ok) {
@@ -65,7 +66,7 @@ export function SalesTrendChart() {
         console.error('Error fetching sales trend:', error);
         setLoading(false);
       });
-  }, []);
+  }, []); // Empty deps - will refetch on page reload after outlet switch
 
   if (loading) {
     return (

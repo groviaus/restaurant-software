@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { InventoryTable } from '@/components/tables/InventoryTable';
 
 export default async function InventoryPage() {
   await requireAuth();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
 
-  if (!profile?.outlet_id) {
+  if (!effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Inventory</h1>
@@ -23,7 +24,7 @@ export default async function InventoryPage() {
       *,
       item:items(*)
     `)
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .order('created_at', { ascending: false });
 
   // Fetch low stock alerts
@@ -33,7 +34,7 @@ export default async function InventoryPage() {
       *,
       item:items(*)
     `)
-    .eq('outlet_id', profile.outlet_id);
+    .eq('outlet_id', effectiveOutletId);
 
   const lowStockAlerts = (alerts || []).filter(
     (inv: any) => inv.stock <= inv.low_stock_threshold
@@ -46,7 +47,7 @@ export default async function InventoryPage() {
       *,
       item:items(*)
     `)
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -85,7 +86,7 @@ export default async function InventoryPage() {
       <InventoryTable
         inventory={inventory || []}
         logs={logs || []}
-        outletId={profile.outlet_id}
+        outletId={effectiveOutletId}
       />
     </div>
   );

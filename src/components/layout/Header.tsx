@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
+import { OutletSelector } from '@/components/outlets/OutletSelector';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -41,6 +42,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+        {/* Outlet selector for admins */}
+        <OutletSelector />
+        
         {/* Show role badge on mobile if hidden in title area */}
         {profile && (
           <span className="xs:hidden inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { orderIdSchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
@@ -52,7 +52,15 @@ export async function POST(
 
     // Auto stock deduction
     const profile = await getUserProfile();
-    if (profile?.outlet_id && orderData.order_items) {
+    if (!profile) {
+      // Profile check already done by requireAuth, but TypeScript needs this
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    const effectiveOutletId = getEffectiveOutletId(profile);
+    if (effectiveOutletId && orderData.order_items) {
       const serviceClient = createServiceRoleClient();
 
       for (const orderItem of orderData.order_items) {
@@ -60,7 +68,7 @@ export async function POST(
         const { data: inventory } = await serviceClient
           .from('inventory')
           .select('*')
-          .eq('outlet_id', profile.outlet_id)
+          .eq('outlet_id', effectiveOutletId)
           .eq('item_id', orderItem.item_id)
           .single();
 
@@ -78,7 +86,7 @@ export async function POST(
 
           // Log the deduction
           const logData: any = {
-            outlet_id: profile.outlet_id,
+            outlet_id: effectiveOutletId,
             item_id: orderItem.item_id,
             change: -orderItem.quantity,
             reason: `Order ${orderData.id} completed`,

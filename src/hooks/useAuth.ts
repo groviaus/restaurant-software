@@ -56,11 +56,18 @@ export function useAuth() {
     }
   }
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchUserProfile(user.id);
+    }
+  };
+
   return {
     user,
     profile,
     loading,
     signOut: () => supabase.auth.signOut(),
+    refreshProfile,
   };
 }
 

@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { OutletsTable } from '@/components/tables/OutletsTable';
 
 export default async function OutletsPage() {
   await requireAuth();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
 
   if (!profile) {
@@ -44,7 +45,7 @@ export default async function OutletsPage() {
             : 'View your outlet information'}
         </p>
       </div>
-      <OutletsTable outlets={outlets || []} userRole={profile.role} />
+      <OutletsTable outlets={outlets || []} userRole={profile.role} currentOutletId={effectiveOutletId} />
     </div>
   );
 }

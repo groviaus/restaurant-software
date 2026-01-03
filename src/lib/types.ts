@@ -34,6 +34,7 @@ export interface User {
   email: string;
   role: UserRole;
   outlet_id?: string | null;
+  current_outlet_id?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -32,6 +32,7 @@ export function PaymentBreakdownChart() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     fetch('/api/analytics/payment-breakdown?days=30')
       .then((res) => res.json())
       .then((result) => {
@@ -39,7 +40,7 @@ export function PaymentBreakdownChart() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, []); // Empty deps - will refetch on page reload after outlet switch
 
   if (loading) {
     return (

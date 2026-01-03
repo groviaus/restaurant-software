@@ -1,14 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { OrdersTable } from '@/components/tables/OrdersTable';
 import { OrderForm } from '@/components/forms/OrderForm';
 
 export default async function OrdersPage() {
   await requireAuth();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
 
-  if (!profile?.outlet_id) {
+  if (!effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Orders</h1>
@@ -28,14 +29,14 @@ export default async function OrdersPage() {
       tables (*),
       users (*)
     `)
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .order('created_at', { ascending: false })
     .limit(50);
 
   const { data: tables, error: tablesError } = await supabase
     .from('tables')
     .select('*')
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .order('name', { ascending: true });
 
   if (error) {
@@ -55,7 +56,7 @@ export default async function OrdersPage() {
       </div>
       <OrdersTable 
         orders={orders || []} 
-        outletId={profile.outlet_id}
+        outletId={effectiveOutletId}
         tables={tables || []}
       />
     </div>

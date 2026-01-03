@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { BillsTable } from '@/components/tables/BillsTable';
 
 export default async function BillsPage() {
   await requireAuth();
   const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
 
-  if (!profile?.outlet_id) {
+  if (!effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Bills</h1>
@@ -27,7 +28,7 @@ export default async function BillsPage() {
       tables (*),
       users (*)
     `)
-    .eq('outlet_id', profile.outlet_id)
+    .eq('outlet_id', effectiveOutletId)
     .eq('status', 'COMPLETED')
     .order('created_at', { ascending: false })
     .limit(200);
@@ -47,7 +48,7 @@ export default async function BillsPage() {
         <h1 className="text-3xl font-bold text-gray-900">Bills</h1>
         <p className="text-gray-600">View and manage all bills and receipts</p>
       </div>
-      <BillsTable bills={orders || []} outletId={profile.outlet_id} />
+      <BillsTable bills={orders || []} outletId={effectiveOutletId} />
     </div>
   );
 }
