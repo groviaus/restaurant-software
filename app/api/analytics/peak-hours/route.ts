@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     // Group by hour
     const ordersByHour = new Map<number, number>();
-    orders?.forEach((order) => {
+    orders?.forEach((order: any) => {
       const hour = new Date(order.created_at).getHours();
       ordersByHour.set(hour, (ordersByHour.get(hour) || 0) + 1);
     });

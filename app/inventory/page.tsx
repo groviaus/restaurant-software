@@ -36,7 +36,7 @@ export default async function InventoryPage() {
     .eq('outlet_id', profile.outlet_id);
 
   const lowStockAlerts = (alerts || []).filter(
-    (inv) => inv.stock <= inv.low_stock_threshold
+    (inv: any) => inv.stock <= inv.low_stock_threshold
   );
 
   // Fetch inventory logs
@@ -71,7 +71,7 @@ export default async function InventoryPage() {
             Low Stock Alerts ({lowStockAlerts.length})
           </h2>
           <ul className="list-disc list-inside text-sm text-yellow-700">
-            {lowStockAlerts.slice(0, 5).map((alert) => (
+            {lowStockAlerts.slice(0, 5).map((alert: any) => (
               <li key={alert.id}>
                 {alert.item?.name}: {alert.stock} units (threshold: {alert.low_stock_threshold})
               </li>

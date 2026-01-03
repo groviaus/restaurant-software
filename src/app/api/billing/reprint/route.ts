@@ -34,7 +34,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (order.status !== 'COMPLETED') {
+    const orderData = order as any;
+
+    if (orderData.status !== 'COMPLETED') {
       return NextResponse.json(
         { error: 'Order is not completed. Cannot reprint bill.' },
         { status: 400 }
@@ -42,14 +44,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      order_id: order.id,
-      subtotal: Number(order.subtotal),
-      tax: Number(order.tax),
-      total: Number(order.total),
-      payment_method: order.payment_method,
-      items: order.order_items,
-      created_at: order.created_at,
-      order: order,
+      order_id: orderData.id,
+      subtotal: Number(orderData.subtotal),
+      tax: Number(orderData.tax),
+      total: Number(orderData.total),
+      payment_method: orderData.payment_method,
+      items: orderData.order_items,
+      created_at: orderData.created_at,
+      order: orderData,
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {

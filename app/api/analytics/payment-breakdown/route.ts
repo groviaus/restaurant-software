@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       CARD: 0,
     };
 
-    orders?.forEach((order) => {
+    orders?.forEach((order: any) => {
       if (order.payment_method && order.payment_method in breakdown) {
         breakdown[order.payment_method as keyof typeof breakdown] += Number(order.total);
       }

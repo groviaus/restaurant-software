@@ -53,9 +53,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createMenuItemSchema.parse(body);
 
+    const insertData: any = validatedData;
     const { data, error } = await supabase
       .from('items')
-      .insert(validatedData)
+      .insert(insertData)
       .select()
       .single();
 

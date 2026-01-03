@@ -37,15 +37,17 @@ export async function GET(
       );
     }
 
+    const orderData = order as any;
+
     return NextResponse.json({
-      order_id: order.id,
-      subtotal: Number(order.subtotal),
-      tax: Number(order.tax),
-      total: Number(order.total),
-      payment_method: order.payment_method,
-      items: order.order_items,
-      created_at: order.created_at,
-      order: order,
+      order_id: orderData.id,
+      subtotal: Number(orderData.subtotal),
+      tax: Number(orderData.tax),
+      total: Number(orderData.total),
+      payment_method: orderData.payment_method,
+      items: orderData.order_items,
+      created_at: orderData.created_at,
+      order: orderData,
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {

@@ -67,14 +67,17 @@ export async function PATCH(request: NextRequest) {
 
     if (existing) {
       // Update existing
-      const oldStock = existing.stock;
+      const existingData = existing as any;
+      const oldStock = existingData.stock;
+      const updateData: any = {
+        stock: validated.stock,
+        low_stock_threshold: validated.low_stock_threshold ?? existingData.low_stock_threshold,
+      };
       const { data: updated, error } = await supabase
         .from('inventory')
-        .update({
-          stock: validated.stock,
-          low_stock_threshold: validated.low_stock_threshold ?? existing.low_stock_threshold,
-        })
-        .eq('id', existing.id)
+        // @ts-expect-error - Supabase type inference issue
+        .update(updateData)
+        .eq('id', existingData.id)
         .select()
         .single();
 
@@ -83,25 +86,27 @@ export async function PATCH(request: NextRequest) {
       }
 
       // Log the change
-      await supabase.from('inventory_logs').insert({
+      const logData: any = {
         outlet_id: profile.outlet_id,
         item_id: validated.item_id,
         change: validated.stock - oldStock,
         reason: 'Manual adjustment',
         created_by: profile.id,
-      });
+      };
+      await supabase.from('inventory_logs').insert(logData);
 
       return NextResponse.json({ inventory: updated });
     } else {
       // Create new
+      const insertData: any = {
+        outlet_id: profile.outlet_id,
+        item_id: validated.item_id,
+        stock: validated.stock,
+        low_stock_threshold: validated.low_stock_threshold ?? 10,
+      };
       const { data: created, error } = await supabase
         .from('inventory')
-        .insert({
-          outlet_id: profile.outlet_id,
-          item_id: validated.item_id,
-          stock: validated.stock,
-          low_stock_threshold: validated.low_stock_threshold ?? 10,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -110,19 +115,20 @@ export async function PATCH(request: NextRequest) {
       }
 
       // Log the change
-      await supabase.from('inventory_logs').insert({
+      const initialLogData: any = {
         outlet_id: profile.outlet_id,
         item_id: validated.item_id,
         change: validated.stock,
         reason: 'Initial stock',
         created_by: profile.id,
-      });
+      };
+      await supabase.from('inventory_logs').insert(initialLogData);
 
       return NextResponse.json({ inventory: created });
     }
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     return NextResponse.json(
       { error: error.message || 'Failed to update inventory' },

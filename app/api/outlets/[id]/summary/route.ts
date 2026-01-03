@@ -37,7 +37,7 @@ export async function GET(
       return NextResponse.json({ error: ordersError.message }, { status: 500 });
     }
 
-    const totalSales = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
+    const totalSales = orders?.reduce((sum, order: any) => sum + Number(order.total), 0) || 0;
     const totalOrders = orders?.length || 0;
     const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
@@ -48,9 +48,9 @@ export async function GET(
       CARD: 0,
     };
 
-    orders?.forEach((order) => {
+    orders?.forEach((order: any) => {
       if (order.payment_method && order.payment_method in paymentBreakdown) {
-        paymentBreakdown[order.payment_method as keyof typeof paymentBreakdown] += order.total;
+        paymentBreakdown[order.payment_method as keyof typeof paymentBreakdown] += Number(order.total);
       }
     });
 

@@ -14,12 +14,14 @@ export async function POST(
     
     const { id } = orderIdSchema.parse({ id: params.id });
 
+    const updateData: any = {
+      status: OrderStatus.COMPLETED,
+      updated_at: new Date().toISOString()
+    };
     const { data, error } = await supabase
       .from('orders')
-      .update({ 
-        status: OrderStatus.COMPLETED,
-        updated_at: new Date().toISOString() 
-      })
+      // @ts-expect-error - Supabase type inference issue
+      .update(updateData)
       .eq('id', id)
       .select(`
         *,
@@ -34,15 +36,19 @@ export async function POST(
 
     if (error) throw error;
 
+    const orderData = data as any;
+
     // Update table status to EMPTY if dine-in (table is now available for new orders)
-    if (data.table_id && data.order_type === 'DINE_IN') {
+    if (orderData.table_id && orderData.order_type === 'DINE_IN') {
+      const tableUpdateData: any = { status: 'EMPTY' };
       await supabase
         .from('tables')
-        .update({ status: 'EMPTY' })
-        .eq('id', data.table_id);
+        // @ts-expect-error - Supabase type inference issue
+        .update(tableUpdateData)
+        .eq('id', orderData.table_id);
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(orderData);
   } catch (error: any) {
     if (error.name === 'ZodError') {
       return NextResponse.json(

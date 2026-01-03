@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     if (itemsError) throw itemsError;
 
-    const itemPriceMap = new Map(items.map((item) => [item.id, Number(item.price)]));
+    const itemPriceMap = new Map((items || []).map((item: any) => [item.id, Number(item.price)]));
 
     // Calculate totals with quantity type multipliers
     // For quantity types, quantity is always 1, and we multiply price by the type multiplier
@@ -135,40 +135,44 @@ export async function POST(request: NextRequest) {
     const total = subtotal + tax;
 
     // Create order
+    const orderInsertData: any = {
+      outlet_id: validatedData.outlet_id,
+      table_id: validatedData.table_id || null,
+      user_id: session.user.id,
+      status: OrderStatus.NEW,
+      order_type: validatedData.order_type,
+      subtotal: subtotal,
+      tax: tax,
+      total: total,
+    };
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert({
-        outlet_id: validatedData.outlet_id,
-        table_id: validatedData.table_id || null,
-        user_id: session.user.id,
-        status: OrderStatus.NEW,
-        order_type: validatedData.order_type,
-        subtotal: subtotal,
-        tax: tax,
-        total: total,
-      })
+      .insert(orderInsertData)
       .select()
       .single();
 
     if (orderError) throw orderError;
 
     // Create order items
+    const orderData = order as any;
+    const orderItemsInsertData: any[] = orderItems.map((item) => ({
+      ...item,
+      order_id: orderData.id,
+    }));
     const { error: orderItemsError } = await supabase
       .from('order_items')
-      .insert(
-        orderItems.map((item) => ({
-          ...item,
-          order_id: order.id,
-        }))
-      );
+      // @ts-expect-error - Supabase type inference issue
+      .insert(orderItemsInsertData);
 
     if (orderItemsError) throw orderItemsError;
 
     // Update table status if dine-in
     if (validatedData.table_id && validatedData.order_type === 'DINE_IN') {
+      const tableUpdateData: any = { status: 'OCCUPIED' };
       await supabase
         .from('tables')
-        .update({ status: 'OCCUPIED' })
+        // @ts-expect-error - Supabase type inference issue
+        .update(tableUpdateData)
         .eq('id', validatedData.table_id);
     }
 
@@ -184,7 +188,7 @@ export async function POST(request: NextRequest) {
         tables (*),
         users (*)
       `)
-      .eq('id', order.id)
+      .eq('id', orderData.id)
       .single();
 
     if (fetchError) throw fetchError;

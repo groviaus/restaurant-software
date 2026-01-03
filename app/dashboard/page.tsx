@@ -74,12 +74,12 @@ export default async function DashboardPage() {
       fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:56',message:'Calculating totals',data:{ordersCount:todayOrders?.length||0,completedCount:todayOrders?.filter((o:any)=>o.status==='COMPLETED').length||0,allStatuses:todayOrders?.map((o:any)=>o.status)||[]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
       // #endregion
 
-      totalSales = todayOrders?.reduce((sum, order) => {
+      totalSales = todayOrders?.reduce((sum, order: any) => {
         return sum + (order.status === 'COMPLETED' ? Number(order.total) : 0);
       }, 0) || 0;
 
       totalOrders = todayOrders?.length || 0;
-      completedOrders = todayOrders?.filter((o) => o.status === 'COMPLETED').length || 0;
+      completedOrders = todayOrders?.filter((o: any) => o.status === 'COMPLETED').length || 0;
 
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:63',message:'Totals calculated',data:{totalSales,totalOrders,completedOrders},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});

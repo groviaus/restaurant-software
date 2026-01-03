@@ -48,9 +48,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createTableSchema.parse(body);
 
+    const insertData: any = validatedData;
     const { data, error } = await supabase
       .from('tables')
-      .insert(validatedData)
+      .insert(insertData)
       .select()
       .single();
 

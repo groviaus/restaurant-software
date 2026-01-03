@@ -16,12 +16,14 @@ export async function POST(
     const { id: paramsId } = await params;
     const { id } = orderIdSchema.parse({ id: paramsId });
 
+    const updateData: any = {
+      status: OrderStatus.COMPLETED,
+      updated_at: new Date().toISOString()
+    };
     const { data, error } = await supabase
       .from('orders')
-      .update({
-        status: OrderStatus.COMPLETED,
-        updated_at: new Date().toISOString()
-      })
+      // @ts-expect-error - Supabase type inference issue
+      .update(updateData)
       .eq('id', id)
       .select(`
         *,
@@ -36,20 +38,24 @@ export async function POST(
 
     if (error) throw error;
 
+    const orderData = data as any;
+
     // Update table status to EMPTY if dine-in (table is now available for new orders)
-    if (data.table_id && data.order_type === 'DINE_IN') {
+    if (orderData.table_id && orderData.order_type === 'DINE_IN') {
+      const tableUpdateData: any = { status: 'EMPTY' };
       await supabase
         .from('tables')
-        .update({ status: 'EMPTY' })
-        .eq('id', data.table_id);
+        // @ts-expect-error - Supabase type inference issue
+        .update(tableUpdateData)
+        .eq('id', orderData.table_id);
     }
 
     // Auto stock deduction
     const profile = await getUserProfile();
-    if (profile?.outlet_id && data.order_items) {
+    if (profile?.outlet_id && orderData.order_items) {
       const serviceClient = createServiceRoleClient();
 
-      for (const orderItem of data.order_items) {
+      for (const orderItem of orderData.order_items) {
         // Get current inventory
         const { data: inventory } = await serviceClient
           .from('inventory')
@@ -59,24 +65,28 @@ export async function POST(
           .single();
 
         if (inventory) {
-          const newStock = inventory.stock - orderItem.quantity;
+          const inventoryData = inventory as any;
+          const newStock = inventoryData.stock - orderItem.quantity;
 
           // Update stock
+          const stockUpdateData: any = { stock: Math.max(0, newStock) };
           await serviceClient
             .from('inventory')
-            .update({ stock: Math.max(0, newStock) })
-            .eq('id', inventory.id);
+            // @ts-expect-error - Supabase type inference issue
+            .update(stockUpdateData)
+            .eq('id', inventoryData.id);
 
           // Log the deduction
+          const logData: any = {
+            outlet_id: profile.outlet_id,
+            item_id: orderItem.item_id,
+            change: -orderItem.quantity,
+            reason: `Order ${orderData.id} completed`,
+            created_by: profile.id,
+          };
           await serviceClient
             .from('inventory_logs')
-            .insert({
-              outlet_id: profile.outlet_id,
-              item_id: orderItem.item_id,
-              change: -orderItem.quantity,
-              reason: `Order ${data.id} completed`,
-              created_by: profile.id,
-            });
+            .insert(logData);
         }
       }
     }

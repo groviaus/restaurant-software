@@ -62,12 +62,13 @@ export async function POST(request: NextRequest) {
     const validated = createOutletSchema.parse(body);
 
     const supabase = createServiceRoleClient();
+    const insertData: any = {
+      name: validated.name,
+      address: validated.address,
+    };
     const { data: outlet, error } = await supabase
       .from('outlets')
-      .insert({
-        name: validated.name,
-        address: validated.address,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ outlet });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     return NextResponse.json(
       { error: error.message || 'Failed to create outlet' },

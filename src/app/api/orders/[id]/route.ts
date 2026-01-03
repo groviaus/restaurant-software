@@ -15,12 +15,18 @@ export async function PATCH(
     const body = await request.json();
     const validatedData = updateOrderStatusSchema.parse(body);
 
+    const updateData: any = {
+      status: validatedData.status,
+      updated_at: new Date().toISOString()
+    };
+    // Include cancellation_reason if provided
+    if (validatedData.cancellation_reason !== undefined) {
+      updateData.cancellation_reason = validatedData.cancellation_reason;
+    }
     const { data, error } = await supabase
       .from('orders')
-      .update({ 
-        status: validatedData.status,
-        updated_at: new Date().toISOString() 
-      })
+      // @ts-expect-error - Supabase type inference issue
+      .update(updateData)
       .eq('id', id)
       .select(`
         *,
@@ -35,15 +41,19 @@ export async function PATCH(
 
     if (error) throw error;
 
+    const orderData = data as any;
+
     // Update table status if order is completed or cancelled
-    if (data.table_id && (validatedData.status === 'COMPLETED' || validatedData.status === 'CANCELLED')) {
+    if (orderData.table_id && (validatedData.status === 'COMPLETED' || validatedData.status === 'CANCELLED')) {
+      const tableUpdateData: any = { status: 'EMPTY' };
       await supabase
         .from('tables')
-        .update({ status: 'EMPTY' })
-        .eq('id', data.table_id);
+        // @ts-expect-error - Supabase type inference issue
+        .update(tableUpdateData)
+        .eq('id', orderData.table_id);
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(orderData);
   } catch (error: any) {
     if (error.name === 'ZodError') {
       return NextResponse.json(

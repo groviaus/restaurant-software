@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Table, Order, TableStatus, OrderWithItems } from '@/lib/types';
+import { Table, Order, TableStatus, OrderStatus, OrderWithItems } from '@/lib/types';
 
 interface TableOrderStore {
   tables: Table[];
@@ -65,7 +65,7 @@ export const useTableOrderStore = create<TableOrderStore>((set, get) => ({
               ...newTables[tableIndex],
               status: TableStatus.EMPTY,
             };
-          } else if (order.status !== 'COMPLETED' && order.status !== 'CANCELLED') {
+          } else {
             // Order is active, table should be occupied
             newTables[tableIndex] = {
               ...newTables[tableIndex],
@@ -84,7 +84,7 @@ export const useTableOrderStore = create<TableOrderStore>((set, get) => ({
       const order = state.orders.find((o) => o.id === orderId);
       if (!order) return state;
 
-      const updatedOrder = { ...order, status: 'COMPLETED' as const };
+      const updatedOrder = { ...order, status: OrderStatus.COMPLETED };
       const newOrders = state.orders.map((o) =>
         o.id === orderId ? updatedOrder : o
       );

@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
 
     if (orderError) throw orderError;
 
-    if (order.status === OrderStatus.COMPLETED) {
+    const orderData = order as any;
+
+    if (orderData.status === OrderStatus.COMPLETED) {
       return NextResponse.json(
         { error: 'Order is already completed' },
         { status: 400 }
@@ -37,20 +39,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate totals with custom tax rate
-    const subtotal = Number(order.subtotal);
+    const subtotal = Number(orderData.subtotal);
     const tax = subtotal * validatedData.tax_rate;
     const total = subtotal + tax;
 
     // Update order with payment method and totals
+    const updateData: any = {
+      payment_method: validatedData.payment_method,
+      tax: tax,
+      total: total,
+      status: OrderStatus.COMPLETED,
+      updated_at: new Date().toISOString(),
+    };
     const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
-      .update({
-        payment_method: validatedData.payment_method,
-        tax: tax,
-        total: total,
-        status: OrderStatus.COMPLETED,
-        updated_at: new Date().toISOString(),
-      })
+      // @ts-expect-error - Supabase type inference issue
+      .update(updateData)
       .eq('id', validatedData.order_id)
       .select(`
         *,
@@ -65,22 +69,26 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw updateError;
 
+    const updatedOrderData = updatedOrder as any;
+
     // Update table status to EMPTY if dine-in (table is now available for new orders)
-    if (updatedOrder.table_id && updatedOrder.order_type === 'DINE_IN') {
+    if (updatedOrderData.table_id && updatedOrderData.order_type === 'DINE_IN') {
+      const tableUpdateData: any = { status: 'EMPTY' };
       await supabase
         .from('tables')
-        .update({ status: 'EMPTY' })
-        .eq('id', updatedOrder.table_id);
+        // @ts-expect-error - Supabase type inference issue
+        .update(tableUpdateData)
+        .eq('id', updatedOrderData.table_id);
     }
 
     return NextResponse.json({
-      order_id: updatedOrder.id,
+      order_id: updatedOrderData.id,
       subtotal: subtotal,
       tax: tax,
       total: total,
       payment_method: validatedData.payment_method,
-      items: updatedOrder.order_items,
-      created_at: updatedOrder.created_at,
+      items: updatedOrderData.order_items,
+      created_at: updatedOrderData.created_at,
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {

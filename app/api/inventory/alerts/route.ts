@@ -29,12 +29,8 @@ export async function GET() {
 
     // Filter low stock items
     const lowStock = (allInventory || []).filter(
-      (inv) => inv.stock <= inv.low_stock_threshold
+      (inv: any) => inv.stock <= inv.low_stock_threshold
     );
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
 
     return NextResponse.json({ alerts: lowStock || [] });
   } catch (error: any) {

@@ -19,12 +19,12 @@ export default async function DashboardPage() {
     .gte('created_at', today.toISOString())
     .lt('created_at', tomorrow.toISOString());
 
-  const totalSales = todayOrders?.reduce((sum, order) => {
+  const totalSales = todayOrders?.reduce((sum, order: any) => {
     return sum + (order.status === 'COMPLETED' ? Number(order.total) : 0);
   }, 0) || 0;
 
   const totalOrders = todayOrders?.length || 0;
-  const completedOrders = todayOrders?.filter((o) => o.status === 'COMPLETED').length || 0;
+  const completedOrders = todayOrders?.filter((o: any) => o.status === 'COMPLETED').length || 0;
 
   // Get top selling item (placeholder for now)
   const topItem = 'N/A';

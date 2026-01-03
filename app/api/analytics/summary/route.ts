@@ -76,11 +76,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const completedOrders = orders?.filter((o) => o.status === 'COMPLETED') || [];
-    const totalSales = completedOrders.reduce((sum, order) => sum + Number(order.total), 0);
+    const completedOrders = orders?.filter((o: any) => o.status === 'COMPLETED') || [];
+    const totalSales = completedOrders.reduce((sum, order: any) => sum + Number(order.total), 0);
     const totalOrders = orders?.length || 0;
     const averageOrderValue = completedOrders.length > 0 ? totalSales / completedOrders.length : 0;
-    const cancelledOrders = orders?.filter((o) => o.status === 'CANCELLED').length || 0;
+    const cancelledOrders = orders?.filter((o: any) => o.status === 'CANCELLED').length || 0;
     const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
 
     // #region agent log

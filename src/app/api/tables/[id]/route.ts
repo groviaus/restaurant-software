@@ -15,9 +15,11 @@ export async function PATCH(
     const body = await request.json();
     const validatedData = updateTableSchema.parse(body);
 
+    const updateData: any = { ...validatedData, updated_at: new Date().toISOString() };
     const { data, error } = await supabase
       .from('tables')
-      .update({ ...validatedData, updated_at: new Date().toISOString() })
+      // @ts-expect-error - Supabase type inference issue
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const totalSales = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
+    const totalSales = orders?.reduce((sum, order: any) => sum + Number(order.total), 0) || 0;
     const totalOrders = orders?.length || 0;
 
     const report = {

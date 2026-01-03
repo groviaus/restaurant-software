@@ -1,5 +1,5 @@
 import { createClient, createServiceRoleClient } from './supabase/server';
-import { UserRole } from './types';
+import { UserRole, User } from './types';
 import { redirect } from 'next/navigation';
 
 export async function getSession() {
@@ -18,7 +18,7 @@ export async function getUser() {
   return user;
 }
 
-export async function getUserProfile() {
+export async function getUserProfile(): Promise<User | null> {
   const user = await getUser();
 
   if (!user) {
@@ -37,7 +37,7 @@ export async function getUserProfile() {
     return null;
   }
 
-  return profile;
+  return profile as User;
 }
 
 export async function requireAuth() {
@@ -71,6 +71,7 @@ export async function checkRole(userId: string, allowedRoles: UserRole[]): Promi
     return false;
   }
 
-  return allowedRoles.includes(profile.role as UserRole);
+  const profileData = profile as any;
+  return allowedRoles.includes(profileData.role as UserRole);
 }
 

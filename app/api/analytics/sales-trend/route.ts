@@ -13,8 +13,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const outletId = (profile as any).outlet_id;
-    if (!outletId) {
+    if (!profile.outlet_id) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
         { status: 403 }
@@ -45,7 +44,7 @@ export async function GET(request: NextRequest) {
     const { data: orders, error } = await supabase
       .from('orders')
       .select('total, created_at')
-      .eq('outlet_id', outletId)
+      .eq('outlet_id', profile.outlet_id)
       .eq('status', 'COMPLETED')
       .gte('created_at', startDate.toISOString())
       .lte('created_at', endDate.toISOString())
