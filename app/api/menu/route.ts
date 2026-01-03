@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     const supabase = await createClient();
-    
+
     const { searchParams } = new URL(request.url);
-    
+
     // Preprocess query parameters - convert null/empty to undefined for optional fields
     const outletIdParam = searchParams.get('outlet_id');
     const rawQuery = {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       category: searchParams.get('category') || undefined,
       available: searchParams.get('available') || undefined,
     };
-    
+
     let query;
     try {
       query = menuQuerySchema.parse(rawQuery);
@@ -83,9 +83,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     const supabase = await createClient();
-    
+
     const body = await request.json();
     const validatedData = createMenuItemSchema.parse(body);
 

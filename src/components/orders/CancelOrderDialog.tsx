@@ -74,29 +74,29 @@ export function CancelOrderDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Cancel Order</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Please provide a reason for cancelling this order. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="reason">Cancellation Reason *</Label>
+        <div className="space-y-3 sm:space-y-4 py-2 sm:py-4">
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="reason" className="text-xs sm:text-sm">Cancellation Reason *</Label>
             <Textarea
               id="reason"
-              placeholder="Enter the reason for cancellation..."
+              placeholder="e.g. Customer changed mind, incorrect items added"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={4}
-              className="resize-none"
+              className="resize-none text-base sm:text-sm"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
               This reason will be recorded and visible in order history.
             </p>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="pt-2">
           <Button
             type="button"
             variant="outline"
@@ -105,16 +105,18 @@ export function CancelOrderDialog({
               onOpenChange(false);
             }}
             disabled={loading}
+            className="h-11 sm:h-10 mt-2 sm:mt-0"
           >
-            Cancel
+            Go Back
           </Button>
           <Button
             type="button"
             variant="destructive"
             onClick={handleCancel}
             disabled={loading || !reason.trim()}
+            className="h-11 sm:h-10"
           >
-            {loading ? 'Cancelling...' : 'Cancel Order'}
+            {loading ? 'Cancelling...' : 'Confirm Cancellation'}
           </Button>
         </DialogFooter>
       </DialogContent>

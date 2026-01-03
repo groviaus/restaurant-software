@@ -33,12 +33,12 @@ interface OrdersTableProps {
 
 export function OrdersTable({ orders: initialOrders, outletId, tables: initialTables }: OrdersTableProps) {
   const router = useRouter();
-  const { 
-    orders: storeOrders, 
-    tables: storeTables, 
-    setOrders, 
-    setTables, 
-    updateOrder 
+  const {
+    orders: storeOrders,
+    tables: storeTables,
+    setOrders,
+    setTables,
+    updateOrder
   } = useTableOrderStore();
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [billModalOpen, setBillModalOpen] = useState(false);
@@ -172,7 +172,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
       }
 
       const updatedOrder = await response.json();
-      
+
       // Update store with the updated order (this will handle table status changes)
       updateOrder(updatedOrder);
 
@@ -200,15 +200,16 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
 
   return (
     <>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
         <div>
-          <p className="text-sm text-gray-600">
+          <p className="text-xs sm:text-sm text-gray-600">
             Showing {orders.length} of {allOrders.length} orders
           </p>
         </div>
-        <Button onClick={() => setOrderFormOpen(true)}>
+        <Button onClick={() => setOrderFormOpen(true)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
-          Create Order
+          <span className="hidden xs:inline">Create Order</span>
+          <span className="xs:hidden">New Order</span>
         </Button>
       </div>
       <OrdersFilters
@@ -217,122 +218,135 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
         onFiltersChange={setFilters}
       />
       <div className="mt-4" />
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Table</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders.length === 0 ? (
+      <div className="rounded-md border overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500">
-                  No orders found
-                </TableCell>
+                <TableHead className="min-w-[100px]">Order ID</TableHead>
+                <TableHead className="min-w-[80px]">Type</TableHead>
+                <TableHead className="min-w-[80px]">Table</TableHead>
+                <TableHead className="min-w-[90px]">Status</TableHead>
+                <TableHead className="min-w-[80px]">Total</TableHead>
+                <TableHead className="min-w-[140px]">Created</TableHead>
+                <TableHead className="text-right min-w-[200px]">Actions</TableHead>
               </TableRow>
-            ) : (
-              orders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-mono text-sm">{order.id.slice(0, 8)}</TableCell>
-                  <TableCell>{order.order_type}</TableCell>
-                  <TableCell>{order.tables?.name || '-'}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status}
-                    </Badge>
+            </TableHeader>
+            <TableBody>
+              {orders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                    No orders found
                   </TableCell>
-                  <TableCell>₹{Number(order.total).toFixed(2)}</TableCell>
-                  <TableCell>
-                    {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      {/* View Details Button - Always visible */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleViewDetails(order)}
-                        title="View Order Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-
-                      {/* Cancel Button - Only for non-completed/cancelled orders */}
-                      {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
+                </TableRow>
+              ) : (
+                orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-mono text-xs sm:text-sm">{order.id.slice(0, 8)}</TableCell>
+                    <TableCell className="text-xs sm:text-sm">{order.order_type}</TableCell>
+                    <TableCell className="text-xs sm:text-sm">{order.tables?.name || '-'}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(order.status)}>
+                        {order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm">₹{Number(order.total).toFixed(2)}</TableCell>
+                    <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                      {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1 sm:gap-2 flex-wrap">
+                        {/* View Details Button - Always visible */}
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleCancelClick(order.id)}
-                          title="Cancel Order"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleViewDetails(order)}
+                          title="View Order Details"
+                          className="min-h-[36px] min-w-[36px]"
                         >
-                          <X className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
 
-                      {/* Status Update Buttons */}
-                      {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
-                        <>
-                          {order.status === 'NEW' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStatusUpdate(order.id, 'PREPARING')}
-                            >
-                              Start Preparing
-                            </Button>
-                          )}
-                          {order.status === 'PREPARING' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStatusUpdate(order.id, 'READY')}
-                            >
-                              Mark Ready
-                            </Button>
-                          )}
-                          {order.status === 'READY' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStatusUpdate(order.id, 'SERVED')}
-                            >
-                              Mark Served
-                            </Button>
-                          )}
-                          {order.status === 'SERVED' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleBill(order)}
-                            >
-                              Generate Bill
-                            </Button>
-                          )}
-                        </>
-                      )}
-                      {order.status === 'COMPLETED' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleBill(order)}
-                        >
-                          View Bill
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                        {/* Cancel Button - Only for non-completed/cancelled orders */}
+                        {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleCancelClick(order.id)}
+                            title="Cancel Order"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 min-h-[36px] min-w-[36px]"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {/* Status Update Buttons */}
+                        {order.status !== OrderStatus.COMPLETED && order.status !== OrderStatus.CANCELLED && (
+                          <>
+                            {order.status === OrderStatus.NEW && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARING)}
+                                className="text-xs whitespace-nowrap"
+                              >
+                                <span className="hidden sm:inline">Start Preparing</span>
+                                <span className="sm:hidden">Prepare</span>
+                              </Button>
+                            )}
+                            {order.status === OrderStatus.PREPARING && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStatusUpdate(order.id, OrderStatus.READY)}
+                                className="text-xs whitespace-nowrap"
+                              >
+                                <span className="hidden sm:inline">Mark Ready</span>
+                                <span className="sm:hidden">Ready</span>
+                              </Button>
+                            )}
+                            {order.status === OrderStatus.READY && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStatusUpdate(order.id, OrderStatus.SERVED)}
+                                className="text-xs whitespace-nowrap"
+                              >
+                                <span className="hidden sm:inline">Mark Served</span>
+                                <span className="sm:hidden">Served</span>
+                              </Button>
+                            )}
+                            {order.status === OrderStatus.SERVED && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleBill(order)}
+                                className="text-xs whitespace-nowrap"
+                              >
+                                <span className="hidden sm:inline">Generate Bill</span>
+                                <span className="sm:hidden">Bill</span>
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {order.status === 'COMPLETED' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleBill(order)}
+                            className="text-xs whitespace-nowrap"
+                          >
+                            <span className="hidden sm:inline">View Bill</span>
+                            <span className="sm:hidden">Bill</span>
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
       {selectedOrder && (
         <BillModal

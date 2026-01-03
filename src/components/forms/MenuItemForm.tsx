@@ -100,73 +100,88 @@ export function MenuItemForm({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{menuItem ? 'Edit Menu Item' : 'Add Menu Item'}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {menuItem ? 'Update the menu item details' : 'Add a new item to the menu'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Name *</Label>
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 py-2 sm:py-4">
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="name" className="text-xs sm:text-sm">Name *</Label>
             <Input
               id="name"
+              placeholder="e.g. Special Nihari"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="h-11 sm:h-10 text-base sm:text-sm"
               required
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="description" className="text-xs sm:text-sm">Description</Label>
             <Input
               id="description"
+              placeholder="Brief description of the item"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="h-11 sm:h-10 text-base sm:text-sm"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="price">Price *</Label>
-            <Input
-              id="price"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-              required
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid gap-1.5 sm:gap-2">
+              <Label htmlFor="price" className="text-xs sm:text-sm">Price *</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                className="h-11 sm:h-10 text-base sm:text-sm"
+                required
+              />
+            </div>
+            <div className="grid gap-1.5 sm:gap-2">
+              <Label htmlFor="category" className="text-xs sm:text-sm">Category</Label>
+              <Input
+                id="category"
+                placeholder="e.g. Main Course"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="h-11 sm:h-10 text-base sm:text-sm"
+              />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="category">Category</Label>
-            <Input
-              id="category"
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="image_url">Image URL</Label>
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="image_url" className="text-xs sm:text-sm">Image URL</Label>
             <Input
               id="image_url"
               type="url"
+              placeholder="https://example.com/image.jpg"
               value={formData.image_url}
               onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+              className="h-11 sm:h-10 text-base sm:text-sm"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 py-1">
             <Checkbox
               id="available"
               checked={formData.available}
               onCheckedChange={(checked) =>
                 setFormData({ ...formData, available: checked as boolean })
               }
+              className="h-5 w-5"
             />
-            <Label htmlFor="available" className="cursor-pointer">Available</Label>
+            <Label htmlFor="available" className="text-xs sm:text-sm cursor-pointer select-none">
+              Item available for ordering
+            </Label>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="h-11 sm:h-10 mt-2 sm:mt-0">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : menuItem ? 'Update' : 'Create'}
+            <Button type="submit" disabled={loading} className="h-11 sm:h-10">
+              {loading ? 'Saving...' : menuItem ? 'Update Item' : 'Create Item'}
             </Button>
           </DialogFooter>
         </form>

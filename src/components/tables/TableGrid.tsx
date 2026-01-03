@@ -11,6 +11,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTableOrderStore } from '@/store/tableOrderStore';
+import { cn } from '@/lib/utils';
 
 interface TableGridProps {
   tables: Table[];
@@ -111,12 +112,13 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh }: TableG
 
   return (
     <>
-      <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button
             variant={statusFilter === 'ALL' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter('ALL')}
+            className="flex-1 sm:flex-none"
           >
             All ({tables.length})
           </Button>
@@ -124,7 +126,10 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh }: TableG
             variant={statusFilter === TableStatus.EMPTY ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(TableStatus.EMPTY)}
-            className={statusFilter === TableStatus.EMPTY ? '' : 'text-green-700 border-green-300 hover:bg-green-50'}
+            className={cn(
+              'flex-1 sm:flex-none',
+              statusFilter === TableStatus.EMPTY ? '' : 'text-green-700 border-green-300 hover:bg-green-50'
+            )}
           >
             Empty ({emptyCount})
           </Button>
@@ -132,47 +137,53 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh }: TableG
             variant={statusFilter === TableStatus.OCCUPIED ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(TableStatus.OCCUPIED)}
-            className={statusFilter === TableStatus.OCCUPIED ? '' : 'text-yellow-700 border-yellow-300 hover:bg-yellow-50'}
+            className={cn(
+              'flex-1 sm:flex-none',
+              statusFilter === TableStatus.OCCUPIED ? '' : 'text-yellow-700 border-yellow-300 hover:bg-yellow-50'
+            )}
           >
             Occupied ({occupiedCount})
           </Button>
         </div>
-        <Button onClick={handleAdd}>Add Table</Button>
+        <Button onClick={handleAdd} className="w-full sm:w-auto">Add Table</Button>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {filteredAndSortedTables.map((table) => (
-          <Card key={table.id} className="p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="font-semibold">{table.name}</h3>
-                {table.capacity && (
-                  <p className="text-sm text-gray-600">Capacity: {table.capacity}</p>
-                )}
-                <Badge className={`mt-2 ${getStatusColor(table.status)}`}>
-                  {table.status}
-                </Badge>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleEdit(table)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(table.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">{filteredAndSortedTables.map((table) => (
+        <Card key={table.id} className="p-3 sm:p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-base sm:text-lg truncate">{table.name}</h3>
+              {table.capacity && (
+                <p className="text-xs sm:text-sm text-gray-600">Capacity: {table.capacity}</p>
+              )}
+              <Badge className={`mt-2 ${getStatusColor(table.status)}`}>
+                {table.status}
+              </Badge>
             </div>
-          </Card>
-        ))}
+            <div className="flex gap-1 flex-shrink-0 ml-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleEdit(table)}
+                className="h-8 w-8 sm:h-9 sm:w-9"
+                aria-label="Edit table"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDelete(table.id)}
+                className="h-8 w-8 sm:h-9 sm:w-9"
+                aria-label="Delete table"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ))}
         {filteredAndSortedTables.length === 0 && (
-          <div className="col-span-full text-center text-gray-500 py-8">
+          <div className="col-span-full text-center text-gray-500 py-8 text-sm sm:text-base">
             {tables.length === 0
               ? 'No tables found. Add your first table to get started.'
               : `No ${statusFilter === 'ALL' ? '' : statusFilter.toLowerCase()} tables found.`

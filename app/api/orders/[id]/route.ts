@@ -11,7 +11,7 @@ export async function PATCH(
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     // Await params in Next.js 15+
     const { id: paramsId } = await params;
     const { id } = orderIdSchema.parse({ id: paramsId });

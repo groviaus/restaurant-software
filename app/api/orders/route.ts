@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     await requireAuth();
     const supabase = await createClient();
     const profile = await getUserProfile();
-    
+
     const { searchParams } = new URL(request.url);
     const query = ordersQuerySchema.parse({
       outlet_id: searchParams.get('outlet_id'),
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     const session = await requireAuth();
     const supabase = await createClient();
     const profile = await getUserProfile();
-    
+
     if (!profile) {
       return NextResponse.json(
         { error: 'User profile not found' },

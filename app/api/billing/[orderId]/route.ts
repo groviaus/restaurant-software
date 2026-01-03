@@ -10,7 +10,7 @@ export async function GET(
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const { orderId: paramsOrderId } = await params;
     const { orderId } = billOrderIdSchema.parse({ orderId: paramsOrderId });
 

@@ -30,52 +30,52 @@ export default async function DashboardPage() {
   const topItem = 'N/A';
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Overview of your restaurant operations</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-1 sm:space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-sm sm:text-base text-gray-600">Overview of your restaurant operations</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>Today&apos;s Sales</CardTitle>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-base sm:text-lg">Today&apos;s Sales</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">₹{totalSales.toFixed(2)}</div>
-            <p className="text-sm text-gray-600 mt-1">
+            <div className="text-2xl sm:text-3xl font-bold">₹{totalSales.toFixed(2)}</div>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">
               {completedOrders} completed orders
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Today&apos;s Orders</CardTitle>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-base sm:text-lg">Today&apos;s Orders</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalOrders}</div>
-            <p className="text-sm text-gray-600 mt-1">Total orders today</p>
+            <div className="text-2xl sm:text-3xl font-bold">{totalOrders}</div>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Total orders today</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Item</CardTitle>
+        <Card className="sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-base sm:text-lg">Top Item</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{topItem}</div>
-            <p className="text-sm text-gray-600 mt-1">Best selling item</p>
+            <div className="text-2xl sm:text-3xl font-bold">{topItem}</div>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Best selling item</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Sales Trend</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Sales Trend</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-600">Chart placeholder - to be implemented in Phase 3</p>
+          <p className="text-sm sm:text-base text-gray-600">Chart placeholder - to be implemented in Phase 3</p>
         </CardContent>
       </Card>
     </div>

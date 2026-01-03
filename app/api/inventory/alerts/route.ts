@@ -13,7 +13,7 @@ export async function GET() {
     }
 
     const supabase = createServiceRoleClient();
-    
+
     // Get items with low stock
     const { data: allInventory, error: fetchError } = await supabase
       .from('inventory')

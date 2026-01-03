@@ -56,83 +56,87 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
 
   return (
     <>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Table</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders.length === 0 ? (
+      <div className="rounded-md border overflow-hidden">
+        <div className="overflow-x-auto text-responsive-sm">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground">No order history found</p>
-                    <p className="text-sm text-muted-foreground">
-                      Completed and cancelled orders will appear here. To complete an order, go to Orders page and generate a bill for a served order.
-                    </p>
-                  </div>
-                </TableCell>
+                <TableHead className="min-w-[100px]">Order ID</TableHead>
+                <TableHead className="min-w-[90px]">Type</TableHead>
+                <TableHead className="min-w-[100px]">Table</TableHead>
+                <TableHead className="min-w-[110px]">Status</TableHead>
+                <TableHead className="min-w-[100px]">Total</TableHead>
+                <TableHead className="min-w-[140px]">Created</TableHead>
+                <TableHead className="text-right min-w-[100px]">Actions</TableHead>
               </TableRow>
-            ) : (
-              orders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-mono text-sm">
-                    {order.id.slice(0, 8)}...
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {order.order_type === 'DINE_IN' ? 'Dine In' : 'Takeaway'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {order.tables?.name || order.table?.name || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusColor(order.status)}>
-                      {order.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    ₹{order.total.toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewDetails(order)}
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {order.status === OrderStatus.COMPLETED && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleReprint(order)}
-                          title="Reprint Receipt"
-                        >
-                          <Receipt className="h-4 w-4" />
-                        </Button>
-                      )}
+            </TableHeader>
+            <TableBody>
+              {orders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12">
+                    <div className="space-y-3 max-w-sm mx-auto">
+                      <p className="text-muted-foreground font-medium">No order history found</p>
+                      <p className="text-xs text-muted-foreground">
+                        Completed and cancelled orders will appear here. To complete an order, go to Orders page and generate a bill for a served order.
+                      </p>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-mono text-[10px] sm:text-xs">
+                      {order.id.slice(0, 8)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] sm:text-xs whitespace-nowrap">
+                        {order.order_type === 'DINE_IN' ? 'Dine In' : 'Takeaway'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm">
+                      {order.table?.name || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusColor(order.status)} className="text-[10px] sm:text-xs">
+                        {order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold text-xs sm:text-sm text-gray-900">
+                      ₹{order.total.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-[10px] sm:text-xs whitespace-nowrap">
+                      {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewDetails(order)}
+                          className="h-8 w-8 sm:h-9 sm:w-9"
+                          aria-label="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {order.status === OrderStatus.COMPLETED && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleReprint(order)}
+                            className="h-8 w-8 sm:h-9 sm:w-9"
+                            aria-label="Reprint Receipt"
+                          >
+                            <Receipt className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
       {selectedOrder && (
         <BillModal

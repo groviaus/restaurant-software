@@ -107,22 +107,22 @@ export function InventoryForm({
           <DialogTitle>
             {inventory ? 'Update Inventory' : 'Add Stock'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {inventory
               ? 'Update stock levels for this item'
               : 'Add stock tracking for a menu item'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="item">Menu Item</Label>
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 py-2 sm:py-4">
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="item" className="text-xs sm:text-sm">Menu Item</Label>
             <Select
               value={itemId}
               onValueChange={setItemId}
               disabled={!!inventory}
               required
             >
-              <SelectTrigger id="item">
+              <SelectTrigger id="item" className="h-11 sm:h-10 text-base sm:text-sm">
                 <SelectValue placeholder="Select an item" />
               </SelectTrigger>
               <SelectContent>
@@ -134,41 +134,46 @@ export function InventoryForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="stock">Current Stock</Label>
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="stock" className="text-xs sm:text-sm">Current Stock</Label>
             <Input
               id="stock"
               type="number"
               step="0.01"
               min="0"
+              placeholder="0.00"
               value={stock}
               onChange={(e) => setStock(e.target.value)}
+              className="h-11 sm:h-10 text-base sm:text-sm"
               required
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="threshold">Low Stock Threshold</Label>
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="threshold" className="text-xs sm:text-sm">Low Stock Threshold</Label>
             <Input
               id="threshold"
               type="number"
               step="0.01"
               min="0"
+              placeholder="e.g. 10"
               value={threshold}
               onChange={(e) => setThreshold(e.target.value)}
+              className="h-11 sm:h-10 text-base sm:text-sm"
               required
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="h-11 sm:h-10 mt-2 sm:mt-0"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
+            <Button type="submit" disabled={loading} className="h-11 sm:h-10">
+              {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>

@@ -62,40 +62,43 @@ export function OutletForm({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add New Outlet</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Create a new restaurant outlet location
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Outlet Name</Label>
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 py-2 sm:py-4">
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="name" className="text-xs sm:text-sm">Outlet Name *</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className="h-11 sm:h-10 text-base sm:text-sm"
               required
-              placeholder="e.g., Main Branch"
+              placeholder="e.g. Main Branch, Delhi"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="address">Address (Optional)</Label>
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="address" className="text-xs sm:text-sm">Address (Optional)</Label>
             <Input
               id="address"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="e.g., 123 Main Street"
+              className="h-11 sm:h-10 text-base sm:text-sm"
+              placeholder="e.g. 123 Main Street, Sector 1"
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="h-11 sm:h-10 mt-2 sm:mt-0"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="h-11 sm:h-10">
               {loading ? 'Creating...' : 'Create Outlet'}
             </Button>
           </DialogFooter>

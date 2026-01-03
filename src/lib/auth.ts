@@ -20,7 +20,7 @@ export async function getUser() {
 
 export async function getUserProfile() {
   const user = await getUser();
-  
+
   if (!user) {
     return null;
   }
@@ -51,11 +51,11 @@ export async function requireAuth() {
 export async function requireRole(allowedRoles: UserRole[]) {
   const session = await requireAuth();
   const profile = await getUserProfile();
-  
+
   if (!profile || !allowedRoles.includes(profile.role as UserRole)) {
     redirect('/dashboard');
   }
-  
+
   return { session, profile };
 }
 

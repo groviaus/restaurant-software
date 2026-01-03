@@ -46,113 +46,118 @@ export function InventoryTable({ inventory, logs, outletId }: InventoryTableProp
   return (
     <>
       <Tabs defaultValue="inventory" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="inventory">Current Stock</TabsTrigger>
-          <TabsTrigger value="logs">Inventory Logs</TabsTrigger>
+        <TabsList className="w-full sm:w-auto flex overflow-x-auto h-auto p-1 bg-muted rounded-lg">
+          <TabsTrigger value="inventory" className="flex-1 sm:flex-none py-2 text-xs sm:text-sm">Current Stock</TabsTrigger>
+          <TabsTrigger value="logs" className="flex-1 sm:flex-none py-2 text-xs sm:text-sm">Inventory Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={handleAdd}>
+            <Button onClick={handleAdd} className="w-full sm:w-auto h-11 sm:h-9">
               <Package className="h-4 w-4 mr-2" />
-              Add/Update Stock
+              <span>Add/Update Stock</span>
             </Button>
           </div>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Current Stock</TableHead>
-                  <TableHead>Low Stock Threshold</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {inventory.length === 0 ? (
+          <div className="rounded-md border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-gray-500">
-                      No inventory items found. Add stock for menu items.
-                    </TableCell>
+                    <TableHead className="min-w-[150px]">Item</TableHead>
+                    <TableHead className="min-w-[120px]">Category</TableHead>
+                    <TableHead className="min-w-[100px]">Current Stock</TableHead>
+                    <TableHead className="min-w-[120px]">Threshold</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  inventory.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.item?.name || 'Unknown Item'}
-                      </TableCell>
-                      <TableCell>{item.item?.category || '-'}</TableCell>
-                      <TableCell className="font-medium">
-                        {item.stock}
-                      </TableCell>
-                      <TableCell>{item.low_stock_threshold}</TableCell>
-                      <TableCell>
-                        {isLowStock(item) ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Low Stock
-                          </Badge>
-                        ) : (
-                          <Badge variant="default">In Stock</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(item)}
-                        >
-                          Update
-                        </Button>
+                </TableHeader>
+                <TableBody>
+                  {inventory.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                        No inventory items found. Add stock for menu items.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    inventory.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium text-xs sm:text-sm">
+                          {item.item?.name || 'Unknown Item'}
+                        </TableCell>
+                        <TableCell className="text-xs sm:text-sm">{item.item?.category || '-'}</TableCell>
+                        <TableCell className="font-medium text-xs sm:text-sm">
+                          {item.stock}
+                        </TableCell>
+                        <TableCell className="text-xs sm:text-sm">{item.low_stock_threshold}</TableCell>
+                        <TableCell>
+                          {isLowStock(item) ? (
+                            <Badge variant="destructive" className="gap-1 text-[10px] sm:text-xs">
+                              <AlertTriangle className="h-3 w-3" />
+                              Low Stock
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="text-[10px] sm:text-xs">In Stock</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(item)}
+                            className="h-8 sm:h-9"
+                          >
+                            Update
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="logs" className="space-y-4">
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Change</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs.length === 0 ? (
+          <div className="rounded-md border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-gray-500">
-                      No inventory logs found
-                    </TableCell>
+                    <TableHead className="min-w-[150px]">Item</TableHead>
+                    <TableHead className="min-w-[80px]">Change</TableHead>
+                    <TableHead className="min-w-[150px]">Reason</TableHead>
+                    <TableHead className="min-w-[140px]">Date</TableHead>
                   </TableRow>
-                ) : (
-                  logs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-medium">
-                        {log.item?.name || 'Unknown Item'}
-                      </TableCell>
-                      <TableCell>
-                        <span className={log.change >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          {log.change >= 0 ? '+' : ''}{log.change}
-                        </span>
-                      </TableCell>
-                      <TableCell>{log.reason}</TableCell>
-                      <TableCell>
-                        {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm')}
+                </TableHeader>
+                <TableBody>
+                  {logs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                        No inventory logs found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-medium text-xs sm:text-sm">
+                          {log.item?.name || 'Unknown Item'}
+                        </TableCell>
+                        <TableCell className="text-xs sm:text-sm">
+                          <span className={log.change >= 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                            {log.change >= 0 ? '+' : ''}{log.change}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs sm:text-sm">{log.reason}</TableCell>
+                        <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                          {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm')}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

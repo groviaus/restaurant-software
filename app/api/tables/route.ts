@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const { searchParams } = new URL(request.url);
     const query = tablesQuerySchema.parse({
       outlet_id: searchParams.get('outlet_id'),
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const body = await request.json();
     const validatedData = createTableSchema.parse(body);
 

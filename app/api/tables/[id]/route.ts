@@ -10,7 +10,7 @@ export async function PATCH(
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const { id: paramsId } = await params;
     const { id } = tableIdSchema.parse({ id: paramsId });
     const body = await request.json();
@@ -47,7 +47,7 @@ export async function DELETE(
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const { id: paramsId } = await params;
     const { id } = tableIdSchema.parse({ id: paramsId });
 

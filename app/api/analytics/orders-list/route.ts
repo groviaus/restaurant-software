@@ -25,11 +25,11 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createServiceRoleClient();
-    
+
     // Parse date strings
     const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
     const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
-    
+
     const start = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
     const end = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
 
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     // Group by date if requested
     if (groupBy === 'date' || groupBy === 'day') {
       const grouped: Record<string, any[]> = {};
-      
+
       formattedOrders.forEach((order) => {
         const date = new Date(order.createdAt);
         const dateKey = date.toLocaleDateString('en-US', {
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
           month: 'long',
           day: 'numeric',
         });
-        
+
         if (!grouped[dateKey]) {
           grouped[dateKey] = [];
         }

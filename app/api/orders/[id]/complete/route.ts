@@ -11,16 +11,16 @@ export async function POST(
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     // Await params in Next.js 15+
     const { id: paramsId } = await params;
     const { id } = orderIdSchema.parse({ id: paramsId });
 
     const { data, error } = await supabase
       .from('orders')
-      .update({ 
+      .update({
         status: OrderStatus.COMPLETED,
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select(`
@@ -48,7 +48,7 @@ export async function POST(
     const profile = await getUserProfile();
     if (profile?.outlet_id && data.order_items) {
       const serviceClient = createServiceRoleClient();
-      
+
       for (const orderItem of data.order_items) {
         // Get current inventory
         const { data: inventory } = await serviceClient
@@ -60,7 +60,7 @@ export async function POST(
 
         if (inventory) {
           const newStock = inventory.stock - orderItem.quantity;
-          
+
           // Update stock
           await serviceClient
             .from('inventory')

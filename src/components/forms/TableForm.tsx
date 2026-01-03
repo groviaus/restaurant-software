@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, CreateTableRequest } from '@/lib/types';
+import { Table, CreateTableRequest, TableStatus } from '@/lib/types';
 import { toast } from 'sonner';
 
 interface TableFormProps {
@@ -35,7 +35,7 @@ export function TableForm({
     outlet_id: outletId,
     name: '',
     capacity: undefined,
-    status: 'EMPTY',
+    status: TableStatus.EMPTY,
   });
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function TableForm({
         outlet_id: outletId,
         name: '',
         capacity: undefined,
-        status: 'EMPTY',
+        status: TableStatus.EMPTY,
       });
     }
   }, [table, outletId, open]);
@@ -90,36 +90,40 @@ export function TableForm({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{table ? 'Edit Table' : 'Add Table'}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {table ? 'Update the table details' : 'Add a new table'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Table Name *</Label>
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 py-2 sm:py-4">
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="name" className="text-xs sm:text-sm">Table Name *</Label>
             <Input
               id="name"
+              placeholder="e.g. Table 1, Window Side"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="h-11 sm:h-10 text-base sm:text-sm"
               required
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="capacity">Capacity</Label>
+          <div className="grid gap-1.5 sm:gap-2">
+            <Label htmlFor="capacity" className="text-xs sm:text-sm">Capacity</Label>
             <Input
               id="capacity"
               type="number"
               min="1"
+              placeholder="Number of seats"
               value={formData.capacity || ''}
               onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || undefined })}
+              className="h-11 sm:h-10 text-base sm:text-sm"
             />
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="h-11 sm:h-10 mt-2 sm:mt-0">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : table ? 'Update' : 'Create'}
+            <Button type="submit" disabled={loading} className="h-11 sm:h-10">
+              {loading ? 'Saving...' : table ? 'Update Table' : 'Create Table'}
             </Button>
           </DialogFooter>
         </form>

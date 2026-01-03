@@ -171,7 +171,7 @@ export function OrderForm({
       }
 
       const orderData = await response.json();
-      
+
       // Update store with new order (this will also update table status to OCCUPIED if DINE_IN)
       addOrder(orderData);
 
@@ -187,81 +187,93 @@ export function OrderForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[95vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b">
           <DialogTitle>Create New Order</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Add items to create a new order
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="order_type">Order Type</Label>
-            <Select
-              value={orderType}
-              onValueChange={(value) => {
-                setOrderType(value as 'DINE_IN' | 'TAKEAWAY');
-                if (value === 'TAKEAWAY') {
-                  setTableId('');
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DINE_IN">Dine In</SelectItem>
-                <SelectItem value="TAKEAWAY">Takeaway</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
-          {orderType === 'DINE_IN' && (
-            <div>
-              <Label htmlFor="table">Table</Label>
-              <Select value={tableId} onValueChange={setTableId} required={orderType === 'DINE_IN'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a table" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTables
-                    .filter((table) => table.status === 'EMPTY' || table.status === 'BILLED')
-                    .sort((a, b) => {
-                      // Natural sort for table names (e.g., Table 2 before Table 10)
-                      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-                    })
-                    .map((table) => (
-                      <SelectItem key={table.id} value={table.id}>
-                        {table.name} (Capacity: {table.capacity || 'N/A'})
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="order_type" className="text-xs sm:text-sm">Order Type</Label>
+                <Select
+                  value={orderType}
+                  onValueChange={(value) => {
+                    setOrderType(value as 'DINE_IN' | 'TAKEAWAY');
+                    if (value === 'TAKEAWAY') {
+                      setTableId('');
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DINE_IN">Dine In</SelectItem>
+                    <SelectItem value="TAKEAWAY">Takeaway</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <Label>Items</Label>
-              <Button type="button" size="sm" variant="outline" onClick={addItem}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Item
-              </Button>
+              {orderType === 'DINE_IN' && (
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="table" className="text-xs sm:text-sm">Table</Label>
+                  <Select value={tableId} onValueChange={setTableId} required={orderType === 'DINE_IN'}>
+                    <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
+                      <SelectValue placeholder="Select table" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTables
+                        .filter((table) => table.status === 'EMPTY' || table.status === 'BILLED')
+                        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+                        .map((table) => (
+                          <SelectItem key={table.id} value={table.id}>
+                            {table.name} ({table.capacity || 'N/A'})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-            <div className="space-y-3">
-              {items.map((item, index) => (
-                <div key={index} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 space-y-2">
-                      <div>
-                        <Label>Item</Label>
+
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex justify-between items-center sticky top-0 bg-white py-1 z-10 border-b border-dashed">
+                <Label className="text-sm sm:text-base font-semibold">Order Items</Label>
+                <Button type="button" size="sm" variant="outline" onClick={addItem} className="h-9 sm:h-8 px-3">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Item
+                </Button>
+              </div>
+
+              <div className="space-y-3 sm:space-y-4">
+                {items.map((item, index) => (
+                  <div key={index} className="border rounded-xl p-3 sm:p-4 space-y-3 bg-white shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeItem(index)}
+                        className="h-8 w-8 text-gray-400 hover:text-red-500 rounded-full"
+                        aria-label="Remove item"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-3 pr-6">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs sm:text-sm">Item</Label>
                         <Select
                           value={item.item_id}
                           onValueChange={(value) => {
                             const selectedMenuItem = menuItems.find(m => m.id === value);
                             const isRoti = selectedMenuItem?.category?.toLowerCase() === 'roti';
-                            
-                            // Update item with appropriate quantity_type
                             const updated = [...items];
                             updated[index] = {
                               ...updated[index],
@@ -271,70 +283,54 @@ export function OrderForm({
                             setItems(updated);
                           }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
                             <SelectValue placeholder="Select item" />
                           </SelectTrigger>
                           <SelectContent>
                             {menuItems.map((menuItem) => (
                               <SelectItem key={menuItem.id} value={menuItem.id}>
-                                {menuItem.name} - ₹{menuItem.price}{menuItem.category?.toLowerCase() === 'roti' ? '/piece' : '/kg'}
+                                {menuItem.name} (₹{menuItem.price})
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className={isRotiCategory(item.item_id) ? '' : 'grid grid-cols-2 gap-2'}>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {!isRotiCategory(item.item_id) && (
-                        <div>
-                          <Label>Quantity Type</Label>
-                          <div className="grid grid-cols-2 gap-1 mt-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={item.quantity_type === QuantityType.QUARTER ? 'default' : 'outline'}
-                              onClick={() => updateItem(index, 'quantity_type', QuantityType.QUARTER)}
-                              className="text-xs"
-                            >
-                              250gm
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={item.quantity_type === QuantityType.HALF ? 'default' : 'outline'}
-                              onClick={() => updateItem(index, 'quantity_type', QuantityType.HALF)}
-                              className="text-xs"
-                            >
-                              500gm
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={item.quantity_type === QuantityType.THREE_QUARTER ? 'default' : 'outline'}
-                              onClick={() => updateItem(index, 'quantity_type', QuantityType.THREE_QUARTER)}
-                              className="text-xs"
-                            >
-                              750gm
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={item.quantity_type === QuantityType.FULL ? 'default' : 'outline'}
-                              onClick={() => updateItem(index, 'quantity_type', QuantityType.FULL)}
-                              className="text-xs"
-                            >
-                              1kg
-                            </Button>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs sm:text-sm">Size</Label>
+                            <div className="grid grid-cols-4 gap-1">
+                              {[
+                                { label: '¼kg', val: QuantityType.QUARTER },
+                                { label: '½kg', val: QuantityType.HALF },
+                                { label: '¾kg', val: QuantityType.THREE_QUARTER },
+                                { label: '1kg', val: QuantityType.FULL }
+                              ].map((opt) => (
+                                <Button
+                                  key={opt.val}
+                                  type="button"
+                                  size="sm"
+                                  variant={item.quantity_type === opt.val ? 'default' : 'outline'}
+                                  onClick={() => updateItem(index, 'quantity_type', opt.val)}
+                                  className="text-[10px] sm:text-xs h-9 sm:h-8 px-1"
+                                >
+                                  {opt.label}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
                         )}
-                        <div>
-                          <Label>Quantity</Label>
-                          <div className="flex gap-2">
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs sm:text-sm">{isRotiCategory(item.item_id) ? 'Pieces' : 'Quantity'}</Label>
+                          <div className="flex items-center gap-2">
                             <Button
                               type="button"
                               size="icon"
                               variant="outline"
                               onClick={() => updateItem(index, 'quantity', Math.max(1, item.quantity - 1))}
+                              className="h-11 w-11 sm:h-10 sm:w-10 rounded-lg"
                             >
                               <Minus className="h-4 w-4" />
                             </Button>
@@ -343,101 +339,101 @@ export function OrderForm({
                               min="1"
                               value={item.quantity}
                               onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                              className="w-20"
+                              className="h-11 sm:h-10 text-center text-base sm:text-sm font-semibold w-16"
                             />
                             <Button
                               type="button"
                               size="icon"
                               variant="outline"
                               onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
+                              className="h-11 w-11 sm:h-10 sm:w-10 rounded-lg"
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => removeItem(index)}
-                      className="ml-2"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {item.item_id && (
-                    <div className="bg-gray-50 rounded p-2 text-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">
-                          {isRotiCategory(item.item_id) ? (
-                            <>Base Price (per piece): ₹{menuItems.find(m => m.id === item.item_id)?.price.toFixed(2)}</>
-                          ) : (
-                            <>Base Price (per kg): ₹{menuItems.find(m => m.id === item.item_id)?.price.toFixed(2)}</>
-                          )}
-                        </span>
-                        <span className="font-semibold text-primary">
-                          Item Total: ₹{calculateItemPrice(item).toFixed(2)}
-                        </span>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs sm:text-sm">Special Instructions (Optional)</Label>
+                        <Input
+                          value={item.notes || ''}
+                          onChange={(e) => updateItem(index, 'notes', e.target.value)}
+                          placeholder="e.g. Extra spicy, less oil"
+                          className="h-11 sm:h-10 text-base sm:text-sm"
+                        />
                       </div>
-                      {!isRotiCategory(item.item_id) && item.quantity_type && item.quantity_type !== QuantityType.FULL && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Price for selected quantity: ₹{(menuItems.find(m => m.id === item.item_id)?.price || 0) * getQuantityTypeMultiplier(item.quantity_type)} × {item.quantity} = ₹{calculateItemPrice(item).toFixed(2)}
-                        </div>
-                      )}
                     </div>
-                  )}
-                  <div>
-                    <Label>Notes (Optional)</Label>
-                    <Input
-                      value={item.notes || ''}
-                      onChange={(e) => updateItem(index, 'notes', e.target.value)}
-                      placeholder="Special instructions..."
-                    />
+
+                    {item.item_id && (
+                      <div className="bg-muted/50 rounded-lg p-3 text-xs sm:text-sm flex justify-between items-center mt-2 border border-dashed border-gray-200">
+                        <div className="text-gray-600 flex flex-col">
+                          <span className="font-medium">
+                            {isRotiCategory(item.item_id) ? '₹' + menuItems.find(m => m.id === item.item_id)?.price.toFixed(2) + ' per piece' : '₹' + menuItems.find(m => m.id === item.item_id)?.price.toFixed(2) + ' per kg'}
+                          </span>
+                          {!isRotiCategory(item.item_id) && item.quantity_type && item.quantity_type !== QuantityType.FULL && (
+                            <span className="text-[10px] text-gray-400">
+                              Base: ₹{((menuItems.find(m => m.id === item.item_id)?.price || 0) * getQuantityTypeMultiplier(item.quantity_type)).toFixed(2)} for {item.quantity_type.toLowerCase().replace('_', ' ')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-gray-400 block text-[10px] uppercase tracking-wider">Line Total</span>
+                          <span className="font-bold text-primary text-base">₹{calculateItemPrice(item).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
-              {items.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  Click "Add Item" to start adding items to the order
-                </p>
-              )}
+                ))}
+
+                {items.length === 0 && (
+                  <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50">
+                    <p className="text-sm text-gray-500 mx-auto max-w-[200px]">
+                      No items added yet. Click "Add Item" to start your order.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {items.length > 0 && (
-            <div className="border-t pt-4">
+          <div className="p-4 sm:p-6 bg-gray-50 border-t space-y-4">
+            {items.length > 0 && (
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal:</span>
+                <div className="flex justify-between items-center text-gray-600">
+                  <span>Subtotal</span>
                   <span className="font-medium">₹{calculateOrderTotal().toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tax (18% GST):</span>
+                <div className="flex justify-between items-center text-gray-600">
+                  <span>Tax (18% GST)</span>
                   <span className="font-medium">₹{(calculateOrderTotal() * 0.18).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-lg font-bold border-t pt-2">
-                  <span>Total:</span>
+                <div className="flex justify-between items-center text-xl font-bold pt-2 border-t">
+                  <span>Ground Total</span>
                   <span className="text-primary">₹{(calculateOrderTotal() * 1.18).toFixed(2)}</span>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading || items.length === 0}>
-              {loading ? 'Creating...' : 'Create Order'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+                className="h-12 sm:h-11 flex-1 sm:flex-none order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || items.length === 0}
+                className="h-12 sm:h-11 flex-1 sm:flex-none order-1 sm:order-2"
+              >
+                {loading ? 'Processing...' : 'Place Order'}
+              </Button>
+            </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

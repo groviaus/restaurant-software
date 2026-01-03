@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const body = await request.json();
     const { orderId } = billOrderIdSchema.parse({ orderId: body.order_id });
 

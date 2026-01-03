@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceRoleClient();
     let startDate: Date;
     let endDate: Date | null = null;
-    
+
     if (startDateParam && endDateParam) {
       const [startYear, startMonth, startDay] = startDateParam.split('-').map(Number);
       const [endYear, endMonth, endDay] = endDateParam.split('-').map(Number);
