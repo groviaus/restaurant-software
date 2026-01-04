@@ -74,10 +74,16 @@ export function MenuItemForm({
       const url = menuItem ? `/api/menu/${menuItem.id}` : '/api/menu';
       const method = menuItem ? 'PATCH' : 'POST';
 
+      // Convert empty image_url to null
+      const submitData = {
+        ...formData,
+        image_url: formData.image_url?.trim() || null,
+      };
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       if (!response.ok) {
@@ -153,7 +159,7 @@ export function MenuItemForm({
             </div>
           </div>
           <div className="grid gap-1.5 sm:gap-2">
-            <Label htmlFor="image_url" className="text-xs sm:text-sm">Image URL</Label>
+            <Label htmlFor="image_url" className="text-xs sm:text-sm">Image URL (Optional)</Label>
             <Input
               id="image_url"
               type="url"

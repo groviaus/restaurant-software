@@ -16,7 +16,12 @@ export async function PATCH(
     const body = await request.json();
     const validatedData = updateMenuItemSchema.parse(body);
 
-    const updateData: any = { ...validatedData, updated_at: new Date().toISOString() };
+    // Ensure image_url is null if empty
+    const updateData: any = {
+      ...validatedData,
+      image_url: validatedData.image_url || null,
+      updated_at: new Date().toISOString(),
+    };
     const { data, error } = await supabase
       .from('items')
       // @ts-expect-error - Supabase type inference issue

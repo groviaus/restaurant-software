@@ -89,7 +89,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createMenuItemSchema.parse(body);
 
-    const insertData: any = validatedData;
+    // Ensure image_url is null if empty
+    const insertData: any = {
+      ...validatedData,
+      image_url: validatedData.image_url || null,
+    };
     const { data, error } = await supabase
       .from('items')
       .insert(insertData)

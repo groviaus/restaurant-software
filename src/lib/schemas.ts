@@ -9,7 +9,10 @@ export const createMenuItemSchema = z.object({
   price: z.number().positive('Price must be positive'),
   category: z.string().optional(),
   available: z.boolean().default(true),
-  image_url: z.string().url().optional().nullable(),
+  image_url: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? null : val),
+    z.union([z.string().url('Image URL must be a valid URL'), z.null()]).optional()
+  ),
 });
 
 export const updateMenuItemSchema = z.object({
@@ -18,7 +21,10 @@ export const updateMenuItemSchema = z.object({
   price: z.number().positive().optional(),
   category: z.string().optional(),
   available: z.boolean().optional(),
-  image_url: z.string().url().optional().nullable(),
+  image_url: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? null : val),
+    z.union([z.string().url('Image URL must be a valid URL'), z.null()]).optional()
+  ),
 });
 
 export const menuItemIdSchema = z.object({
