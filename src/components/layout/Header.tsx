@@ -14,7 +14,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { profile } = useAuth();
 
   return (
-    <header className="mt-[1.5rem] flex h-18 sm:h-16 items-center justify-between border-b bg-white px-3 sm:px-4 lg:px-6 safe-area-top">
+    <header className="mt-[1.5rem] flex h-24 sm:h-16 items-center justify-between border-b bg-white px-3 sm:px-4 lg:px-6 safe-area-top">
       <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
         {/* Mobile menu button */}
         {onMenuClick && (
