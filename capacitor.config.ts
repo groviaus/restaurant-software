@@ -4,11 +4,11 @@ const config: CapacitorConfig = {
   appId: 'com.yourcompany.restaurant',
   appName: 'Restaurant POS System',
   webDir: '.next', // Points to Next.js build output
-  // Enable for live reload during development
-  // Comment out for production builds
+  // Production: Load from Vercel
+  // For local dev, set CAPACITOR_SERVER_URL=http://10.0.2.2:3004 in .env.local
   server: {
-    url: process.env.CAPACITOR_SERVER_URL || 'http://10.0.2.2:3004',
-    cleartext: true,
+    url: process.env.CAPACITOR_SERVER_URL || 'https://restaurant-software-chi.vercel.app',
+    cleartext: false, // HTTPS, no cleartext needed
   },
   android: {
     buildOptions: {
