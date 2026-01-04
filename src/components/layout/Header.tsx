@@ -14,7 +14,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { profile } = useAuth();
 
   return (
-    <header className="flex h-14 sm:h-16 items-center justify-between border-b bg-white px-3 sm:px-4 lg:px-6">
+    <header className="mt-[1.5rem] flex h-14 sm:h-16 items-center justify-between border-b bg-white px-3 sm:px-4 lg:px-6 safe-area-top">
       <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
         {/* Mobile menu button */}
         {onMenuClick && (
@@ -51,7 +51,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             {profile.role}
           </span>
         )}
-        <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+        {/* <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
           <AvatarFallback className="text-xs sm:text-sm">
             {profile?.name
               ?.split(' ')
@@ -59,7 +59,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               .join('')
               .toUpperCase() || 'U'}
           </AvatarFallback>
-        </Avatar>
+        </Avatar> */}
       </div>
     </header>
   );

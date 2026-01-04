@@ -77,7 +77,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         )}
       >
         {/* Header with close button on mobile */}
-        <div className="flex h-14 sm:h-16 items-center justify-between border-b border-gray-800 px-4">
+        <div className="mt-[1.5rem] flex h-14 sm:h-16 items-center justify-between border-b border-gray-800 px-4">
           <h1 className="text-lg sm:text-xl font-bold truncate">Restaurant POS</h1>
           {onClose && (
             <Button
