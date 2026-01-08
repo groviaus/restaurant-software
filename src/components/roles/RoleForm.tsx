@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 
 interface RoleFormProps {
     onSuccess: () => void;
@@ -61,12 +61,12 @@ export function RoleForm({ onSuccess }: RoleFormProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Role
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="max-w-[95vw] sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>Create New Role</DialogTitle>
                     <DialogDescription>
@@ -81,8 +81,9 @@ export function RoleForm({ onSuccess }: RoleFormProps) {
                                 id="name"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="e.g. Manager, waiter"
+                                placeholder="e.g. Manager, Waiter"
                                 required
+                                className="h-10"
                             />
                         </div>
                         <div className="grid gap-2">
@@ -92,12 +93,32 @@ export function RoleForm({ onSuccess }: RoleFormProps) {
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 placeholder="Brief description of the role's responsibilities"
+                                rows={3}
                             />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button type="submit" disabled={loading}>
-                            {loading ? 'Creating...' : 'Create Role'}
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                            className="w-full sm:w-auto order-2 sm:order-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full sm:w-auto order-1 sm:order-2"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Creating...
+                                </>
+                            ) : (
+                                'Create Role'
+                            )}
                         </Button>
                     </DialogFooter>
                 </form>

@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { Role, Outlet } from '@/lib/types';
 
 interface UserFormProps {
@@ -105,12 +105,12 @@ export function UserForm({ onSuccess }: UserFormProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                     <Plus className="mr-2 h-4 w-4" />
                     Create User
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="max-w-[95vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Create New User</DialogTitle>
                     <DialogDescription>
@@ -126,6 +126,7 @@ export function UserForm({ onSuccess }: UserFormProps) {
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 required
+                                className="h-10"
                             />
                         </div>
                         <div className="grid gap-2">
@@ -136,6 +137,7 @@ export function UserForm({ onSuccess }: UserFormProps) {
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 required
+                                className="h-10"
                             />
                         </div>
                         <div className="grid gap-2">
@@ -147,6 +149,7 @@ export function UserForm({ onSuccess }: UserFormProps) {
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 required
                                 minLength={6}
+                                className="h-10"
                             />
                         </div>
                         <div className="grid gap-2">
@@ -155,7 +158,7 @@ export function UserForm({ onSuccess }: UserFormProps) {
                                 value={formData.role_id}
                                 onValueChange={(value) => setFormData({ ...formData, role_id: value })}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="h-10">
                                     <SelectValue placeholder="Select a role" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -174,7 +177,7 @@ export function UserForm({ onSuccess }: UserFormProps) {
                                 value={formData.outlet_id}
                                 onValueChange={(value) => setFormData({ ...formData, outlet_id: value })}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="h-10">
                                     <SelectValue placeholder="Select an outlet" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -187,9 +190,28 @@ export function UserForm({ onSuccess }: UserFormProps) {
                             </Select>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button type="submit" disabled={loading}>
-                            {loading ? 'Creating...' : 'Create User'}
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                            className="w-full sm:w-auto order-2 sm:order-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full sm:w-auto order-1 sm:order-2"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Creating...
+                                </>
+                            ) : (
+                                'Create User'
+                            )}
                         </Button>
                     </DialogFooter>
                 </form>

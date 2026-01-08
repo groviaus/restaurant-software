@@ -30,15 +30,15 @@ export default function RolesPage() {
     }, []);
 
     return (
-        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
+        <div className="flex-1 space-y-4 sm:space-y-6 p-3 sm:p-4 lg:p-8 pt-3 sm:pt-4 lg:pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Roles & Permissions</h2>
-                    <p className="text-muted-foreground">
-                        Manage roles and configure granular access permissions for each module.
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Roles & Permissions</h2>
+                    <p className="text-muted-foreground text-sm sm:text-base mt-1">
+                        Manage roles and configure access permissions.
                     </p>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center">
                     <RoleForm onSuccess={fetchRoles} />
                 </div>
             </div>

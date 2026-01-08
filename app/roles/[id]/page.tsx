@@ -83,26 +83,33 @@ export default function EditRolePage() {
     if (!role) return null;
 
     return (
-        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-            <div className="flex items-center space-x-4">
-                <Button variant="outline" size="icon" onClick={() => router.push('/roles')}>
+        <div className="flex-1 space-y-4 sm:space-y-6 p-3 sm:p-4 lg:p-8 pt-3 sm:pt-4 lg:pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => router.push('/roles')}
+                    className="h-9 w-9 flex-shrink-0 self-start"
+                >
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Edit Role: {role.name}</h2>
-                    <p className="text-muted-foreground">
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
+                        Edit Role: {role.name}
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">
                         Update role details and configure permissions.
                     </p>
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+            <div className="grid gap-4 lg:gap-6 lg:grid-cols-3">
                 {/* Role Details Form */}
                 <div className="lg:col-span-1">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Role Details</CardTitle>
-                            <CardDescription>Basic information about this role.</CardDescription>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-lg">Role Details</CardTitle>
+                            <CardDescription className="text-sm">Basic information about this role.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleUpdateRole} className="space-y-4">
