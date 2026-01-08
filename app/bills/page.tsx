@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { BillsTable } from '@/components/tables/BillsTable';
 
 export default async function BillsPage() {
-  await requireAuth();
+  await requirePermission('bills', 'view');
   const profile = await getUserProfile();
   const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();

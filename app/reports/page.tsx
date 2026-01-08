@@ -1,25 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function ReportsPage() {
+  const router = useRouter();
+  const { checkPermission, loading: permLoading } = usePermissions();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!permLoading && !checkPermission('reports', 'view')) {
+      router.push('/dashboard');
+    }
+  }, [permLoading, checkPermission, router]);
+
+  if (permLoading) {
+    return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   const downloadReport = async (type: string, params: Record<string, string>) => {
     setLoading(type);
     try {
       const queryParams = new URLSearchParams({ ...params, format: 'csv' });
       const response = await fetch(`/api/reports/${type}?${queryParams}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to generate report');
       }
@@ -33,7 +47,7 @@ export default function ReportsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       toast.success('Report downloaded successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to download report');

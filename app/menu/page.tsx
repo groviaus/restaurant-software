@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { MenuTable } from '@/components/tables/MenuTable';
 
 export default async function MenuPage() {
-  await requireAuth();
+  await requirePermission('menu', 'view');
   const profile = await getUserProfile();
   const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();

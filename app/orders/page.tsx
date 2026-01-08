@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { OrdersTable } from '@/components/tables/OrdersTable';
 import { OrderForm } from '@/components/forms/OrderForm';
 
 export default async function OrdersPage() {
-  await requireAuth();
+  await requirePermission('orders', 'view');
   const profile = await getUserProfile();
   const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
@@ -54,8 +54,8 @@ export default async function OrdersPage() {
         <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
         <p className="text-gray-600">Manage and track orders</p>
       </div>
-      <OrdersTable 
-        orders={orders || []} 
+      <OrdersTable
+        orders={orders || []}
         outletId={effectiveOutletId}
         tables={tables || []}
       />

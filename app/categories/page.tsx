@@ -26,10 +26,13 @@ import { Plus, Edit, Trash2, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { Category } from '@/lib/types';
 import { useOutlet } from '@/hooks/useOutlet';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Loader2 } from 'lucide-react';
 
 export default function CategoriesPage() {
     const router = useRouter();
     const { currentOutlet } = useOutlet();
+    const { checkPermission, loading: permLoading } = usePermissions();
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [formOpen, setFormOpen] = useState(false);
@@ -41,10 +44,20 @@ export default function CategoriesPage() {
     });
 
     useEffect(() => {
-        if (currentOutlet) {
+        if (!permLoading && !checkPermission('menu', 'view')) {
+            router.push('/dashboard');
+        }
+    }, [permLoading, checkPermission, router]);
+
+    useEffect(() => {
+        if (currentOutlet && !permLoading && checkPermission('menu', 'view')) {
             fetchCategories();
         }
-    }, [currentOutlet]);
+    }, [currentOutlet, permLoading, checkPermission]);
+
+    if (permLoading) {
+        return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
 
     const fetchCategories = async () => {
         if (!currentOutlet) return;

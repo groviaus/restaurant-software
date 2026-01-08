@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   TrendingUp,
   TrendingDown,
@@ -79,6 +81,8 @@ interface GroupedOrders {
 }
 
 export default function AnalyticsPage() {
+  const router = useRouter();
+  const { checkPermission, loading: permLoading } = usePermissions();
   const [period, setPeriod] = useState<TimePeriod>('today');
   const [summary, setSummary] = useState<SummaryMetrics | null>(null);
   const [salesTrend, setSalesTrend] = useState<SalesTrendData[]>([]);
@@ -87,6 +91,16 @@ export default function AnalyticsPage() {
   const [groupedOrders, setGroupedOrders] = useState<GroupedOrders[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersGroupBy, setOrdersGroupBy] = useState<'none' | 'day'>('none');
+
+  useEffect(() => {
+    if (!permLoading && !checkPermission('analytics', 'view')) {
+      router.push('/dashboard');
+    }
+  }, [permLoading, checkPermission, router]);
+
+  if (permLoading) {
+    return <div className="flex justify-center p-8">Loading...</div>; // Or use Loader2
+  }
 
   // Helper function to get chart colors
   const getChartColor = (method: string): string => {

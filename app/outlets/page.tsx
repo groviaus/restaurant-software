@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { OutletsTable } from '@/components/tables/OutletsTable';
 
 export default async function OutletsPage() {
-  await requireAuth();
+  await requirePermission('outlets', 'view');
   const profile = await getUserProfile();
   const effectiveOutletId = getEffectiveOutletId(profile);
   const supabase = await createClient();
@@ -19,7 +19,7 @@ export default async function OutletsPage() {
 
   // Admins can see all outlets, others see only their outlet
   let query = supabase.from('outlets').select('*');
-  
+
   if (profile.role !== 'admin' && profile.outlet_id) {
     query = query.eq('id', profile.outlet_id);
   }
@@ -45,7 +45,7 @@ export default async function OutletsPage() {
             : 'View your outlet information'}
         </p>
       </div>
-      <OutletsTable outlets={outlets || []} userRole={profile.role} currentOutletId={effectiveOutletId} />
+      <OutletsTable outlets={outlets || []} userRole={profile.role as any} currentOutletId={effectiveOutletId} />
     </div>
   );
 }

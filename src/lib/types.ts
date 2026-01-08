@@ -32,7 +32,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: UserRole | string; // Allow custom role names
+  role_id?: string | null; // For custom roles
   outlet_id?: string | null;
   current_outlet_id?: string | null;
   created_at: string;
@@ -224,6 +225,45 @@ export interface InventoryLog {
   created_at: string;
   created_by?: string | null;
   item?: MenuItem;
+}
+
+
+// RBAC Types
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Module {
+  id: string;
+  name: string;
+  display_name: string;
+  icon?: string | null;
+  created_at: string;
+}
+
+export interface RolePermission {
+  id: string;
+  role_id: string;
+  module_id: string;
+  can_view: boolean;
+  can_create: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  created_at: string;
+  updated_at: string;
+  module?: Module;
+}
+
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
+
+export interface UserPermission {
+  module: string;
+  actions: PermissionAction[];
 }
 
 export interface SalesSummary {

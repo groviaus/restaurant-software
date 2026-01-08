@@ -92,3 +92,89 @@ export function getEffectiveOutletId(profile: User | null): string | null {
   return profile.outlet_id || null;
 }
 
+// Permission Utilities
+
+export async function getUserPermissions(userId: string) {
+  const supabase = createServiceRoleClient();
+
+  // 1. Get user with role_id
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('role, role_id')
+    .eq('id', userId)
+    .single();
+
+  if (userError || !userData) return [];
+  const user = userData as any;
+
+  // 2. If 'admin', implicit full access (we handle this in checkPermission logic usually, 
+  // but let's return a wildcard or handle it at checking time. 
+  // For consistency, let's just return no specific permissions and rely on the admin check.)
+
+  if (user.role === 'admin') {
+    return 'ADMIN'; // Special marker
+  }
+
+  // 3. If has role_id, fetch permissions
+  if (user.role_id) {
+    const { data: permissions, error: permError } = await supabase
+      .from('role_permissions')
+      .select('*, modules(name)')
+      .eq('role_id', user.role_id);
+
+    if (permError) {
+      console.error('Error fetching permissions:', permError);
+      return [];
+    }
+
+    return permissions.map((p: any) => ({
+      module: p.modules.name,
+      can_view: p.can_view,
+      can_create: p.can_create,
+      can_edit: p.can_edit,
+      can_delete: p.can_delete
+    }));
+  }
+
+  return [];
+}
+
+export async function checkPermission(
+  userId: string,
+  moduleName: string,
+  action: 'view' | 'create' | 'edit' | 'delete'
+): Promise<boolean> {
+  const permissions = await getUserPermissions(userId);
+
+  if (permissions === 'ADMIN') return true;
+
+  if (Array.isArray(permissions)) {
+    const modulePerm = permissions.find((p: any) => p.module === moduleName);
+    if (!modulePerm) return false;
+
+    switch (action) {
+      case 'view': return modulePerm.can_view;
+      case 'create': return modulePerm.can_create;
+      case 'edit': return modulePerm.can_edit;
+      case 'delete': return modulePerm.can_delete;
+      default: return false;
+    }
+  }
+
+  return false;
+}
+
+export async function requirePermission(
+  moduleName: string,
+  action: 'view' | 'create' | 'edit' | 'delete'
+) {
+  const session = await requireAuth();
+  const hasPermission = await checkPermission(session.user.id, moduleName, action);
+
+  if (!hasPermission) {
+    redirect('/unauthorized');
+  }
+
+  return session;
+}
+

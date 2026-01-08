@@ -4,68 +4,66 @@ overview: Implement a dynamic role-based access control system where admins can 
 todos:
   - id: db-schema
     content: "Create database schema: roles, modules, role_permissions tables and update users table via Supabase MCP"
-    status: pending
+    status: done
   - id: seed-modules
     content: Seed initial modules (orders, bills, menu, inventory, tables, reports, analytics, outlets, qr-menu, dashboard) in database
-    status: pending
+    status: done
     dependencies:
       - db-schema
   - id: update-types
     content: Update types.ts with Role, Module, RolePermission interfaces and update User interface
-    status: pending
+    status: done
     dependencies:
       - db-schema
   - id: permission-utils
     content: Create permission checking utilities in auth.ts (checkPermission, getUserPermissions, requirePermission)
-    status: pending
+    status: done
     dependencies:
       - update-types
   - id: api-routes
     content: Create API routes for roles, modules, role-permissions, and users management
-    status: pending
+    status: done
     dependencies:
       - permission-utils
   - id: admin-ui-roles
     content: Create admin UI pages and components for roles management (list, create, edit, assign permissions)
-    status: pending
+    status: done
     dependencies:
       - api-routes
   - id: admin-ui-users
     content: Create admin UI pages and components for users management (list, create, edit, assign roles)
-    status: pending
+    status: done
     dependencies:
       - api-routes
   - id: update-sidebar
     content: Update Sidebar to filter navigation items based on user permissions
-    status: pending
+    status: done
     dependencies:
       - permission-utils
   - id: update-protected-route
     content: Update ProtectedRoute component to check permissions in addition to roles
-    status: pending
+    status: done
     dependencies:
       - permission-utils
   - id: update-module-pages
     content: Add permission checks to Orders, Bills, and other module pages, hide action buttons based on permissions
-    status: pending
+    status: done
     dependencies:
       - update-protected-route
   - id: create-order-taker
     content: Create 'order_taker' role with view permissions for Orders and Bills modules only
-    status: pending
+    status: done
     dependencies:
       - admin-ui-roles
   - id: test-system
     content: Test creating custom roles, assigning permissions, creating users, and verifying order_taker access restrictions
-    status: pending
+    status: done
     dependencies:
       - create-order-taker
       - update-module-pages
 ---
 
-# D
-
-ynamic Role-Based Access Control System
+# Dynamic Role-Based Access Control System
 
 ## Overview
 

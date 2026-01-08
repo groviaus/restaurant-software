@@ -24,6 +24,7 @@ import { Plus, Eye, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTableOrderStore } from '@/store/tableOrderStore';
 import { OrdersFilters, OrdersFilters as FiltersType } from '@/components/orders/OrdersFilters';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface OrdersTableProps {
   orders: any[];
@@ -51,6 +52,9 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
     statuses: [],
     orderTypes: [],
   });
+
+  const { checkPermission, isAdmin } = usePermissions();
+  const canCreateOrder = isAdmin || checkPermission('orders', 'create');
 
   // Initialize store with data from server
   useEffect(() => {
@@ -206,11 +210,13 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
             Showing {orders.length} of {allOrders.length} orders
           </p>
         </div>
-        <Button onClick={() => setOrderFormOpen(true)} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-2" />
-          <span className="hidden xs:inline">Create Order</span>
-          <span className="xs:hidden">New Order</span>
-        </Button>
+        {canCreateOrder && (
+          <Button onClick={() => setOrderFormOpen(true)} className="w-full sm:w-auto">
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="hidden xs:inline">Create Order</span>
+            <span className="xs:hidden">New Order</span>
+          </Button>
+        )}
       </div>
       <OrdersFilters
         tables={tables}

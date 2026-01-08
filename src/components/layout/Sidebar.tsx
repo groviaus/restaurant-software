@@ -17,23 +17,31 @@ import {
   TrendingUp,
   X,
   FolderOpen,
+  Users,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Analytics', href: '/analytics', icon: TrendingUp },
-  { name: 'Categories', href: '/categories', icon: FolderOpen },
-  { name: 'Menu', href: '/menu', icon: UtensilsCrossed },
-  { name: 'Orders', href: '/orders', icon: ShoppingCart },
-  { name: 'Order History', href: '/orders/history', icon: History },
-  { name: 'Bills', href: '/bills', icon: Receipt },
-  { name: 'Tables', href: '/tables', icon: Table2 },
-  { name: 'Inventory', href: '/inventory', icon: Package },
-  { name: 'Reports', href: '/reports', icon: FileText },
-  { name: 'Outlets', href: '/outlets', icon: Store },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, module: 'dashboard' },
+  { name: 'Analytics', href: '/analytics', icon: TrendingUp, module: 'analytics' },
+  { name: 'Categories', href: '/categories', icon: FolderOpen, module: 'menu' },
+  { name: 'Menu', href: '/menu', icon: UtensilsCrossed, module: 'menu' },
+  { name: 'Orders', href: '/orders', icon: ShoppingCart, module: 'orders' },
+  { name: 'Order History', href: '/orders/history', icon: History, module: 'orders' },
+  { name: 'Bills', href: '/bills', icon: Receipt, module: 'bills' },
+  { name: 'Tables', href: '/tables', icon: Table2, module: 'tables' },
+  { name: 'Inventory', href: '/inventory', icon: Package, module: 'inventory' },
+  { name: 'Reports', href: '/reports', icon: FileText, module: 'reports' },
+  { name: 'Outlets', href: '/outlets', icon: Store, module: 'outlets' },
+];
+
+const adminNavigation = [
+  { name: 'Users', href: '/users', icon: Users, module: 'users' },
+  { name: 'Roles & Permissions', href: '/roles', icon: Shield, module: 'roles' },
 ];
 
 interface SidebarProps {
@@ -45,6 +53,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { signOut } = useAuth();
   const router = useRouter();
+  const { checkPermission, isAdmin, loading } = usePermissions();
 
   const handleSignOut = async () => {
     await signOut();
@@ -57,6 +66,17 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       onClose();
     }
   };
+
+  /* Filter navigation items based on permissions */
+  const filteredNavigation = navigation.filter(item => {
+    return checkPermission(item.module, 'view');
+  });
+
+  const filteredAdminNavigation = adminNavigation.filter(item => {
+    return isAdmin || checkPermission(item.module, 'view');
+  });
+
+  const fullNavigation = [...filteredNavigation, ...filteredAdminNavigation];
 
   return (
     <>
@@ -92,9 +112,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           )}
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 sm:px-3 py-3 sm:py-4">
-          {navigation.map((item) => {
+          {fullNavigation.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
             return (
               <Link
