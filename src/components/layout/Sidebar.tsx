@@ -12,11 +12,11 @@ import {
   Package,
   FileText,
   Store,
-  QrCode,
   History,
   Receipt,
   TrendingUp,
   X,
+  FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Analytics', href: '/analytics', icon: TrendingUp },
+  { name: 'Categories', href: '/categories', icon: FolderOpen },
   { name: 'Menu', href: '/menu', icon: UtensilsCrossed },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
   { name: 'Order History', href: '/orders/history', icon: History },
@@ -33,7 +34,6 @@ const navigation = [
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Reports', href: '/reports', icon: FileText },
   { name: 'Outlets', href: '/outlets', icon: Store },
-  { name: 'QR Menu', href: '/qr-menu', icon: QrCode },
 ];
 
 interface SidebarProps {

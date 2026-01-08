@@ -47,6 +47,22 @@ export interface Outlet {
   updated_at: string;
 }
 
+export enum PricingMode {
+  FIXED = 'fixed',
+  QUANTITY_AUTO = 'quantity_auto',
+  QUANTITY_MANUAL = 'quantity_manual',
+}
+
+export interface Category {
+  id: string;
+  outlet_id: string;
+  name: string;
+  description?: string | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MenuItem {
   id: string;
   outlet_id: string;
@@ -54,8 +70,17 @@ export interface MenuItem {
   description?: string | null;
   price: number;
   category?: string | null;
+  category_id?: string | null;
   available: boolean;
   image_url?: string | null;
+  pricing_mode: PricingMode;
+  requires_quantity: boolean;
+  available_quantity_types?: QuantityType[];
+  base_price?: number | null;
+  quarter_price?: number | null;
+  half_price?: number | null;
+  three_quarter_price?: number | null;
+  full_price?: number | null;
   created_at: string;
   updated_at: string;
 }

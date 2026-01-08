@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MenuItem, Table, QuantityType } from '@/lib/types';
+import { MenuItem, Table, QuantityType, PricingMode, Category } from '@/lib/types';
 import { toast } from 'sonner';
 import { Plus, Minus, X } from 'lucide-react';
 import { useTableOrderStore } from '@/store/tableOrderStore';
@@ -51,14 +51,15 @@ export function OrderForm({
   const [tableId, setTableId] = useState<string>('');
   const [items, setItems] = useState<OrderItem[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Use store tables if available, fallback to props
   const availableTables = storeTables.length > 0 ? storeTables : tables;
 
   useEffect(() => {
     if (open) {
       fetchMenuItems();
+      fetchCategories();
       setItems([]);
       setTableId('');
       setOrderType('DINE_IN');
@@ -77,6 +78,28 @@ export function OrderForm({
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`/api/categories?outlet_id=${outletId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.categories || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  };
+
+  // Group menu items by category
+  const itemsByCategory = menuItems.reduce((acc, item) => {
+    const categoryName = item.category || 'Other';
+    if (!acc[categoryName]) {
+      acc[categoryName] = [];
+    }
+    acc[categoryName].push(item);
+    return acc;
+  }, {} as Record<string, MenuItem[]>);
+
   const addItem = () => {
     setItems([...items, { item_id: '', quantity: 1, quantity_type: QuantityType.FULL, notes: '' }]);
   };
@@ -91,36 +114,60 @@ export function OrderForm({
     setItems(updated);
   };
 
-  // Helper function to check if item is Roti category
-  const isRotiCategory = (itemId: string): boolean => {
-    const menuItem = menuItems.find(m => m.id === itemId);
-    return menuItem?.category?.toLowerCase() === 'roti';
+  // Get menu item details
+  const getMenuItem = (itemId: string): MenuItem | undefined => {
+    return menuItems.find(m => m.id === itemId);
   };
 
-  // Helper function to get quantity type multiplier
-  const getQuantityTypeMultiplier = (quantityType?: QuantityType): number => {
-    switch (quantityType) {
-      case QuantityType.QUARTER:
-        return 0.25;
-      case QuantityType.HALF:
-        return 0.5;
-      case QuantityType.THREE_QUARTER:
-        return 0.75;
-      case QuantityType.FULL:
-        return 1.0;
-      default:
-        return 1.0;
-    }
-  };
-
-  // Helper function to calculate effective price for an item
+  // Calculate price for a specific item based on its pricing mode
   const calculateItemPrice = (item: OrderItem): number => {
-    const menuItem = menuItems.find(m => m.id === item.item_id);
+    const menuItem = getMenuItem(item.item_id);
     if (!menuItem) return 0;
 
-    const multiplier = getQuantityTypeMultiplier(item.quantity_type);
-    const effectivePrice = menuItem.price * multiplier;
-    return effectivePrice * item.quantity;
+    let unitPrice = 0;
+
+    // Calculate unit price based on pricing mode
+    if (menuItem.pricing_mode === PricingMode.FIXED) {
+      // Fixed price - no quantity type
+      unitPrice = menuItem.price;
+    } else if (menuItem.pricing_mode === PricingMode.QUANTITY_AUTO) {
+      // Auto-calculated pricing
+      const basePrice = menuItem.base_price || menuItem.price;
+      switch (item.quantity_type) {
+        case QuantityType.QUARTER:
+          unitPrice = basePrice * 0.25;
+          break;
+        case QuantityType.HALF:
+          unitPrice = basePrice * 0.5;
+          break;
+        case QuantityType.THREE_QUARTER:
+          unitPrice = basePrice * 0.75;
+          break;
+        case QuantityType.FULL:
+        default:
+          unitPrice = basePrice;
+          break;
+      }
+    } else if (menuItem.pricing_mode === PricingMode.QUANTITY_MANUAL) {
+      // Manual pricing for each quantity
+      switch (item.quantity_type) {
+        case QuantityType.QUARTER:
+          unitPrice = menuItem.quarter_price ?? 0;
+          break;
+        case QuantityType.HALF:
+          unitPrice = menuItem.half_price ?? 0;
+          break;
+        case QuantityType.THREE_QUARTER:
+          unitPrice = menuItem.three_quarter_price ?? 0;
+          break;
+        case QuantityType.FULL:
+        default:
+          unitPrice = menuItem.full_price ?? menuItem.price;
+          break;
+      }
+    }
+
+    return unitPrice * item.quantity;
   };
 
   // Calculate order total
@@ -171,8 +218,6 @@ export function OrderForm({
       }
 
       const orderData = await response.json();
-
-      // Update store with new order (this will also update table status to OCCUPIED if DINE_IN)
       addOrder(orderData);
 
       toast.success('Order created successfully');
@@ -187,7 +232,7 @@ export function OrderForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[95vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[700px] max-h-[95vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b">
           <DialogTitle>Create New Order</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
@@ -198,8 +243,8 @@ export function OrderForm({
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5 sm:space-y-2">
-                <Label htmlFor="order_type" className="text-xs sm:text-sm">Order Type</Label>
+              <div className="space-y-2">
+                <Label htmlFor="order_type">Order Type</Label>
                 <Select
                   value={orderType}
                   onValueChange={(value) => {
@@ -209,7 +254,7 @@ export function OrderForm({
                     }
                   }}
                 >
-                  <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -220,10 +265,10 @@ export function OrderForm({
               </div>
 
               {orderType === 'DINE_IN' && (
-                <div className="space-y-1.5 sm:space-y-2">
-                  <Label htmlFor="table" className="text-xs sm:text-sm">Table</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="table">Table</Label>
                   <Select value={tableId} onValueChange={setTableId} required={orderType === 'DINE_IN'}>
-                    <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select table" />
                     </SelectTrigger>
                     <SelectContent>
@@ -241,154 +286,180 @@ export function OrderForm({
               )}
             </div>
 
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-4">
               <div className="flex justify-between items-center sticky top-0 bg-white py-1 z-10 border-b border-dashed">
-                <Label className="text-sm sm:text-base font-semibold">Order Items</Label>
-                <Button type="button" size="sm" variant="outline" onClick={addItem} className="h-9 sm:h-8 px-3">
-                  <Plus className="h-4 w-4 mr-1.5" />
+                <Label className="text-base font-semibold">Order Items</Label>
+                <Button type="button" size="sm" variant="outline" onClick={addItem}>
+                  <Plus className="h-4 w-4 mr-2" />
                   Add Item
                 </Button>
               </div>
 
-              <div className="space-y-3 sm:space-y-4">
-                {items.map((item, index) => (
-                  <div key={index} className="border rounded-xl p-3 sm:p-4 space-y-3 bg-white shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-1">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeItem(index)}
-                        className="h-8 w-8 text-gray-400 hover:text-red-500 rounded-full"
-                        aria-label="Remove item"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+              <div className="space-y-4">
+                {items.map((item, index) => {
+                  const menuItem = getMenuItem(item.item_id);
+                  const requiresQuantity = menuItem?.requires_quantity || false;
 
-                    <div className="space-y-3 pr-6">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs sm:text-sm">Item</Label>
-                        <Select
-                          value={item.item_id}
-                          onValueChange={(value) => {
-                            const selectedMenuItem = menuItems.find(m => m.id === value);
-                            const isRoti = selectedMenuItem?.category?.toLowerCase() === 'roti';
-                            const updated = [...items];
-                            updated[index] = {
-                              ...updated[index],
-                              item_id: value,
-                              quantity_type: isRoti ? undefined : (updated[index].quantity_type || QuantityType.FULL),
-                            };
-                            setItems(updated);
-                          }}
+                  return (
+                    <div key={index} className="border rounded-xl p-4 space-y-3 bg-white shadow-sm relative">
+                      <div className="absolute top-2 right-2">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeItem(index)}
+                          className="h-8 w-8 text-gray-400 hover:text-red-500"
                         >
-                          <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
-                            <SelectValue placeholder="Select item" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {menuItems.map((menuItem) => (
-                              <SelectItem key={menuItem.id} value={menuItem.id}>
-                                {menuItem.name} (₹{menuItem.price})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {!isRotiCategory(item.item_id) && (
-                          <div className="space-y-1.5">
-                            <Label className="text-xs sm:text-sm">Size</Label>
-                            <div className="grid grid-cols-4 gap-1">
-                              {[
-                                { label: '¼kg', val: QuantityType.QUARTER },
-                                { label: '½kg', val: QuantityType.HALF },
-                                { label: '¾kg', val: QuantityType.THREE_QUARTER },
-                                { label: '1kg', val: QuantityType.FULL }
-                              ].map((opt) => (
-                                <Button
-                                  key={opt.val}
-                                  type="button"
-                                  size="sm"
-                                  variant={item.quantity_type === opt.val ? 'default' : 'outline'}
-                                  onClick={() => updateItem(index, 'quantity_type', opt.val)}
-                                  className="text-[10px] sm:text-xs h-9 sm:h-8 px-1"
-                                >
-                                  {opt.label}
-                                </Button>
+                      <div className="space-y-3 pr-8">
+                        {/* Item Selection with Category Grouping */}
+                        <div className="space-y-2">
+                          <Label>Item</Label>
+                          <Select
+                            value={item.item_id}
+                            onValueChange={(value) => {
+                              const selectedMenuItem = getMenuItem(value);
+                              const updated = [...items];
+                              updated[index] = {
+                                ...updated[index],
+                                item_id: value,
+                                quantity_type: selectedMenuItem?.requires_quantity
+                                  ? (selectedMenuItem.available_quantity_types?.[0] || QuantityType.FULL)
+                                  : undefined,
+                              };
+                              setItems(updated);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select item" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(itemsByCategory).map(([categoryName, categoryItems]) => (
+                                <div key={categoryName}>
+                                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">
+                                    {categoryName}
+                                  </div>
+                                  {categoryItems.map((menuItem) => (
+                                    <SelectItem key={menuItem.id} value={menuItem.id}>
+                                      {menuItem.name} (₹{menuItem.price.toFixed(2)})
+                                    </SelectItem>
+                                  ))}
+                                </div>
                               ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Quantity Type Selection - Only show if item requires quantity */}
+                          {requiresQuantity && (
+                            <div className="space-y-2">
+                              <Label>Portion</Label>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+                                {[
+                                  { label: 'Quarter', val: QuantityType.QUARTER },
+                                  { label: 'Half', val: QuantityType.HALF },
+                                  { label: 'Three Quarter', val: QuantityType.THREE_QUARTER },
+                                  { label: 'Full', val: QuantityType.FULL }
+                                ].filter(opt => !menuItem?.available_quantity_types || menuItem.available_quantity_types.includes(opt.val))
+                                  .map((opt) => (
+                                    <Button
+                                      key={opt.val}
+                                      type="button"
+                                      size="sm"
+                                      variant={item.quantity_type === opt.val ? 'default' : 'outline'}
+                                      onClick={() => updateItem(index, 'quantity_type', opt.val)}
+                                      className="text-[10px] sm:text-xs h-9 px-1"
+                                    >
+                                      {opt.label}
+                                    </Button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Quantity */}
+                          <div className="space-y-2">
+                            <Label>Quantity</Label>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                onClick={() => updateItem(index, 'quantity', Math.max(1, item.quantity - 1))}
+                                className="h-10 w-10"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                                className="h-10 text-center font-semibold w-16"
+                              />
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
+                                className="h-10 w-10"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
-                        )}
+                        </div>
 
-                        <div className="space-y-1.5">
-                          <Label className="text-xs sm:text-sm">{isRotiCategory(item.item_id) ? 'Pieces' : 'Quantity'}</Label>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              onClick={() => updateItem(index, 'quantity', Math.max(1, item.quantity - 1))}
-                              className="h-11 w-11 sm:h-10 sm:w-10 rounded-lg"
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                              className="h-11 sm:h-10 text-center text-base sm:text-sm font-semibold w-16"
-                            />
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              onClick={() => updateItem(index, 'quantity', item.quantity + 1)}
-                              className="h-11 w-11 sm:h-10 sm:w-10 rounded-lg"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                        {/* Notes */}
+                        <div className="space-y-2">
+                          <Label>Special Instructions (Optional)</Label>
+                          <Input
+                            value={item.notes || ''}
+                            onChange={(e) => updateItem(index, 'notes', e.target.value)}
+                            placeholder="e.g. Extra spicy, less oil"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Price Display */}
+                      {item.item_id && (
+                        <div className="bg-muted/50 rounded-lg p-3 text-sm flex justify-between items-center border border-dashed">
+                          <div className="text-gray-600">
+                            <span className="font-medium">
+                              {menuItem?.pricing_mode === PricingMode.FIXED
+                                ? `₹${menuItem.price.toFixed(2)} (Fixed)`
+                                : requiresQuantity && item.quantity_type
+                                  ? (
+                                    {
+                                      [QuantityType.QUARTER]: 'Quarter',
+                                      [QuantityType.HALF]: 'Half',
+                                      [QuantityType.THREE_QUARTER]: 'Three Quarter',
+                                      [QuantityType.FULL]: 'Full',
+                                      [QuantityType.CUSTOM]: 'Custom',
+                                    } as Record<string, string>
+                                  )[item.quantity_type] || item.quantity_type.toLowerCase().replace('_', ' ')
+                                  : 'Price'}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-gray-400 block text-xs uppercase">Line Total</span>
+                            <span className="font-bold text-primary text-lg">
+                              ₹{calculateItemPrice(item).toFixed(2)}
+                            </span>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs sm:text-sm">Special Instructions (Optional)</Label>
-                        <Input
-                          value={item.notes || ''}
-                          onChange={(e) => updateItem(index, 'notes', e.target.value)}
-                          placeholder="e.g. Extra spicy, less oil"
-                          className="h-11 sm:h-10 text-base sm:text-sm"
-                        />
-                      </div>
+                      )}
                     </div>
-
-                    {item.item_id && (
-                      <div className="bg-muted/50 rounded-lg p-3 text-xs sm:text-sm flex justify-between items-center mt-2 border border-dashed border-gray-200">
-                        <div className="text-gray-600 flex flex-col">
-                          <span className="font-medium">
-                            {isRotiCategory(item.item_id) ? '₹' + menuItems.find(m => m.id === item.item_id)?.price.toFixed(2) + ' per piece' : '₹' + menuItems.find(m => m.id === item.item_id)?.price.toFixed(2) + ' per kg'}
-                          </span>
-                          {!isRotiCategory(item.item_id) && item.quantity_type && item.quantity_type !== QuantityType.FULL && (
-                            <span className="text-[10px] text-gray-400">
-                              Base: ₹{((menuItems.find(m => m.id === item.item_id)?.price || 0) * getQuantityTypeMultiplier(item.quantity_type)).toFixed(2)} for {item.quantity_type.toLowerCase().replace('_', ' ')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <span className="text-gray-400 block text-[10px] uppercase tracking-wider">Line Total</span>
-                          <span className="font-bold text-primary text-base">₹{calculateItemPrice(item).toFixed(2)}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 {items.length === 0 && (
                   <div className="text-center py-12 border-2 border-dashed rounded-xl bg-gray-50">
-                    <p className="text-sm text-gray-500 mx-auto max-w-[200px]">
+                    <p className="text-sm text-gray-500">
                       No items added yet. Click "Add Item" to start your order.
                     </p>
                   </div>
@@ -409,7 +480,7 @@ export function OrderForm({
                   <span className="font-medium">₹{(calculateOrderTotal() * 0.18).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xl font-bold pt-2 border-t">
-                  <span>Ground Total</span>
+                  <span>Grand Total</span>
                   <span className="text-primary">₹{(calculateOrderTotal() * 1.18).toFixed(2)}</span>
                 </div>
               </div>
@@ -421,14 +492,14 @@ export function OrderForm({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={loading}
-                className="h-12 sm:h-11 flex-1 sm:flex-none order-2 sm:order-1"
+                className="flex-1 sm:flex-none"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={loading || items.length === 0}
-                className="h-12 sm:h-11 flex-1 sm:flex-none order-1 sm:order-2"
+                className="flex-1 sm:flex-none"
               >
                 {loading ? 'Processing...' : 'Place Order'}
               </Button>
@@ -439,4 +510,3 @@ export function OrderForm({
     </Dialog>
   );
 }
-

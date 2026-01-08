@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Outlet } from '@/lib/types';
 import { OutletForm } from '@/components/forms/OutletForm';
-import { Store, Plus, BarChart3, CheckCircle2 } from 'lucide-react';
+import { QRCodeModal } from '@/components/outlets/QRCodeModal';
+import { Store, Plus, BarChart3, CheckCircle2, QrCode } from 'lucide-react';
 import { UserRole } from '@/lib/types';
 import { format } from 'date-fns';
 import { useOutlet } from '@/hooks/useOutlet';
@@ -31,6 +32,8 @@ export function OutletsTable({ outlets, userRole, currentOutletId }: OutletsTabl
   const [formOpen, setFormOpen] = useState(false);
   const { switchOutlet } = useOutlet();
   const [switching, setSwitching] = useState<string | null>(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedOutlet, setSelectedOutlet] = useState<{ id: string; name: string } | null>(null);
 
   const isAdmin = userRole === UserRole.ADMIN;
 
@@ -120,7 +123,18 @@ export function OutletsTable({ outlets, userRole, currentOutletId }: OutletsTabl
                                 </>
                               )}
                             </Button>
-                          )}
+                          )}\n                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOutlet({ id: outlet.id, name: outlet.name });
+                              setQrModalOpen(true);
+                            }}
+                            className="h-8 sm:h-9"
+                          >
+                            <QrCode className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Generate QR</span>
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -149,6 +163,14 @@ export function OutletsTable({ outlets, userRole, currentOutletId }: OutletsTabl
           onSuccess={() => {
             router.refresh();
           }}
+        />
+      )}
+      {selectedOutlet && (
+        <QRCodeModal
+          open={qrModalOpen}
+          onOpenChange={setQrModalOpen}
+          outletId={selectedOutlet.id}
+          outletName={selectedOutlet.name}
         />
       )}
     </>

@@ -1,30 +1,48 @@
 import { z } from 'zod';
-import { OrderStatus, PaymentMethod, TableStatus, QuantityType } from './types';
+import { OrderStatus, PaymentMethod, TableStatus, QuantityType, PricingMode } from './types';
 
 // Menu Item Schemas
 export const createMenuItemSchema = z.object({
   outlet_id: z.string().uuid(),
   name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   price: z.number().positive('Price must be positive'),
-  category: z.string().optional(),
+  category: z.string().optional().nullable(),
+  category_id: z.string().uuid().optional().nullable(),
   available: z.boolean().default(true),
   image_url: z.preprocess(
     (val) => (val === '' || val === undefined || val === null ? null : val),
     z.union([z.string().url('Image URL must be a valid URL'), z.null()]).optional()
   ),
+  pricing_mode: z.nativeEnum(PricingMode).default(PricingMode.FIXED),
+  requires_quantity: z.boolean().default(false),
+  available_quantity_types: z.array(z.string()).optional().nullable().default(null),
+  base_price: z.number().nonnegative().optional().nullable(),
+  quarter_price: z.number().nonnegative().optional().nullable(),
+  half_price: z.number().nonnegative().optional().nullable(),
+  three_quarter_price: z.number().nonnegative().optional().nullable(),
+  full_price: z.number().nonnegative().optional().nullable(),
 });
 
 export const updateMenuItemSchema = z.object({
   name: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   price: z.number().positive().optional(),
-  category: z.string().optional(),
+  category: z.string().optional().nullable(),
+  category_id: z.string().uuid().optional().nullable(),
   available: z.boolean().optional(),
   image_url: z.preprocess(
     (val) => (val === '' || val === undefined || val === null ? null : val),
     z.union([z.string().url('Image URL must be a valid URL'), z.null()]).optional()
   ),
+  pricing_mode: z.nativeEnum(PricingMode).optional(),
+  requires_quantity: z.boolean().optional(),
+  available_quantity_types: z.array(z.string()).optional().nullable(),
+  base_price: z.number().nonnegative().optional().nullable(),
+  quarter_price: z.number().nonnegative().optional().nullable(),
+  half_price: z.number().nonnegative().optional().nullable(),
+  three_quarter_price: z.number().nonnegative().optional().nullable(),
+  full_price: z.number().nonnegative().optional().nullable(),
 });
 
 export const menuItemIdSchema = z.object({

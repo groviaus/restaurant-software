@@ -5,20 +5,24 @@ import { createMenuItemSchema, updateMenuItemSchema, menuQuerySchema } from '@/l
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { searchParams } = new URL(request.url);
+    const outletIdParam = searchParams.get('outlet_id');
+
+    // Allow public access if outlet_id is provided (for QR menu)
+    // Otherwise require authentication
+    if (!outletIdParam) {
+      const session = await getSession();
+      if (!session) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
     }
 
     const supabase = await createClient();
 
-    const { searchParams } = new URL(request.url);
-
     // Preprocess query parameters - convert null/empty to undefined for optional fields
-    const outletIdParam = searchParams.get('outlet_id');
     const rawQuery = {
       outlet_id: outletIdParam && outletIdParam.trim() !== '' ? outletIdParam : undefined,
       category: searchParams.get('category') || undefined,
@@ -87,23 +91,41 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     const body = await request.json();
-    const validatedData = createMenuItemSchema.parse(body);
+    console.log('Received menu item data:', JSON.stringify(body, null, 2));
+
+    let validatedData;
+    try {
+      validatedData = createMenuItemSchema.parse(body);
+    } catch (validationError: any) {
+      console.error('Validation error:', JSON.stringify(validationError.errors, null, 2));
+      return NextResponse.json(
+        { error: 'Validation error', details: validationError.errors },
+        { status: 400 }
+      );
+    }
 
     // Ensure image_url is null if empty
     const insertData: any = {
       ...validatedData,
       image_url: validatedData.image_url || null,
     };
+
+    console.log('Inserting data:', JSON.stringify(insertData, null, 2));
+
     const { data, error } = await supabase
       .from('items')
       .insert(insertData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {
+    console.error('Menu POST error:', error);
     if (error.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },
