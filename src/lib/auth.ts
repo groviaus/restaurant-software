@@ -41,11 +41,13 @@ export async function getUserProfile(): Promise<User | null> {
 }
 
 export async function requireAuth() {
-  const session = await getSession();
-  if (!session) {
+  const user = await getUser();
+  if (!user) {
     redirect('/login');
   }
-  return session;
+  // Return a session-like object for backward compatibility
+  // Most code only needs user.id, so this maintains compatibility
+  return { user: { id: user.id } } as { user: { id: string } };
 }
 
 export async function requireRole(allowedRoles: UserRole[]) {

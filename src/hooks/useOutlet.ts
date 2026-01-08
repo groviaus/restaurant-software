@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export function useOutlet() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const router = useRouter();
   const {
     currentOutletId,
@@ -77,6 +77,23 @@ export function useOutlet() {
       
       // Update store
       setCurrentOutlet(outletId);
+      
+      // Refresh profile to get updated current_outlet_id before reload
+      // This ensures the profile is fresh when the page reloads
+      try {
+        // Set a flag in sessionStorage to indicate outlet switch in progress
+        // This helps AuthProvider know to refresh profile on next load
+        sessionStorage.setItem('outlet_switch_in_progress', 'true');
+        
+        // Refresh profile - wait for it to complete
+        await refreshProfile();
+        
+        // Give a small delay to ensure state updates propagate
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        console.error('Error refreshing profile after outlet switch:', error);
+        // Continue with reload even if refresh fails
+      }
       
       // Force a full page reload to ensure all data is refreshed with new outlet
       // This ensures server components re-fetch with new effective outlet ID

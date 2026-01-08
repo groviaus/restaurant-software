@@ -1,15 +1,15 @@
 import { redirect } from 'next/navigation';
-import { getSession, getUserPermissions } from '@/lib/auth';
+import { getUser, getUserPermissions } from '@/lib/auth';
 
 export default async function Home() {
-  const session = await getSession();
+  const user = await getUser();
 
-  if (!session) {
+  if (!user) {
     redirect('/login');
   }
 
   // Fetch user permissions to decide where to redirect
-  const permissions = await getUserPermissions(session.user.id);
+  const permissions = await getUserPermissions(user.id);
 
   // If admin, go to dashboard
   if (permissions === 'ADMIN') {

@@ -21,9 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { MenuItem, PricingMode, Category, QuantityType } from '@/lib/types';
+import { MenuItem, PricingMode, Category, QuantityType, Outlet } from '@/lib/types';
 import { toast } from 'sonner';
-import { Info } from 'lucide-react';
+import { Info, Store } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface MenuItemFormProps {
   open: boolean;
@@ -42,6 +43,8 @@ export function MenuItemForm({
 }: MenuItemFormProps) {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
+  const [selectedOutletIds, setSelectedOutletIds] = useState<string[]>([outletId]);
   const [formData, setFormData] = useState({
     outlet_id: outletId,
     name: '',
@@ -65,6 +68,7 @@ export function MenuItemForm({
   useEffect(() => {
     if (open && outletId) {
       fetchCategories();
+      fetchOutlets();
     }
   }, [open, outletId]);
 
@@ -89,6 +93,8 @@ export function MenuItemForm({
         full_price: menuItem.full_price || 0,
         profit_margin_percent: menuItem.profit_margin_percent || 0,
       });
+      // When editing, only the current outlet is selected
+      setSelectedOutletIds([menuItem.outlet_id]);
     } else {
       setFormData({
         outlet_id: outletId,
@@ -109,6 +115,8 @@ export function MenuItemForm({
         full_price: 0,
         profit_margin_percent: 0,
       });
+      // Pre-select current outlet for new items
+      setSelectedOutletIds([outletId]);
     }
   }, [menuItem, outletId, open]);
 
@@ -121,6 +129,38 @@ export function MenuItemForm({
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchOutlets = async () => {
+    try {
+      const response = await fetch('/api/outlets');
+      if (response.ok) {
+        const data = await response.json();
+        setOutlets(data.outlets || data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching outlets:', error);
+    }
+  };
+
+  const handleOutletToggle = (outletIdToToggle: string) => {
+    setSelectedOutletIds(prev => {
+      if (prev.includes(outletIdToToggle)) {
+        // Don't allow deselecting all outlets
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== outletIdToToggle);
+      }
+      return [...prev, outletIdToToggle];
+    });
+  };
+
+  const handleSelectAllOutlets = () => {
+    if (selectedOutletIds.length === outlets.length) {
+      // Keep at least the current outlet selected
+      setSelectedOutletIds([outletId]);
+    } else {
+      setSelectedOutletIds(outlets.map(o => o.id));
     }
   };
 
@@ -137,12 +177,8 @@ export function MenuItemForm({
     setLoading(true);
 
     try {
-      const url = menuItem ? `/api/menu/${menuItem.id}` : '/api/menu';
-      const method = menuItem ? 'PATCH' : 'POST';
-
       // Prepare submit data based on pricing mode
       const submitData: any = {
-        outlet_id: formData.outlet_id,
         name: formData.name,
         description: formData.description || null,
         category: formData.category || null,
@@ -166,17 +202,15 @@ export function MenuItemForm({
         submitData.three_quarter_price = null;
         submitData.full_price = null;
       } else if (formData.pricing_mode === PricingMode.QUANTITY_AUTO) {
-        submitData.price = formData.base_price; // Store base price in price field
+        submitData.price = formData.base_price;
         submitData.base_price = formData.base_price;
         submitData.quarter_price = null;
         submitData.half_price = null;
         submitData.three_quarter_price = null;
         submitData.full_price = null;
       } else if (formData.pricing_mode === PricingMode.QUANTITY_MANUAL) {
-        submitData.price = formData.full_price; // Store full price as default
+        submitData.price = formData.full_price;
         submitData.base_price = null;
-
-        // Only include prices for selected quantity types
         submitData.quarter_price = formData.available_quantity_types.includes(QuantityType.QUARTER)
           ? formData.quarter_price
           : null;
@@ -191,21 +225,42 @@ export function MenuItemForm({
           : null;
       }
 
-      console.log('Submitting menu item:', submitData);
+      if (menuItem) {
+        // Editing existing item - update single outlet
+        const response = await fetch(`/api/menu/${menuItem.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...submitData, outlet_id: formData.outlet_id }),
+        });
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitData),
-      });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to update menu item');
+        }
+        toast.success('Menu item updated');
+      } else {
+        // Creating new item(s) - support multiple outlets
+        submitData.outlet_ids = selectedOutletIds;
 
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('API Error Response:', error);
-        throw new Error(error.error || 'Failed to save menu item');
+        const response = await fetch('/api/menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submitData),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create menu item');
+        }
+
+        const successCount = selectedOutletIds.length;
+        toast.success(
+          successCount > 1
+            ? `Menu item created in ${successCount} outlets`
+            : 'Menu item created'
+        );
       }
 
-      toast.success(menuItem ? 'Menu item updated' : 'Menu item created');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -226,6 +281,58 @@ export function MenuItemForm({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          {/* Multi-Outlet Selection - Only show for new items and if there are multiple outlets */}
+          {!menuItem && outlets.length > 1 && (
+            <Card className="border-dashed">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <Store className="h-4 w-4" />
+                    Create in Outlets
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAllOutlets}
+                    className="h-7 text-xs"
+                  >
+                    {selectedOutletIds.length === outlets.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {outlets.map((outlet) => (
+                    <label
+                      key={outlet.id}
+                      className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${selectedOutletIds.includes(outlet.id)
+                        ? 'bg-primary/5 border-primary'
+                        : 'hover:bg-muted/50'
+                        }`}
+                    >
+                      <Checkbox
+                        checked={selectedOutletIds.includes(outlet.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedOutletIds(prev => [...prev, outlet.id]);
+                          } else {
+                            // Don't allow deselecting all outlets
+                            if (selectedOutletIds.length > 1) {
+                              setSelectedOutletIds(prev => prev.filter(id => id !== outlet.id));
+                            }
+                          }
+                        }}
+                      />
+                      <span className="text-sm truncate flex-1">{outlet.name}</span>
+                      {outlet.id === outletId && (
+                        <span className="text-xs text-primary font-medium">Current</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Basic Information */}
           <div className="grid gap-2">
             <Label htmlFor="name">Item Name *</Label>
@@ -280,8 +387,7 @@ export function MenuItemForm({
               <Label htmlFor="image_url">Image URL</Label>
               <Input
                 id="image_url"
-                type="url"
-                placeholder="https://..."
+                placeholder="https://example.com/image.jpg"
                 value={formData.image_url}
                 onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
               />
@@ -289,231 +395,153 @@ export function MenuItemForm({
           </div>
 
           {/* Pricing Mode Selection */}
-          <div className="border-t pt-4 space-y-4">
+          <div className="grid gap-2">
+            <Label>Pricing Mode</Label>
+            <Select
+              value={formData.pricing_mode}
+              onValueChange={(value) => handlePricingModeChange(value as PricingMode)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={PricingMode.FIXED}>
+                  Fixed Price - Single price for all orders
+                </SelectItem>
+                <SelectItem value={PricingMode.QUANTITY_AUTO}>
+                  Auto Quantity - Calculate price based on weight/quantity
+                </SelectItem>
+                <SelectItem value={PricingMode.QUANTITY_MANUAL}>
+                  Manual Quantity - Set different prices per portion
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Fixed Price Input */}
+          {formData.pricing_mode === PricingMode.FIXED && (
             <div className="grid gap-2">
-              <Label htmlFor="pricing_mode">Pricing Mode *</Label>
-              <Select
-                value={formData.pricing_mode}
-                onValueChange={(value) => handlePricingModeChange(value as PricingMode)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={PricingMode.FIXED}>
-                    Fixed Price (No Quantity)
-                  </SelectItem>
-                  <SelectItem value={PricingMode.QUANTITY_AUTO}>
-                    Quantity-Based (Auto Calculate)
-                  </SelectItem>
-                  <SelectItem value={PricingMode.QUANTITY_MANUAL}>
-                    Quantity-Based (Manual Prices)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500 flex items-start gap-1">
-                <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                <span>
-                  {formData.pricing_mode === PricingMode.FIXED &&
-                    'Single fixed price for this item'}
-                  {formData.pricing_mode === PricingMode.QUANTITY_AUTO &&
-                    'Prices calculated automatically (Quarter=25%, Half=50%, etc.)'}
-                  {formData.pricing_mode === PricingMode.QUANTITY_MANUAL &&
-                    'Set individual prices for each quantity option'}
-                </span>
-              </p>
+              <Label htmlFor="price">Price (₹) *</Label>
+              <Input
+                id="price"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.price}
+                onChange={(e) =>
+                  setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })
+                }
+                required
+              />
             </div>
+          )}
 
-            {/* Quantity Type Selection - Only show for quantity-based pricing */}
-            {(formData.pricing_mode === PricingMode.QUANTITY_AUTO ||
-              formData.pricing_mode === PricingMode.QUANTITY_MANUAL) && (
-                <div className="grid gap-3 p-4 border rounded-lg bg-gray-50">
-                  <Label className="text-sm font-medium">Available Quantity Options *</Label>
-                  <p className="text-xs text-gray-500 -mt-2">
-                    Select which quantity options customers can choose from
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: 'Quarter (¼)', value: QuantityType.QUARTER },
-                      { label: 'Half (½)', value: QuantityType.HALF },
-                      { label: 'Three Quarter (¾)', value: QuantityType.THREE_QUARTER },
-                      { label: 'Full', value: QuantityType.FULL },
-                    ].map((option) => (
-                      <div key={option.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`qty-${option.value}`}
-                          checked={formData.available_quantity_types.includes(option.value)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData({
-                                ...formData,
-                                available_quantity_types: [...formData.available_quantity_types, option.value],
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                available_quantity_types: formData.available_quantity_types.filter(
-                                  (t) => t !== option.value
-                                ),
-                              });
-                            }
-                          }}
-                        />
-                        <Label
-                          htmlFor={`qty-${option.value}`}
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
+          {/* Auto Quantity Pricing */}
+          {formData.pricing_mode === PricingMode.QUANTITY_AUTO && (
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 rounded-lg text-xs sm:text-sm text-blue-800">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">Auto Quantity Pricing</p>
+                    <p>Set a base price per full plate. Portions will be calculated automatically.</p>
                   </div>
-                  {formData.available_quantity_types.length === 0 && (
-                    <p className="text-xs text-red-600">
-                      Please select at least one quantity option
-                    </p>
-                  )}
                 </div>
-              )}
-
-            {/* Fixed Price Mode */}
-            {formData.pricing_mode === PricingMode.FIXED && (
+              </div>
               <div className="grid gap-2">
-                <Label htmlFor="price">Price *</Label>
+                <Label htmlFor="base_price">Base Price per Full Plate (₹) *</Label>
                 <Input
-                  id="price"
-                  type="text"
-                  inputMode="decimal"
-                  pattern="[0-9]*\.?[0-9]*"
+                  id="base_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
                   placeholder="0.00"
-                  value={formData.price || ''}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    setFormData({ ...formData, price: parseFloat(value) || 0 });
-                  }}
+                  value={formData.base_price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })
+                  }
                   required
                 />
               </div>
-            )}
+              <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm text-gray-600">
+                <div>Quarter: ₹{(formData.base_price * 0.25).toFixed(2)}</div>
+                <div>Half: ₹{(formData.base_price * 0.5).toFixed(2)}</div>
+                <div>3/4: ₹{(formData.base_price * 0.75).toFixed(2)}</div>
+                <div>Full: ₹{formData.base_price.toFixed(2)}</div>
+              </div>
+            </div>
+          )}
 
-            {/* Automatic Quantity Pricing */}
-            {formData.pricing_mode === PricingMode.QUANTITY_AUTO && (
-              <div className="space-y-3">
-                <div className="grid gap-2">
-                  <Label htmlFor="base_price">Base Price (Full) *</Label>
-                  <Input
-                    id="base_price"
-                    type="text"
-                    inputMode="decimal"
-                    pattern="[0-9]*\.?[0-9]*"
-                    placeholder="0.00"
-                    value={formData.base_price || ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setFormData({ ...formData, base_price: parseFloat(value) || 0 });
-                    }}
-                    required
-                  />
-                  <p className="text-xs text-gray-500">
-                    Prices will be calculated: Quarter = ₹{(formData.base_price * 0.25).toFixed(2)},
-                    Half = ₹{(formData.base_price * 0.5).toFixed(2)},
-                    3/4 = ₹{(formData.base_price * 0.75).toFixed(2)},
-                    Full = ₹{formData.base_price.toFixed(2)}
-                  </p>
+          {/* Manual Quantity Pricing */}
+          {formData.pricing_mode === PricingMode.QUANTITY_MANUAL && (
+            <div className="space-y-4">
+              <div className="p-3 bg-amber-50 rounded-lg text-xs sm:text-sm text-amber-800">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">Manual Quantity Pricing</p>
+                    <p>Select available portions and set custom prices for each.</p>
+                  </div>
                 </div>
               </div>
-            )}
+              <div className="grid grid-cols-2 gap-3">
+                {[QuantityType.QUARTER, QuantityType.HALF, QuantityType.THREE_QUARTER, QuantityType.FULL].map(
+                  (type) => {
+                    const isSelected = formData.available_quantity_types.includes(type);
+                    const labels: Partial<Record<QuantityType, string>> = {
+                      [QuantityType.QUARTER]: 'Quarter',
+                      [QuantityType.HALF]: 'Half',
+                      [QuantityType.THREE_QUARTER]: '3/4',
+                      [QuantityType.FULL]: 'Full',
+                    };
+                    const priceFields: Partial<Record<QuantityType, keyof typeof formData>> = {
+                      [QuantityType.QUARTER]: 'quarter_price',
+                      [QuantityType.HALF]: 'half_price',
+                      [QuantityType.THREE_QUARTER]: 'three_quarter_price',
+                      [QuantityType.FULL]: 'full_price',
+                    };
 
-            {/* Manual Quantity Pricing */}
-            {formData.pricing_mode === PricingMode.QUANTITY_MANUAL && (
-              <div className="space-y-3">
-                <div className={`grid gap-3 ${formData.available_quantity_types.length > 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  {formData.available_quantity_types.includes(QuantityType.QUARTER) && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="quarter_price">Quarter *</Label>
-                      <Input
-                        id="quarter_price"
-                        type="text"
-                        inputMode="decimal"
-                        pattern="[0-9]*\.?[0-9]*"
-                        placeholder="0.00"
-                        value={formData.quarter_price || ''}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9.]/g, '');
-                          setFormData({
-                            ...formData,
-                            quarter_price: parseFloat(value) || 0,
-                          });
-                        }}
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {formData.available_quantity_types.includes(QuantityType.HALF) && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="half_price">Half *</Label>
-                      <Input
-                        id="half_price"
-                        type="text"
-                        inputMode="decimal"
-                        pattern="[0-9]*\.?[0-9]*"
-                        placeholder="0.00"
-                        value={formData.half_price || ''}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9.]/g, '');
-                          setFormData({ ...formData, half_price: parseFloat(value) || 0 });
-                        }}
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {formData.available_quantity_types.includes(QuantityType.THREE_QUARTER) && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="three_quarter_price">Three Quarter *</Label>
-                      <Input
-                        id="three_quarter_price"
-                        type="text"
-                        inputMode="decimal"
-                        pattern="[0-9]*\.?[0-9]*"
-                        placeholder="0.00"
-                        value={formData.three_quarter_price || ''}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9.]/g, '');
-                          setFormData({
-                            ...formData,
-                            three_quarter_price: parseFloat(value) || 0,
-                          });
-                        }}
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {formData.available_quantity_types.includes(QuantityType.FULL) && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="full_price">Full *</Label>
-                      <Input
-                        id="full_price"
-                        type="text"
-                        inputMode="decimal"
-                        pattern="[0-9]*\.?[0-9]*"
-                        placeholder="0.00"
-                        value={formData.full_price || ''}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9.]/g, '');
-                          setFormData({ ...formData, full_price: parseFloat(value) || 0 });
-                        }}
-                        required
-                      />
-                    </div>
-                  )}
-                </div>
+                    return (
+                      <div key={type} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              const types = checked
+                                ? [...formData.available_quantity_types, type]
+                                : formData.available_quantity_types.filter((t) => t !== type);
+                              if (types.length > 0) {
+                                setFormData({ ...formData, available_quantity_types: types });
+                              }
+                            }}
+                          />
+                          <Label className="cursor-pointer">{labels[type] || type}</Label>
+                        </div>
+                        {isSelected && priceFields[type] && (
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Price"
+                            value={formData[priceFields[type]!] as number}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                [priceFields[type]!]: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                    );
+                  }
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
+          {/* Profit Margin */}
           <div className="grid gap-2">
             <Label htmlFor="profit_margin_percent">Profit Margin (%)</Label>
             <div className="flex items-center gap-2">
@@ -570,7 +598,7 @@ export function MenuItemForm({
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : menuItem ? 'Update Item' : 'Create Item'}
+              {loading ? 'Saving...' : menuItem ? 'Update Item' : `Create Item${!menuItem && selectedOutletIds.length > 1 ? ` (${selectedOutletIds.length})` : ''}`}
             </Button>
           </DialogFooter>
         </form>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/lib/auth';
-import { createMenuItemSchema, updateMenuItemSchema, menuQuerySchema } from '@/lib/schemas';
+import { createMenuItemSchema, menuQuerySchema } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
   try {
@@ -93,37 +93,83 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('Received menu item data:', JSON.stringify(body, null, 2));
 
-    let validatedData;
-    try {
-      validatedData = createMenuItemSchema.parse(body);
-    } catch (validationError: any) {
-      console.error('Validation error:', JSON.stringify(validationError.errors, null, 2));
+    // Extract outlet_ids for multi-outlet creation
+    const { outlet_ids, outlet_id, ...itemData } = body;
+
+    // Determine target outlets
+    const targetOutletIds: string[] = outlet_ids && Array.isArray(outlet_ids)
+      ? outlet_ids
+      : outlet_id
+        ? [outlet_id]
+        : [];
+
+    if (targetOutletIds.length === 0) {
       return NextResponse.json(
-        { error: 'Validation error', details: validationError.errors },
+        { error: 'At least one outlet_id is required' },
         { status: 400 }
       );
     }
 
-    // Ensure image_url is null if empty
-    const insertData: any = {
-      ...validatedData,
-      image_url: validatedData.image_url || null,
-    };
+    const createdItems: any[] = [];
+    const errors: any[] = [];
 
-    console.log('Inserting data:', JSON.stringify(insertData, null, 2));
+    // Create item for each outlet
+    for (const targetOutletId of targetOutletIds) {
+      try {
+        const dataToValidate = { ...itemData, outlet_id: targetOutletId };
 
-    const { data, error } = await supabase
-      .from('items')
-      .insert(insertData)
-      .select()
-      .single();
+        let validatedData;
+        try {
+          validatedData = createMenuItemSchema.parse(dataToValidate);
+        } catch (validationError: any) {
+          console.error('Validation error for outlet', targetOutletId, ':', validationError.errors);
+          errors.push({ outlet_id: targetOutletId, error: validationError.errors });
+          continue;
+        }
 
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
+        // Ensure image_url is null if empty
+        const insertData: any = {
+          ...validatedData,
+          image_url: validatedData.image_url || null,
+        };
+
+        const { data, error } = await supabase
+          .from('items')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Database error for outlet', targetOutletId, ':', error);
+          errors.push({ outlet_id: targetOutletId, error: error.message });
+        } else {
+          createdItems.push(data);
+        }
+      } catch (err: any) {
+        console.error('Error creating item for outlet', targetOutletId, ':', err);
+        errors.push({ outlet_id: targetOutletId, error: err.message });
+      }
     }
 
-    return NextResponse.json(data, { status: 201 });
+    if (createdItems.length === 0 && errors.length > 0) {
+      return NextResponse.json(
+        { error: 'Failed to create menu items', details: errors },
+        { status: 400 }
+      );
+    }
+
+    // Return the first created item for backward compatibility, but include count
+    return NextResponse.json(
+      {
+        ...createdItems[0],
+        _meta: {
+          created_count: createdItems.length,
+          error_count: errors.length,
+          errors: errors.length > 0 ? errors : undefined
+        }
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error('Menu POST error:', error);
     if (error.name === 'ZodError') {
@@ -138,4 +184,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

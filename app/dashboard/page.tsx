@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getSession, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
+import { getUser, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { SalesTrendChart } from '@/components/charts/SalesTrendChart';
 import { PaymentBreakdownChart } from '@/components/charts/PaymentBreakdownChart';
 import { PeakHoursChart } from '@/components/charts/PeakHoursChart';
@@ -11,16 +11,16 @@ export default async function DashboardPage() {
   // Enforce permission check for dashboard
   await requirePermission('dashboard', 'view');
 
-  const session = await getSession();
+  const user = await getUser();
   const profile = await getUserProfile();
   const effectiveOutletId = getEffectiveOutletId(profile);
 
-  if (!session || !effectiveOutletId) {
+  if (!user || !effectiveOutletId) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
         <p className="text-gray-600">
-          {!session
+          {!user
             ? 'Please log in to view the dashboard.'
             : 'Please contact an administrator to assign you to an outlet.'}
         </p>

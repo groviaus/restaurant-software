@@ -123,7 +123,8 @@ export function OutletsTable({ outlets, userRole, currentOutletId }: OutletsTabl
                                 </>
                               )}
                             </Button>
-                          )}\n                          <Button
+                          )}
+                          <Button
                             variant="outline"
                             size="sm"
                             onClick={() => {

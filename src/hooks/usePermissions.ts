@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './useAuth';
 import { UserRole } from '@/lib/types';
 
@@ -12,59 +12,154 @@ interface PermissionCache {
     can_delete: boolean;
 }
 
+// Timeout constant for permission fetches (5 seconds)
+const PERMISSIONS_FETCH_TIMEOUT = 5000;
+// Maximum time for permissions initialization (8 seconds)
+const PERMISSIONS_INIT_MAX_TIMEOUT = 8000;
+
 export function usePermissions() {
     const { profile, loading: authLoading } = useAuth();
     const [permissions, setPermissions] = useState<PermissionCache[]>([]);
     const [loading, setLoading] = useState(true);
+    const isFetchingRef = useRef(false);
+    const mountedRef = useRef(true);
+    const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        if (!authLoading && profile) {
-            if (profile.role === 'admin') {
+        mountedRef.current = true;
+        
+        // Safety timeout - ensure loading is always set to false after max time
+        initTimeoutRef.current = setTimeout(() => {
+            if (mountedRef.current && loading) {
+                console.warn('Permissions initialization timeout - forcing loading to false');
                 setLoading(false);
-                return; // Admin ignores permission array check typically
             }
+        }, PERMISSIONS_INIT_MAX_TIMEOUT);
+        
+        return () => {
+            mountedRef.current = false;
+            if (initTimeoutRef.current) {
+                clearTimeout(initTimeoutRef.current);
+                initTimeoutRef.current = null;
+            }
+        };
+    }, []);
 
-            if (profile.role_id) {
-                // Fetch permissions for custom role
-                fetchPermissions(profile.role_id);
-            } else {
-                // Legacy roles (cashier/staff) - map to default permissions locally or fetch if migrated
-                // For now, assume legacy roles have their hardcoded access and empty array means "check legacy logic"
+    useEffect(() => {
+        // Always set loading based on authLoading first
+        if (authLoading) {
+            setLoading(true);
+            return;
+        }
+
+        // Auth is done loading
+        if (!profile) {
+            // No profile means no permissions needed
+            if (mountedRef.current) {
+                setPermissions([]);
                 setLoading(false);
             }
-        } else if (!authLoading && !profile) {
-            setLoading(false);
+            if (initTimeoutRef.current) {
+                clearTimeout(initTimeoutRef.current);
+                initTimeoutRef.current = null;
+            }
+            return;
+        }
+
+        // We have a profile, determine permissions
+        if (profile.role === 'admin') {
+            // Admin has full access, no need to fetch
+            if (mountedRef.current) {
+                setPermissions([]);
+                setLoading(false);
+            }
+            if (initTimeoutRef.current) {
+                clearTimeout(initTimeoutRef.current);
+                initTimeoutRef.current = null;
+            }
+            return;
+        }
+
+        if (profile.role_id) {
+            // Fetch permissions for custom role
+            if (!isFetchingRef.current) {
+                fetchPermissions(profile.role_id).finally(() => {
+                    if (initTimeoutRef.current) {
+                        clearTimeout(initTimeoutRef.current);
+                        initTimeoutRef.current = null;
+                    }
+                });
+            }
+        } else {
+            // Legacy roles (cashier/staff) - no custom permissions to fetch
+            if (mountedRef.current) {
+                setPermissions([]);
+                setLoading(false);
+            }
+            if (initTimeoutRef.current) {
+                clearTimeout(initTimeoutRef.current);
+                initTimeoutRef.current = null;
+            }
         }
     }, [profile, authLoading]);
 
     const fetchPermissions = async (roleId: string) => {
+        if (isFetchingRef.current) return;
+        
+        isFetchingRef.current = true;
+        setLoading(true);
+
         try {
+            // Create a timeout promise
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Permissions fetch timeout')), PERMISSIONS_FETCH_TIMEOUT);
+            });
+
             // We can create an API endpoint for getting MY permissions or use the role endpoint if allowed.
             // But role_permissions table has RLS allowing users to view their own permissions.
             // We can query Supabase directly using client.
             const { createClient } = await import('@/lib/supabase/client');
             const supabase = createClient();
 
-            const { data, error } = await supabase
+            const permissionsPromise = supabase
                 .from('role_permissions')
                 .select('*, modules(name)')
                 .eq('role_id', roleId);
 
-            if (error) throw error;
+            const { data, error } = await Promise.race([permissionsPromise, timeoutPromise]);
 
-            const perms = data.map((p: any) => ({
-                module: p.modules.name,
-                can_view: p.can_view,
-                can_create: p.can_create,
-                can_edit: p.can_edit,
-                can_delete: p.can_delete
-            }));
+            if (!mountedRef.current) return;
 
-            setPermissions(perms);
-        } catch (error) {
-            console.error('Failed to fetch permissions', error);
+            if (error) {
+                console.error('Failed to fetch permissions:', error);
+                // On error, set empty permissions but allow navigation
+                setPermissions([]);
+            } else {
+                const perms = data.map((p: any) => ({
+                    module: p.modules.name,
+                    can_view: p.can_view,
+                    can_create: p.can_create,
+                    can_edit: p.can_edit,
+                    can_delete: p.can_delete
+                }));
+
+                setPermissions(perms);
+            }
+        } catch (error: any) {
+            if (!mountedRef.current) return;
+            
+            if (error?.message === 'Permissions fetch timeout') {
+                console.warn('Permissions fetch timed out');
+            } else {
+                console.error('Failed to fetch permissions:', error);
+            }
+            // On timeout or error, set empty permissions but allow navigation
+            setPermissions([]);
         } finally {
-            setLoading(false);
+            if (mountedRef.current) {
+                setLoading(false);
+            }
+            isFetchingRef.current = false;
         }
     };
 

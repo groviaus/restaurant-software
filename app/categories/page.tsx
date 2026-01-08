@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -22,9 +23,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Plus, Edit, Trash2, FolderOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, FolderOpen, Store } from 'lucide-react';
 import { toast } from 'sonner';
-import { Category } from '@/lib/types';
+import { Category, Outlet } from '@/lib/types';
 import { useOutlet } from '@/hooks/useOutlet';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Loader2 } from 'lucide-react';
@@ -34,9 +35,11 @@ export default function CategoriesPage() {
     const { currentOutlet } = useOutlet();
     const { checkPermission, loading: permLoading } = usePermissions();
     const [categories, setCategories] = useState<Category[]>([]);
+    const [outlets, setOutlets] = useState<Outlet[]>([]);
     const [loading, setLoading] = useState(true);
     const [formOpen, setFormOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+    const [selectedOutletIds, setSelectedOutletIds] = useState<string[]>([]);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -50,10 +53,12 @@ export default function CategoriesPage() {
     }, [permLoading, checkPermission, router]);
 
     useEffect(() => {
-        if (currentOutlet && !permLoading && checkPermission('menu', 'view')) {
+        if (currentOutlet && !permLoading) {
             fetchCategories();
+            fetchOutlets();
         }
-    }, [currentOutlet, permLoading, checkPermission]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentOutlet?.id, permLoading]);
 
     if (permLoading) {
         return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -79,6 +84,18 @@ export default function CategoriesPage() {
         }
     };
 
+    const fetchOutlets = async () => {
+        try {
+            const response = await fetch('/api/outlets');
+            if (response.ok) {
+                const data = await response.json();
+                setOutlets(data.outlets || data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching outlets:', error);
+        }
+    };
+
     const handleOpenForm = (category?: Category) => {
         if (category) {
             setEditingCategory(category);
@@ -87,6 +104,7 @@ export default function CategoriesPage() {
                 description: category.description || '',
                 display_order: category.display_order,
             });
+            setSelectedOutletIds([category.outlet_id]);
         } else {
             setEditingCategory(null);
             setFormData({
@@ -94,6 +112,8 @@ export default function CategoriesPage() {
                 description: '',
                 display_order: categories.length,
             });
+            // Pre-select current outlet for new categories
+            setSelectedOutletIds(currentOutlet ? [currentOutlet.id] : []);
         }
         setFormOpen(true);
     };
@@ -102,6 +122,27 @@ export default function CategoriesPage() {
         setFormOpen(false);
         setEditingCategory(null);
         setFormData({ name: '', description: '', display_order: 0 });
+        setSelectedOutletIds([]);
+    };
+
+    const handleOutletToggle = (outletId: string) => {
+        setSelectedOutletIds(prev => {
+            if (prev.includes(outletId)) {
+                // Don't allow deselecting all outlets
+                if (prev.length === 1) return prev;
+                return prev.filter(id => id !== outletId);
+            }
+            return [...prev, outletId];
+        });
+    };
+
+    const handleSelectAllOutlets = () => {
+        if (selectedOutletIds.length === outlets.length) {
+            // Keep at least the current outlet selected
+            setSelectedOutletIds(currentOutlet ? [currentOutlet.id] : []);
+        } else {
+            setSelectedOutletIds(outlets.map(o => o.id));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -109,29 +150,48 @@ export default function CategoriesPage() {
         if (!currentOutlet) return;
 
         try {
-            const url = editingCategory
-                ? `/api/categories/${editingCategory.id}`
-                : '/api/categories';
+            if (editingCategory) {
+                // Editing existing category
+                const response = await fetch(`/api/categories/${editingCategory.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData),
+                });
 
-            const method = editingCategory ? 'PATCH' : 'POST';
-
-            const payload = editingCategory
-                ? formData
-                : { ...formData, outlet_id: currentOutlet.id };
-
-            const response = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-
-            if (response.ok) {
-                toast.success(editingCategory ? 'Category updated' : 'Category created');
-                handleCloseForm();
-                fetchCategories();
+                if (response.ok) {
+                    toast.success('Category updated');
+                    handleCloseForm();
+                    fetchCategories();
+                } else {
+                    const error = await response.json();
+                    toast.error(error.error || 'Failed to update category');
+                }
             } else {
-                const error = await response.json();
-                toast.error(error.error || 'Failed to save category');
+                // Creating new category - support multiple outlets
+                const payload = {
+                    ...formData,
+                    outlet_ids: selectedOutletIds,
+                };
+
+                const response = await fetch('/api/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (response.ok) {
+                    const successCount = selectedOutletIds.length;
+                    toast.success(
+                        successCount > 1
+                            ? `Category created in ${successCount} outlets`
+                            : 'Category created'
+                    );
+                    handleCloseForm();
+                    fetchCategories();
+                } else {
+                    const error = await response.json();
+                    toast.error(error.error || 'Failed to create category');
+                }
             }
         } catch (error) {
             console.error('Error saving category:', error);
@@ -169,12 +229,12 @@ export default function CategoriesPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Menu Categories</h1>
-                    <p className="text-gray-600 mt-1">Manage your menu categories</p>
+                    <p className="text-gray-600 mt-1 text-sm sm:text-base">Manage your menu categories</p>
                 </div>
-                <Button onClick={() => handleOpenForm()} className="h-10 sm:h-11">
+                <Button onClick={() => handleOpenForm()} className="h-10 sm:h-11 w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Category
                 </Button>
@@ -189,7 +249,9 @@ export default function CategoriesPage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="text-center py-8">Loading categories...</div>
+                        <div className="text-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                        </div>
                     ) : categories.length === 0 ? (
                         <div className="text-center py-12">
                             <FolderOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -254,7 +316,7 @@ export default function CategoriesPage() {
 
             {/* Category Form Dialog */}
             <Dialog open={formOpen} onOpenChange={setFormOpen}>
-                <DialogContent>
+                <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>
                             {editingCategory ? 'Edit Category' : 'Create Category'}
@@ -266,6 +328,58 @@ export default function CategoriesPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Multi-Outlet Selection - Only show for new categories and if there are multiple outlets */}
+                        {!editingCategory && outlets.length > 1 && (
+                            <Card className="border-dashed">
+                                <CardContent className="p-3 sm:p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <Label className="text-sm font-medium flex items-center gap-2">
+                                            <Store className="h-4 w-4" />
+                                            Create in Outlets
+                                        </Label>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleSelectAllOutlets}
+                                            className="h-7 text-xs"
+                                        >
+                                            {selectedOutletIds.length === outlets.length ? 'Deselect All' : 'Select All'}
+                                        </Button>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {outlets.map((outlet) => (
+                                            <label
+                                                key={outlet.id}
+                                                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${selectedOutletIds.includes(outlet.id)
+                                                    ? 'bg-primary/5 border-primary'
+                                                    : 'hover:bg-muted/50'
+                                                    }`}
+                                            >
+                                                <Checkbox
+                                                    checked={selectedOutletIds.includes(outlet.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        if (checked) {
+                                                            setSelectedOutletIds(prev => [...prev, outlet.id]);
+                                                        } else {
+                                                            // Don't allow deselecting all outlets
+                                                            if (selectedOutletIds.length > 1) {
+                                                                setSelectedOutletIds(prev => prev.filter(id => id !== outlet.id));
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                <span className="text-sm truncate flex-1">{outlet.name}</span>
+                                                {currentOutlet && outlet.id === currentOutlet.id && (
+                                                    <span className="text-xs text-primary font-medium">Current</span>
+                                                )}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         <div>
                             <Label htmlFor="name">Category Name *</Label>
                             <Input
@@ -301,15 +415,15 @@ export default function CategoriesPage() {
                                 Lower numbers appear first
                             </p>
                         </div>
-                        <div className="flex gap-2 pt-4">
-                            <Button type="submit" className="flex-1">
-                                {editingCategory ? 'Update' : 'Create'}
+                        <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                            <Button type="submit" className="flex-1 order-1 sm:order-2">
+                                {editingCategory ? 'Update' : `Create${!editingCategory && selectedOutletIds.length > 1 ? ` (${selectedOutletIds.length})` : ''}`}
                             </Button>
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={handleCloseForm}
-                                className="flex-1"
+                                className="flex-1 order-2 sm:order-1"
                             >
                                 Cancel
                             </Button>
