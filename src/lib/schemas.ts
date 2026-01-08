@@ -22,6 +22,7 @@ export const createMenuItemSchema = z.object({
   half_price: z.number().nonnegative().optional().nullable(),
   three_quarter_price: z.number().nonnegative().optional().nullable(),
   full_price: z.number().nonnegative().optional().nullable(),
+  profit_margin_percent: z.number().min(0).max(100).optional().default(0),
 });
 
 export const updateMenuItemSchema = z.object({
@@ -43,6 +44,7 @@ export const updateMenuItemSchema = z.object({
   half_price: z.number().nonnegative().optional().nullable(),
   three_quarter_price: z.number().nonnegative().optional().nullable(),
   full_price: z.number().nonnegative().optional().nullable(),
+  profit_margin_percent: z.number().min(0).max(100).optional(),
 });
 
 export const menuItemIdSchema = z.object({

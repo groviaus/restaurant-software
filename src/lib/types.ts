@@ -82,6 +82,7 @@ export interface MenuItem {
   half_price?: number | null;
   three_quarter_price?: number | null;
   full_price?: number | null;
+  profit_margin_percent?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -146,6 +147,7 @@ export interface CreateMenuItemRequest {
   category?: string;
   available?: boolean;
   image_url?: string;
+  profit_margin_percent?: number;
 }
 
 export interface UpdateMenuItemRequest {
@@ -155,6 +157,7 @@ export interface UpdateMenuItemRequest {
   category?: string;
   available?: boolean;
   image_url?: string;
+  profit_margin_percent?: number;
 }
 
 export interface CreateOrderRequest {

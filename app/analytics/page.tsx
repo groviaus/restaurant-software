@@ -42,6 +42,7 @@ interface SummaryMetrics {
   cancelledOrders: number;
   averageOrderValue: number;
   cancellationRate: number;
+  netProfit: number;
 }
 
 interface SalesTrendData {
@@ -91,26 +92,6 @@ export default function AnalyticsPage() {
   const [groupedOrders, setGroupedOrders] = useState<GroupedOrders[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersGroupBy, setOrdersGroupBy] = useState<'none' | 'day'>('none');
-
-  useEffect(() => {
-    if (!permLoading && !checkPermission('analytics', 'view')) {
-      router.push('/dashboard');
-    }
-  }, [permLoading, checkPermission, router]);
-
-  if (permLoading) {
-    return <div className="flex justify-center p-8">Loading...</div>; // Or use Loader2
-  }
-
-  // Helper function to get chart colors
-  const getChartColor = (method: string): string => {
-    const colorMap: Record<string, string> = {
-      'cash': '#ea580c',    // Orange (chart-1)
-      'upi': '#0891b2',     // Cyan (chart-2)
-      'card': '#0f766e',    // Teal (chart-3)
-    };
-    return colorMap[method.toLowerCase()] || '#ea580c';
-  };
 
   // Helper function to format date as YYYY-MM-DD in local timezone
   const formatLocalDate = (date: Date): string => {
@@ -241,6 +222,26 @@ export default function AnalyticsPage() {
     fetchData();
   }, [dateRange, ordersGroupBy]);
 
+  useEffect(() => {
+    if (!permLoading && !checkPermission('analytics', 'view')) {
+      router.push('/dashboard');
+    }
+  }, [permLoading, checkPermission, router]);
+
+  const totalPaymentAmount = useMemo(() => {
+    return paymentData.reduce((sum, item) => sum + item.amount, 0);
+  }, [paymentData]);
+
+  // Helper function to get chart colors
+  const getChartColor = (method: string): string => {
+    const colorMap: Record<string, string> = {
+      'cash': '#ea580c',    // Orange (chart-1)
+      'upi': '#0891b2',     // Cyan (chart-2)
+      'card': '#0f766e',    // Teal (chart-3)
+    };
+    return colorMap[method.toLowerCase()] || '#ea580c';
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -259,9 +260,9 @@ export default function AnalyticsPage() {
     }
   };
 
-  const totalPaymentAmount = useMemo(() => {
-    return paymentData.reduce((sum, item) => sum + item.amount, 0);
-  }, [paymentData]);
+  if (permLoading) {
+    return <div className="flex justify-center p-8">Loading...</div>;
+  }
 
   return (
     <div className="flex-1 space-y-4 sm:space-y-6 p-3 sm:p-4 lg:p-8 pt-3 sm:pt-4 lg:pt-6">
@@ -318,6 +319,25 @@ export default function AnalyticsPage() {
                     <div className="flex items-center mt-2 text-xs text-emerald-600">
                       <TrendingUp className="h-3 w-3 mr-1 flex-shrink-0" />
                       <span className="truncate">{getPeriodLabel()}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-emerald-500/20 bg-emerald-50/50">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                      Net Profit (Est.)
+                    </CardTitle>
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl sm:text-3xl font-bold break-words">{formatCurrency(summary.netProfit)}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {((summary.netProfit / summary.totalSales) * 100 || 0).toFixed(1)}% margin
+                    </p>
+                    <div className="flex items-center mt-2 text-xs text-emerald-600">
+                      <TrendingUp className="h-3 w-3 mr-1 flex-shrink-0" />
+                      <span className="truncate">Based on current margins</span>
                     </div>
                   </CardContent>
                 </Card>

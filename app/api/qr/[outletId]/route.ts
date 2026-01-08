@@ -11,11 +11,13 @@ export async function GET(
 
     // Validate outlet exists
     const supabase = createServiceRoleClient();
-    const { data: outlet, error: outletError } = await supabase
+    const { data: outletData, error: outletError } = await supabase
       .from('outlets')
       .select('id, name')
       .eq('id', outletId)
       .single();
+
+    const outlet = outletData as { id: string; name: string } | null;
 
     if (outletError || !outlet) {
       return NextResponse.json(

@@ -59,6 +59,7 @@ export function MenuItemForm({
     half_price: 0,
     three_quarter_price: 0,
     full_price: 0,
+    profit_margin_percent: 0,
   });
 
   useEffect(() => {
@@ -86,6 +87,7 @@ export function MenuItemForm({
         half_price: menuItem.half_price || 0,
         three_quarter_price: menuItem.three_quarter_price || 0,
         full_price: menuItem.full_price || 0,
+        profit_margin_percent: menuItem.profit_margin_percent || 0,
       });
     } else {
       setFormData({
@@ -105,6 +107,7 @@ export function MenuItemForm({
         half_price: 0,
         three_quarter_price: 0,
         full_price: 0,
+        profit_margin_percent: 0,
       });
     }
   }, [menuItem, outletId, open]);
@@ -151,6 +154,7 @@ export function MenuItemForm({
         available_quantity_types: formData.pricing_mode !== PricingMode.FIXED
           ? formData.available_quantity_types
           : null,
+        profit_margin_percent: formData.profit_margin_percent,
       };
 
       // Set price based on pricing mode
@@ -508,6 +512,38 @@ export function MenuItemForm({
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="profit_margin_percent">Profit Margin (%)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="profit_margin_percent"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                placeholder="0"
+                value={formData.profit_margin_percent}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    profit_margin_percent: parseFloat(e.target.value) || 0,
+                  })
+                }
+              />
+              <span className="text-sm text-gray-500 whitespace-nowrap">
+                Est. Profit: ₹
+                {(
+                  (formData.pricing_mode === PricingMode.FIXED
+                    ? formData.price
+                    : formData.pricing_mode === PricingMode.QUANTITY_AUTO
+                      ? formData.base_price
+                      : formData.full_price || formData.price) *
+                  (formData.profit_margin_percent / 100)
+                ).toFixed(2)}
+              </span>
+            </div>
           </div>
 
           {/* Availability */}

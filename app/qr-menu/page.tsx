@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Store, MapPin, AlertCircle, UtensilsCrossed } from 'lucide-react';
 import { MenuItem, Outlet } from '@/lib/types';
 
-export default function QRMenuPage() {
+function QRMenuContent() {
   const searchParams = useSearchParams();
   const outletId = searchParams.get('outlet');
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -229,5 +229,20 @@ export default function QRMenuPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function QRMenuPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Skeleton className="h-12 w-48 mx-auto mb-4" />
+          <Skeleton className="h-4 w-32 mx-auto" />
+        </div>
+      </div>
+    }>
+      <QRMenuContent />
+    </Suspense>
   );
 }

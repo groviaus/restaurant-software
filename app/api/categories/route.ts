@@ -79,9 +79,11 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = createCategorySchema.parse(body);
 
+        const insertData: any = { ...validatedData };
+
         const { data, error } = await supabase
             .from('categories')
-            .insert(validatedData)
+            .insert(insertData)
             .select()
             .single();
 
@@ -92,9 +94,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(data, { status: 201 });
     } catch (error: any) {
-        if (error instanceof z.ZodError) {
+        if (error.name === 'ZodError') {
             return NextResponse.json(
-                { error: 'Validation error', details: error.errors },
+                { error: 'Validation error', details: error.issues },
                 { status: 400 }
             );
         }

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     // We can use upsert to handle both insert and update
-    const payload = permissions.map(p => ({
+    const payload: any = permissions.map((p: any) => ({
         role_id,
         module_id: p.module_id,
         can_view: p.can_view ?? false,

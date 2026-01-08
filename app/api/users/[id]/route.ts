@@ -26,6 +26,7 @@ export async function PATCH(
     if (Object.keys(updateData).length > 0) {
         const { error: updateError } = await supabaseAdmin
             .from('users')
+            // @ts-expect-error - Supabase type inference issue
             .update(updateData)
             .eq('id', id);
 

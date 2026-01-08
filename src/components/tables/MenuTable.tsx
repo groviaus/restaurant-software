@@ -230,6 +230,7 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
                 <TableHead className="min-w-[150px]">Name</TableHead>
                 <TableHead className="min-w-[120px]">Category</TableHead>
                 <TableHead className="min-w-[100px]">Price</TableHead>
+                <TableHead className="min-w-[80px]">Margin</TableHead>
                 <TableHead className="min-w-[100px]">Status</TableHead>
                 <TableHead className="text-right min-w-[120px]">Actions</TableHead>
               </TableRow>
@@ -254,6 +255,7 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.category || '-'}</TableCell>
                     <TableCell className="font-medium text-gray-900">₹{item.price.toFixed(2)}</TableCell>
+                    <TableCell>{item.profit_margin_percent ? `${item.profit_margin_percent}%` : '-'}</TableCell>
                     <TableCell>
                       <Badge variant={item.available ? 'default' : 'secondary'}>
                         {item.available ? 'Available' : 'Unavailable'}

@@ -50,9 +50,11 @@ export async function PATCH(
     const { name, description } = body;
 
     const supabase = await createClient();
+    const updateData: any = { name, description };
     const { data: role, error } = await supabase
         .from('roles')
-        .update({ name, description } as any)
+        // @ts-expect-error - Supabase type inference issue
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();

@@ -34,10 +34,14 @@ export async function PATCH(
         const supabase = await createClient();
         const body = await request.json();
         const validatedData = updateCategorySchema.parse(body);
+        const updateData: any = {
+            ...validatedData,
+        };
 
         const { data, error } = await supabase
             .from('categories')
-            .update(validatedData)
+            // @ts-expect-error - Supabase type inference issue
+            .update(updateData)
             .eq('id', id)
             .select()
             .single();
@@ -49,9 +53,9 @@ export async function PATCH(
 
         return NextResponse.json(data);
     } catch (error: any) {
-        if (error instanceof z.ZodError) {
+        if (error.name === 'ZodError') {
             return NextResponse.json(
-                { error: 'Validation error', details: error.errors },
+                { error: 'Validation error', details: error.issues },
                 { status: 400 }
             );
         }
