@@ -47,7 +47,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         
         {/* Show role badge on mobile if hidden in title area */}
         {profile && (
-          <span className="xs:hidden inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
+          <span className="hidden xs:inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
             {profile.role}
           </span>
         )}

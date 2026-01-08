@@ -75,30 +75,12 @@ export function useOutlet() {
 
       const data = await response.json();
       
-      // Update store
-      setCurrentOutlet(outletId);
-      
-      // Refresh profile to get updated current_outlet_id before reload
-      // This ensures the profile is fresh when the page reloads
-      try {
-        // Set a flag in sessionStorage to indicate outlet switch in progress
-        // This helps AuthProvider know to refresh profile on next load
-        sessionStorage.setItem('outlet_switch_in_progress', 'true');
-        
-        // Refresh profile - wait for it to complete
-        await refreshProfile();
-        
-        // Give a small delay to ensure state updates propagate
-        await new Promise(resolve => setTimeout(resolve, 200));
-      } catch (error) {
-        console.error('Error refreshing profile after outlet switch:', error);
-        // Continue with reload even if refresh fails
-      }
-      
-      // Force a full page reload to ensure all data is refreshed with new outlet
-      // This ensures server components re-fetch with new effective outlet ID
+      // Reload immediately after successful outlet switch
+      // The reload will fetch fresh profile and all data from the server
+      // No need to update store or refresh profile - reload handles everything
       window.location.reload();
       
+      // This return won't execute due to reload, but needed for type safety
       return data;
     } catch (error) {
       console.error('Error switching outlet:', error);

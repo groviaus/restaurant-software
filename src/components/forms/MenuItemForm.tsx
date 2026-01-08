@@ -492,7 +492,7 @@ export function MenuItemForm({
                     const labels: Partial<Record<QuantityType, string>> = {
                       [QuantityType.QUARTER]: 'Quarter',
                       [QuantityType.HALF]: 'Half',
-                      [QuantityType.THREE_QUARTER]: '3/4',
+                      [QuantityType.THREE_QUARTER]: 'Three-Quarters',
                       [QuantityType.FULL]: 'Full',
                     };
                     const priceFields: Partial<Record<QuantityType, keyof typeof formData>> = {

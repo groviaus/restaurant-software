@@ -46,16 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         async function initializeAuth() {
             try {
-                // Check if outlet switch just happened - if so, force profile refresh
-                const outletSwitchFlag = typeof window !== 'undefined' 
-                    ? sessionStorage.getItem('outlet_switch_in_progress')
-                    : null;
-                
-                if (outletSwitchFlag === 'true' && typeof window !== 'undefined') {
-                    // Clear the flag
-                    sessionStorage.removeItem('outlet_switch_in_progress');
-                }
-
                 // Use getUser() instead of getSession() to validate with server
                 // Add timeout to prevent hanging on corrupted sessions
                 let authUser, userError;
@@ -113,13 +103,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 currentUserIdRef.current = authUser.id;
                 setUser(authUser);
-                
-                // If outlet switch happened, force a fresh profile fetch (bypass cache)
-                if (outletSwitchFlag === 'true') {
-                    // Reset profile ref to force fetch
-                    currentProfileUserIdRef.current = null;
-                }
-                
                 await fetchUserProfile(authUser.id);
                 
                 // Clear safety timeout on success

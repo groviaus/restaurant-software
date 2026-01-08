@@ -19,6 +19,7 @@ import {
   FolderOpen,
   Users,
   Shield,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
@@ -42,6 +43,7 @@ const navigation = [
 const adminNavigation = [
   { name: 'Users', href: '/users', icon: Users, module: 'users' },
   { name: 'Roles & Permissions', href: '/roles', icon: Shield, module: 'roles' },
+  { name: 'Settings', href: '/settings', icon: Settings, module: 'settings' },
 ];
 
 interface SidebarProps {

@@ -20,7 +20,7 @@ import { OrderForm } from '@/components/forms/OrderForm';
 import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { Table as TableType } from '@/lib/types';
-import { Plus, Eye, X } from 'lucide-react';
+import { Plus, Eye, X, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTableOrderStore } from '@/store/tableOrderStore';
 import { OrdersFilters, OrdersFilters as FiltersType } from '@/components/orders/OrdersFilters';
@@ -52,6 +52,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
     statuses: [],
     orderTypes: [],
   });
+  const [showFilters, setShowFilters] = useState(false);
 
   const { checkPermission, isAdmin } = usePermissions();
   const canCreateOrder = isAdmin || checkPermission('orders', 'create');
@@ -205,10 +206,13 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
   return (
     <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
-        <div>
+        <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
           <p className="text-xs sm:text-sm text-gray-600">
             Showing {orders.length} of {allOrders.length} orders
           </p>
+         
+            <Filter className="h-4 w-4 mr-2"  onClick={() => setShowFilters(!showFilters)}/>
+          
         </div>
         {canCreateOrder && (
           <Button onClick={() => setOrderFormOpen(true)} className="w-full sm:w-auto">
@@ -218,11 +222,13 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
           </Button>
         )}
       </div>
-      <OrdersFilters
-        tables={tables}
-        filters={filters}
-        onFiltersChange={setFilters}
-      />
+      <div className={`${showFilters ? 'block' : 'hidden'} md:block`}>
+        <OrdersFilters
+          tables={tables}
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
+      </div>
       <div className="mt-4" />
       <div className="rounded-md border overflow-hidden">
         <div className="overflow-x-auto">

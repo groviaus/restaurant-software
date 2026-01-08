@@ -132,7 +132,24 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const tax = subtotal * 0.18; // 18% GST
+    // Fetch outlet settings for GST calculation
+    let taxRate = 0.18; // Default 18% GST
+    const { data: outletSettings } = await supabase
+      .from('outlet_settings')
+      .select('gst_enabled, gst_percentage')
+      .eq('outlet_id', validatedData.outlet_id)
+      .single();
+
+    const settings = outletSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
+    if (settings) {
+      if (!settings.gst_enabled) {
+        taxRate = 0;
+      } else if (settings.gst_percentage) {
+        taxRate = settings.gst_percentage / 100;
+      }
+    }
+
+    const tax = subtotal * taxRate;
     const total = subtotal + tax;
 
     // Create order
@@ -145,6 +162,7 @@ export async function POST(request: NextRequest) {
       subtotal: subtotal,
       tax: tax,
       total: total,
+      tax_rate: taxRate, // Store the tax rate used
     };
     const { data: order, error: orderError } = await supabase
       .from('orders')
