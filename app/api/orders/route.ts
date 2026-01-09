@@ -12,12 +12,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const query = ordersQuerySchema.parse({
-      outlet_id: searchParams.get('outlet_id'),
-      status: searchParams.get('status'),
-      start_date: searchParams.get('start_date'),
-      end_date: searchParams.get('end_date'),
-      limit: searchParams.get('limit'),
-      offset: searchParams.get('offset'),
+      outlet_id: searchParams.get('outlet_id') || undefined,
+      status: searchParams.get('status') || undefined,
+      start_date: searchParams.get('start_date') || undefined,
+      end_date: searchParams.get('end_date') || undefined,
+      limit: searchParams.get('limit') || undefined,
+      offset: searchParams.get('offset') || undefined,
     });
 
     let queryBuilder = supabase

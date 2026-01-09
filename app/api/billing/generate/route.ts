@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { billRequestSchema } from '@/lib/schemas';
 import { OrderStatus, PaymentMethod } from '@/lib/types';
 
@@ -80,6 +80,48 @@ export async function POST(request: NextRequest) {
         // @ts-expect-error - Supabase type inference issue
         .update(tableUpdateData)
         .eq('id', updatedOrderData.table_id);
+    }
+
+    // Auto stock deduction when order is completed via bill generation
+    const profile = await getUserProfile();
+    const effectiveOutletId = getEffectiveOutletId(profile);
+    if (effectiveOutletId && updatedOrderData.order_items) {
+      const serviceClient = createServiceRoleClient();
+
+      for (const orderItem of updatedOrderData.order_items) {
+        // Get current inventory
+        const { data: inventory } = await serviceClient
+          .from('inventory')
+          .select('*')
+          .eq('outlet_id', effectiveOutletId)
+          .eq('item_id', orderItem.item_id)
+          .single();
+
+        if (inventory) {
+          const inventoryData = inventory as any;
+          const newStock = inventoryData.stock - orderItem.quantity;
+
+          // Update stock
+          const stockUpdateData: any = { stock: Math.max(0, newStock) };
+          await serviceClient
+            .from('inventory')
+            // @ts-expect-error - Supabase type inference issue
+            .update(stockUpdateData)
+            .eq('id', inventoryData.id);
+
+          // Log the deduction
+          const logData: any = {
+            outlet_id: effectiveOutletId,
+            item_id: orderItem.item_id,
+            change: -orderItem.quantity,
+            reason: `Order ${updatedOrderData.id} completed (bill generated)`,
+            created_by: profile?.id || null,
+          };
+          await serviceClient
+            .from('inventory_logs')
+            .insert(logData);
+        }
+      }
     }
 
     return NextResponse.json({

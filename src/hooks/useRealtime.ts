@@ -171,3 +171,143 @@ export function useRealtimeTables({
     return { channel: channelRef.current };
 }
 
+/**
+ * Hook to subscribe to real-time inventory changes.
+ */
+export function useRealtimeInventory({
+    outletId,
+    onInsert,
+    onUpdate,
+    onDelete,
+    onChange,
+}: {
+    outletId?: string;
+    onInsert?: (payload: RealtimePostgresChangesPayload<any>) => void;
+    onUpdate?: (payload: RealtimePostgresChangesPayload<any>) => void;
+    onDelete?: (payload: RealtimePostgresChangesPayload<any>) => void;
+    onChange?: (payload: RealtimePostgresChangesPayload<any>) => void;
+}) {
+    const supabaseRef = useRef(createClient());
+    const channelRef = useRef<ReturnType<typeof supabaseRef.current.channel> | null>(null);
+
+    const handleChange = useCallback(
+        (payload: RealtimePostgresChangesPayload<any>) => {
+            const newRecord = (payload as any).new || (payload as any).data?.record || payload.new;
+            const oldRecord = (payload as any).old || (payload as any).data?.old_record || payload.old;
+            
+            console.log('[Realtime] Inventory change received:', {
+                eventType: payload.eventType,
+                table: payload.table,
+                schema: payload.schema,
+                new: newRecord,
+                old: oldRecord,
+            });
+
+            switch (payload.eventType) {
+                case 'INSERT':
+                    console.log('[Realtime] INSERT event - new inventory item:', newRecord);
+                    onInsert?.(payload);
+                    break;
+                case 'UPDATE':
+                    console.log('[Realtime] UPDATE event - inventory changed:', {
+                        from: oldRecord,
+                        to: newRecord,
+                    });
+                    onUpdate?.(payload);
+                    break;
+                case 'DELETE':
+                    console.log('[Realtime] DELETE event - inventory deleted:', oldRecord);
+                    onDelete?.(payload);
+                    break;
+            }
+
+            onChange?.(payload);
+        },
+        [onInsert, onUpdate, onDelete, onChange]
+    );
+
+    useEffect(() => {
+        if (!outletId) return;
+
+        const supabase = supabaseRef.current;
+        const channelName = `inventory-${outletId}-${Date.now()}`;
+
+        const channel = supabase
+            .channel(channelName)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'inventory',
+                    filter: `outlet_id=eq.${outletId}`,
+                },
+                handleChange
+            )
+            .subscribe((status) => {
+                console.log('[Realtime] Inventory subscription status:', status);
+            });
+
+        channelRef.current = channel;
+
+        return () => {
+            console.log('[Realtime] Unsubscribing from inventory channel:', channelName);
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+                channelRef.current = null;
+            }
+        };
+    }, [outletId, handleChange]);
+
+    return { channel: channelRef.current };
+}
+
+/**
+ * Hook to subscribe to real-time inventory logs changes.
+ */
+export function useRealtimeInventoryLogs({
+    outletId,
+    onChange,
+}: {
+    outletId?: string;
+    onChange?: (payload: RealtimePostgresChangesPayload<any>) => void;
+}) {
+    const supabaseRef = useRef(createClient());
+    const channelRef = useRef<ReturnType<typeof supabaseRef.current.channel> | null>(null);
+
+    useEffect(() => {
+        if (!outletId) return;
+
+        const supabase = supabaseRef.current;
+        const channelName = `inventory-logs-${outletId}-${Date.now()}`;
+
+        const channel = supabase
+            .channel(channelName)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'inventory_logs',
+                    filter: `outlet_id=eq.${outletId}`,
+                },
+                (payload) => {
+                    console.log('[Realtime] Inventory log change:', payload.eventType, payload);
+                    onChange?.(payload);
+                }
+            )
+            .subscribe();
+
+        channelRef.current = channel;
+
+        return () => {
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+                channelRef.current = null;
+            }
+        };
+    }, [outletId, onChange]);
+
+    return { channel: channelRef.current };
+}
+

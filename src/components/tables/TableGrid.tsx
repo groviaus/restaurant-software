@@ -40,20 +40,29 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh }: TableG
   // Function to refetch tables from API
   const refetchTables = useCallback(async () => {
     try {
+      console.log('[TableGrid] Refetching tables...');
       const response = await fetch(`/api/tables?outlet_id=${outletId}`);
       if (response.ok) {
         const data = await response.json();
-        setTables(data);
+        // API returns { tables: [...] } or just array
+        const tablesData = data.tables || data || [];
+        console.log('[TableGrid] Refetched tables:', tablesData.length, 'tables');
+        setTables(Array.isArray(tablesData) ? tablesData : []);
+        router.refresh();
+      } else {
+        const errorText = await response.text();
+        console.error('[TableGrid] Failed to refetch tables:', response.status, response.statusText, errorText);
       }
     } catch (error) {
-      console.error('Failed to refetch tables:', error);
+      console.error('[TableGrid] Failed to refetch tables:', error);
     }
-  }, [outletId, setTables]);
+  }, [outletId, setTables, router]);
 
   // Subscribe to real-time table changes
   useRealtimeTables({
     outletId,
-    onChange: () => {
+    onChange: (payload) => {
+      console.log('[TableGrid] Realtime table change received:', payload.eventType);
       // Refetch tables when any change happens on another device
       refetchTables();
     },

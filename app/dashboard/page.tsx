@@ -1,11 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { getUser, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
-import { SalesTrendChart } from '@/components/charts/SalesTrendChart';
-import { PaymentBreakdownChart } from '@/components/charts/PaymentBreakdownChart';
-import { PeakHoursChart } from '@/components/charts/PeakHoursChart';
-import { TopItemsList } from '@/components/charts/TopItemsList';
-import { StaffPerformanceList } from '@/components/charts/StaffPerformanceList';
+import { DashboardClient } from '@/components/dashboard/DashboardClient';
 
 export default async function DashboardPage() {
   // Enforce permission check for dashboard
@@ -50,6 +45,8 @@ export default async function DashboardPage() {
   let totalOrders = 0;
   let completedOrders = 0;
   let topItem = 'N/A';
+  let lowStockAlertsCount = 0;
+  let totalInventoryItems = 0;
 
   try {
     // #region agent log
@@ -140,6 +137,19 @@ export default async function DashboardPage() {
         topItem = Array.from(itemCounts.values()).sort((a, b) => b.count - a.count)[0].name;
       }
     }
+
+    // Fetch inventory summary
+    const { data: inventoryData, error: inventoryError } = await serviceClient
+      .from('inventory')
+      .select('stock, low_stock_threshold')
+      .eq('outlet_id', effectiveOutletId);
+
+    if (!inventoryError && inventoryData) {
+      totalInventoryItems = inventoryData.length;
+      lowStockAlertsCount = inventoryData.filter(
+        (inv: any) => inv.stock <= inv.low_stock_threshold
+      ).length;
+    }
   } catch (error) {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'app/dashboard/page.tsx:113', message: 'Catch block error', data: { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
@@ -152,58 +162,14 @@ export default async function DashboardPage() {
   // #endregion
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Overview of your restaurant operations</p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Today&apos;s Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">₹{totalSales.toFixed(2)}</div>
-            <p className="text-sm text-gray-600 mt-1">
-              {completedOrders} completed orders
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Today&apos;s Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalOrders}</div>
-            <p className="text-sm text-gray-600 mt-1">Total orders today</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Item</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{topItem}</div>
-            <p className="text-sm text-gray-600 mt-1">Best selling item today</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <SalesTrendChart />
-        <PaymentBreakdownChart />
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <PeakHoursChart />
-        <div className="space-y-6">
-          <TopItemsList />
-          <StaffPerformanceList />
-        </div>
-      </div>
-    </div>
+    <DashboardClient
+      initialTotalSales={totalSales}
+      initialTotalOrders={totalOrders}
+      initialCompletedOrders={completedOrders}
+      initialTopItem={topItem}
+      initialLowStockAlertsCount={lowStockAlertsCount}
+      initialTotalInventoryItems={totalInventoryItems}
+      outletId={effectiveOutletId}
+    />
   );
 }

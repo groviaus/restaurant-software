@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -17,6 +17,7 @@ import { InventoryForm } from '@/components/forms/InventoryForm';
 import { Package, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
+import { useRealtimeInventory, useRealtimeInventoryLogs } from '@/hooks/useRealtime';
 
 interface InventoryTableProps {
   inventory: Inventory[];
@@ -24,10 +25,81 @@ interface InventoryTableProps {
   outletId: string;
 }
 
-export function InventoryTable({ inventory, logs, outletId }: InventoryTableProps) {
+export function InventoryTable({ inventory: initialInventory, logs: initialLogs, outletId }: InventoryTableProps) {
   const router = useRouter();
   const [editingItem, setEditingItem] = useState<Inventory | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [inventory, setInventory] = useState<Inventory[]>(initialInventory);
+  const [logs, setLogs] = useState<InventoryLog[]>(initialLogs);
+
+  // Update state when props change (e.g., from server refresh)
+  useEffect(() => {
+    setInventory(initialInventory);
+    setLogs(initialLogs);
+  }, [initialInventory, initialLogs]);
+
+  // Function to refetch inventory from API
+  const refetchInventory = useCallback(async () => {
+    try {
+      console.log('[InventoryTable] Refetching inventory...');
+      const response = await fetch(`/api/inventory?outlet_id=${outletId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const inventoryData = data.inventory || data || [];
+        console.log('[InventoryTable] Refetched inventory:', inventoryData.length, 'items');
+        if (Array.isArray(inventoryData)) {
+          setInventory(inventoryData);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('[InventoryTable] Failed to refetch inventory:', response.status, response.statusText, errorText);
+      }
+    } catch (error) {
+      console.error('[InventoryTable] Failed to refetch inventory:', error);
+    }
+  }, [outletId]);
+
+  // Function to refetch inventory logs from API
+  const refetchLogs = useCallback(async () => {
+    try {
+      console.log('[InventoryTable] Refetching inventory logs...');
+      // Fetch logs from the page's server component via router refresh
+      router.refresh();
+    } catch (error) {
+      console.error('[InventoryTable] Failed to refetch logs:', error);
+    }
+  }, [router]);
+
+  // Subscribe to real-time inventory changes
+  useRealtimeInventory({
+    outletId,
+    onChange: (payload) => {
+      console.log('[InventoryTable] Realtime inventory change received:', payload.eventType);
+      refetchInventory();
+      router.refresh();
+    },
+    onInsert: (payload) => {
+      console.log('[InventoryTable] New inventory item inserted');
+      refetchInventory();
+      router.refresh();
+    },
+    onUpdate: (payload) => {
+      console.log('[InventoryTable] Inventory item updated');
+      refetchInventory();
+      refetchLogs(); // Also refresh logs when inventory is updated
+      router.refresh();
+    },
+  });
+
+  // Subscribe to real-time inventory logs changes
+  useRealtimeInventoryLogs({
+    outletId,
+    onChange: (payload) => {
+      console.log('[InventoryTable] Realtime inventory log change received:', payload.eventType);
+      refetchLogs();
+      router.refresh();
+    },
+  });
 
   const handleEdit = (item: Inventory) => {
     setEditingItem(item);
