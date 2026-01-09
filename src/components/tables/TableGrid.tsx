@@ -6,12 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { TableStatus } from '@/lib/types';
 import { TableForm } from '@/components/forms/TableForm';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTableOrderStore } from '@/store/tableOrderStore';
 import { cn } from '@/lib/utils';
+import { useRealtimeTables } from '@/hooks/useRealtime';
 
 interface TableGridProps {
   tables: Table[];
@@ -36,14 +37,27 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh }: TableG
   // Use store tables, fallback to initialTables
   const tables = storeTables.length > 0 ? storeTables : initialTables;
 
-  // Auto-refresh tables every 5 seconds to show real-time status updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 5000); // Refresh every 5 seconds
+  // Function to refetch tables from API
+  const refetchTables = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/tables?outlet_id=${outletId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTables(data);
+      }
+    } catch (error) {
+      console.error('Failed to refetch tables:', error);
+    }
+  }, [outletId, setTables]);
 
-    return () => clearInterval(interval);
-  }, [router]);
+  // Subscribe to real-time table changes
+  useRealtimeTables({
+    outletId,
+    onChange: () => {
+      // Refetch tables when any change happens on another device
+      refetchTables();
+    },
+  });
 
   const getStatusColor = (status: TableStatus) => {
     switch (status) {

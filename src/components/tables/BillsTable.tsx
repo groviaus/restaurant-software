@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -18,17 +18,49 @@ import { Receipt, Eye, Search, Download, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { BillModal } from '@/components/billing/BillModal';
 import { format } from 'date-fns';
+import { useRealtimeOrders } from '@/hooks/useRealtime';
 
 interface BillsTableProps {
   bills: OrderWithItems[];
   outletId: string;
 }
 
-export function BillsTable({ bills }: BillsTableProps) {
+export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
   const router = useRouter();
+  const [bills, setBills] = useState<OrderWithItems[]>(initialBills);
   const [selectedBill, setSelectedBill] = useState<OrderWithItems | null>(null);
   const [billModalOpen, setBillModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Update bills when initialBills changes (e.g., from server refresh)
+  useEffect(() => {
+    setBills(initialBills);
+  }, [initialBills]);
+
+  // Function to refetch bills from API
+  const refetchBills = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/orders?outlet_id=${outletId}&status=COMPLETED`);
+      if (response.ok) {
+        const data = await response.json();
+        setBills(data);
+      }
+    } catch (error) {
+      console.error('Failed to refetch bills:', error);
+    }
+  }, [outletId]);
+
+  // Subscribe to real-time order changes (bills are completed orders)
+  useRealtimeOrders({
+    outletId,
+    onChange: (payload) => {
+      // Only refetch if the change involves a completed order
+      const newRecord = payload.new as any;
+      if (newRecord?.status === 'COMPLETED' || payload.eventType === 'UPDATE') {
+        refetchBills();
+      }
+    },
+  });
 
   // Filter bills based on search query
   const filteredBills = bills.filter((bill) => {

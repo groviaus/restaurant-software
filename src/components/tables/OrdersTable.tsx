@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { OrderStatus } from '@/lib/types';
 import { OrderWithItems } from '@/lib/types';
 import { toast } from 'sonner';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BillModal } from '@/components/billing/BillModal';
 import { OrderForm } from '@/components/forms/OrderForm';
 import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 import { useTableOrderStore } from '@/store/tableOrderStore';
 import { OrdersFilters, OrdersFilters as FiltersType } from '@/components/orders/OrdersFilters';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useRealtimeOrders } from '@/hooks/useRealtime';
 
 interface OrdersTableProps {
   orders: any[];
@@ -70,6 +71,28 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
   // Use store data, fallback to initial data
   const allOrders = storeOrders.length > 0 ? storeOrders : initialOrders;
   const tables = storeTables.length > 0 ? storeTables : initialTables;
+
+  // Function to refetch orders from API
+  const refetchOrders = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/orders?outlet_id=${outletId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data);
+      }
+    } catch (error) {
+      console.error('Failed to refetch orders:', error);
+    }
+  }, [outletId, setOrders]);
+
+  // Subscribe to real-time order changes
+  useRealtimeOrders({
+    outletId,
+    onChange: () => {
+      // Refetch orders when any change happens on another device
+      refetchOrders();
+    },
+  });
 
   // Apply filters
   const getDateRange = (preset: string, customStart?: string, customEnd?: string) => {
@@ -210,9 +233,9 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
           <p className="text-xs sm:text-sm text-gray-600">
             Showing {orders.length} of {allOrders.length} orders
           </p>
-         
-            <Filter className="h-4 w-4 mr-2"  onClick={() => setShowFilters(!showFilters)}/>
-          
+
+          <Filter className="h-4 w-4 mr-2" onClick={() => setShowFilters(!showFilters)} />
+
         </div>
         {canCreateOrder && (
           <Button onClick={() => setOrderFormOpen(true)} className="w-full sm:w-auto">
