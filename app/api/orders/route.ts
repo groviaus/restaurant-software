@@ -42,7 +42,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (query.status) {
-      queryBuilder = queryBuilder.eq('status', query.status);
+      // Support comma-separated statuses (e.g., "COMPLETED,CANCELLED")
+      const statuses = query.status.split(',').map(s => s.trim()).filter(Boolean);
+      if (statuses.length === 1) {
+        queryBuilder = queryBuilder.eq('status', statuses[0]);
+      } else if (statuses.length > 1) {
+        queryBuilder = queryBuilder.in('status', statuses);
+      }
     }
 
     if (query.start_date) {

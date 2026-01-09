@@ -37,8 +37,8 @@ export function useRealtimeOrders({
     onDelete,
     onChange,
 }: UseRealtimeOrdersOptions) {
-    const supabase = createClient();
-    const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+    const supabaseRef = useRef(createClient());
+    const channelRef = useRef<ReturnType<typeof supabaseRef.current.channel> | null>(null);
 
     const handleChange = useCallback(
         (payload: OrderChangePayload) => {
@@ -66,6 +66,7 @@ export function useRealtimeOrders({
     useEffect(() => {
         if (!outletId) return;
 
+        const supabase = supabaseRef.current;
         // Create a unique channel name
         const channelName = `orders-${outletId}-${Date.now()}`;
 
@@ -96,7 +97,7 @@ export function useRealtimeOrders({
                 channelRef.current = null;
             }
         };
-    }, [outletId, handleChange, supabase]);
+    }, [outletId, handleChange]);
 
     return {
         // Expose channel for manual operations if needed
@@ -114,12 +115,13 @@ export function useRealtimeTables({
     outletId?: string;
     onChange?: (payload: RealtimePostgresChangesPayload<any>) => void;
 }) {
-    const supabase = createClient();
-    const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+    const supabaseRef = useRef(createClient());
+    const channelRef = useRef<ReturnType<typeof supabaseRef.current.channel> | null>(null);
 
     useEffect(() => {
         if (!outletId) return;
 
+        const supabase = supabaseRef.current;
         const channelName = `tables-${outletId}-${Date.now()}`;
 
         const channel = supabase
@@ -147,7 +149,8 @@ export function useRealtimeTables({
                 channelRef.current = null;
             }
         };
-    }, [outletId, onChange, supabase]);
+    }, [outletId, onChange]);
 
     return { channel: channelRef.current };
 }
+

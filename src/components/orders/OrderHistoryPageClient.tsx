@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { OrderHistoryTable } from '@/components/tables/OrderHistoryTable';
 import { OrderHistoryFilters, OrderHistoryFilters as FiltersType } from '@/components/orders/OrderHistoryFilters';
 import { OrderWithItems } from '@/lib/types';
 import { Table } from '@/lib/types';
+import { useRealtimeOrders } from '@/hooks/useRealtime';
 
 interface OrderHistoryPageClientProps {
   initialOrders: OrderWithItems[];
@@ -13,6 +15,39 @@ interface OrderHistoryPageClientProps {
 }
 
 export function OrderHistoryPageClient({ initialOrders, tables, outletId }: OrderHistoryPageClientProps) {
+  const router = useRouter();
+  const [orders, setOrders] = useState<OrderWithItems[]>(initialOrders);
+
+  // Update orders when initialOrders changes (e.g., from server refresh)
+  useEffect(() => {
+    setOrders(initialOrders);
+  }, [initialOrders]);
+
+  // Function to refetch orders from API
+  const refetchOrders = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/orders?outlet_id=${outletId}&status=COMPLETED,CANCELLED`);
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to refetch order history:', error);
+    }
+  }, [outletId]);
+
+  // Subscribe to real-time order changes (for completed/cancelled orders)
+  useRealtimeOrders({
+    outletId,
+    onChange: (payload) => {
+      // Only refetch if the change involves a completed or cancelled order
+      const newRecord = payload.new as any;
+      if (newRecord?.status === 'COMPLETED' || newRecord?.status === 'CANCELLED' || payload.eventType === 'UPDATE') {
+        refetchOrders();
+      }
+    },
+  });
+
   // Set default to last 30 days
   const getDefaultFilters = (): FiltersType => {
     const end = new Date();
@@ -30,7 +65,7 @@ export function OrderHistoryPageClient({ initialOrders, tables, outletId }: Orde
   const [filters, setFilters] = useState<FiltersType>(getDefaultFilters());
 
   // Apply filters
-  const filteredOrders = initialOrders.filter((order) => {
+  const filteredOrders = orders.filter((order) => {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'filtering order',data:{orderId:order.id,orderStatus:order.status,orderType:order.order_type,orderPaymentMethod:order.payment_method,filters},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
@@ -92,7 +127,7 @@ export function OrderHistoryPageClient({ initialOrders, tables, outletId }: Orde
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-sm text-gray-600">
-            Showing {filteredOrders.length} of {initialOrders.length} orders
+            Showing {filteredOrders.length} of {orders.length} orders
           </p>
         </div>
       </div>

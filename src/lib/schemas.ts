@@ -127,7 +127,7 @@ export const menuQuerySchema = z.object({
 
 export const ordersQuerySchema = z.object({
   outlet_id: z.string().uuid().optional(),
-  status: z.nativeEnum(OrderStatus).optional(),
+  status: z.string().optional(), // Accept string to support comma-separated statuses
   start_date: z.string().datetime().optional(),
   end_date: z.string().datetime().optional(),
   limit: z.string().transform((val) => parseInt(val, 10)).optional(),
