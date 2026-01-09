@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -14,27 +14,39 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { OrderWithItems } from '@/lib/types';
-import { Receipt, Eye, Search, Download, QrCode } from 'lucide-react';
-import { toast } from 'sonner';
+import { Eye, Search, QrCode, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BillModal } from '@/components/billing/BillModal';
 import { format } from 'date-fns';
 import { useRealtimeOrders } from '@/hooks/useRealtime';
+import { BillsFilters, BillsFilters as FiltersType } from '@/components/billing/BillsFilters';
+import { Table as TableType } from '@/lib/types';
 
 interface BillsTableProps {
   bills: OrderWithItems[];
   outletId: string;
+  tables: TableType[];
 }
 
-export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
+const ITEMS_PER_PAGE = 15;
+
+export function BillsTable({ bills: initialBills, outletId, tables }: BillsTableProps) {
   const router = useRouter();
   const [bills, setBills] = useState<OrderWithItems[]>(initialBills);
   const [selectedBill, setSelectedBill] = useState<OrderWithItems | null>(null);
   const [billModalOpen, setBillModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FiltersType>({
+    datePreset: 'today',
+    orderTypes: [],
+    paymentMethods: [],
+  });
 
   // Update bills when initialBills changes (e.g., from server refresh)
   useEffect(() => {
     setBills(initialBills);
+    setCurrentPage(1); // Reset to first page when data changes
   }, [initialBills]);
 
   // Function to refetch bills from API
@@ -62,24 +74,128 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
     },
   });
 
-  // Filter bills based on search query
-  const filteredBills = bills.filter((bill) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      bill.id.toLowerCase().includes(query) ||
-      bill.table?.name?.toLowerCase().includes(query) ||
-      bill.user?.name?.toLowerCase().includes(query) ||
-      bill.order_type.toLowerCase().includes(query)
-    );
-  });
+  // Get date range from preset
+  const getDateRange = (preset: string, customStart?: string, customEnd?: string) => {
+    const now = new Date();
+    let start: Date;
+    let end: Date = new Date(now);
 
-  const handleViewBill = (bill: OrderWithItems) => {
-    setSelectedBill(bill);
-    setBillModalOpen(true);
+    switch (preset) {
+      case 'today':
+        start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(now);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'yesterday':
+        start = new Date(now);
+        start.setDate(start.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'thisWeek':
+        start = new Date(now);
+        start.setDate(start.getDate() - start.getDay());
+        start.setHours(0, 0, 0, 0);
+        break;
+      case 'thisMonth':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'lastMonth':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'custom':
+        if (customStart && customEnd) {
+          start = new Date(customStart);
+          start.setHours(0, 0, 0, 0);
+          end = new Date(customEnd);
+          end.setHours(23, 59, 59, 999);
+        } else {
+          start = new Date(now);
+          start.setHours(0, 0, 0, 0);
+        }
+        break;
+      default:
+        start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+    }
+
+    return { start, end };
   };
 
-  const handleReprint = (bill: OrderWithItems) => {
+  // Apply filters
+  const filteredBills = useMemo(() => {
+    return bills.filter((bill) => {
+      // Search query filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          bill.id.toLowerCase().includes(query) ||
+          (bill as any).tables?.name?.toLowerCase().includes(query) ||
+          (bill as any).table?.name?.toLowerCase().includes(query) ||
+          (bill as any).users?.name?.toLowerCase().includes(query) ||
+          (bill as any).user?.name?.toLowerCase().includes(query) ||
+          bill.order_type.toLowerCase().includes(query) ||
+          bill.payment_method?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
+      // Date filter
+      const dateRange = getDateRange(filters.datePreset, filters.customStartDate, filters.customEndDate);
+      const billDate = new Date(bill.created_at);
+      if (billDate < dateRange.start || billDate > dateRange.end) {
+        return false;
+      }
+
+      // Order type filter
+      if (filters.orderTypes.length > 0 && !filters.orderTypes.includes(bill.order_type)) {
+        return false;
+      }
+
+      // Payment method filter
+      if (filters.paymentMethods.length > 0) {
+        if (!bill.payment_method || !filters.paymentMethods.includes(bill.payment_method)) {
+          return false;
+        }
+      }
+
+      // Table filter
+      if (filters.tableId && bill.table_id !== filters.tableId) {
+        return false;
+      }
+
+      // Amount range filter
+      const amount = Number(bill.total);
+      if (filters.minAmount !== undefined && amount < filters.minAmount) {
+        return false;
+      }
+      if (filters.maxAmount !== undefined && amount > filters.maxAmount) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [bills, searchQuery, filters]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredBills.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedBills = filteredBills.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, searchQuery]);
+
+  const handleViewBill = (bill: OrderWithItems) => {
     setSelectedBill(bill);
     setBillModalOpen(true);
   };
@@ -109,7 +225,23 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
             <div className="text-muted-foreground">
               Total: <span className="font-semibold text-foreground text-sm sm:text-base">₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="p-2 hover:bg-muted rounded-md transition-colors"
+              aria-label="Toggle filters"
+            >
+              <Filter className="h-4 w-4" />
+            </button>
           </div>
+        </div>
+
+        {/* Filters */}
+        <div className={`${showFilters ? 'block' : 'hidden'} md:block`}>
+          <BillsFilters
+            tables={tables}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
         </div>
 
         {/* Bills Table */}
@@ -130,12 +262,18 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBills.length === 0 ? (
+                {paginatedBills.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8">
                       <div className="space-y-2">
                         <p className="text-muted-foreground">
-                          {searchQuery ? 'No bills found matching your search' : 'No bills found'}
+                          {searchQuery || Object.keys(filters).some(k => {
+                            const key = k as keyof FiltersType;
+                            if (key === 'datePreset') return filters.datePreset !== 'today';
+                            if (key === 'orderTypes') return filters.orderTypes.length > 0;
+                            if (key === 'paymentMethods') return filters.paymentMethods.length > 0;
+                            return filters[key] !== undefined && filters[key] !== '';
+                          }) ? 'No bills found matching your filters' : 'No bills found'}
                         </p>
                         {!searchQuery && (
                           <p className="text-xs text-muted-foreground max-w-xs mx-auto">
@@ -146,10 +284,10 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredBills.map((bill, index) => (
+                  paginatedBills.map((bill, index) => (
                     <TableRow key={bill.id}>
                       <TableCell className="font-medium text-xs sm:text-sm">
-                        #{totalBills - index}
+                        #{totalBills - (startIndex + index)}
                       </TableCell>
                       <TableCell className="font-mono text-[10px] sm:text-xs">
                         {bill.id.slice(0, 8)}
@@ -160,7 +298,7 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs sm:text-sm">
-                        {bill.table?.name || '-'}
+                        {(bill as any).tables?.name || (bill as any).table?.name || '-'}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="flex items-center gap-1 w-fit text-[10px] sm:text-xs">
@@ -180,28 +318,20 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
                       <TableCell className="text-[10px] sm:text-xs whitespace-nowrap">
                         {format(new Date(bill.created_at), 'dd/MM/yyyy HH:mm')}
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm max-w-[120px] truncate">{bill.user?.name || '-'}</TableCell>
+                      <TableCell className="text-xs sm:text-sm max-w-[120px] truncate">
+                        {(bill as any).users?.name || (bill as any).user?.name || '-'}
+                      </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleViewBill(bill)}
-                            className="h-8 w-8 sm:h-9 sm:w-9"
-                            aria-label="View bill"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleReprint(bill)}
-                            className="h-8 w-8 sm:h-9 sm:w-9"
-                            aria-label="Reprint receipt"
-                          >
-                            <Receipt className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewBill(bill)}
+                          className="text-xs"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          <span className="hidden sm:inline">View Bill</span>
+                          <span className="sm:hidden">View</span>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -210,6 +340,40 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
             </Table>
           </div>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredBills.length)} of {filteredBills.length} bills
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="h-9"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Previous</span>
+              </Button>
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="h-9"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
       {selectedBill && (
         <BillModal
@@ -222,6 +386,3 @@ export function BillsTable({ bills: initialBills, outletId }: BillsTableProps) {
     </>
   );
 }
-
-
-

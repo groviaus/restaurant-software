@@ -38,9 +38,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate totals with custom tax rate
+    // Fetch outlet settings to get GST configuration
+    const profile = await getUserProfile();
+    const effectiveOutletId = getEffectiveOutletId(profile);
+    
+    let gstEnabled = true;
+    let gstPercentage = 18; // Default 18%
+    
+    if (effectiveOutletId) {
+      const { data: settings } = await supabase
+        .from('outlet_settings')
+        .select('gst_enabled, gst_percentage')
+        .eq('outlet_id', effectiveOutletId)
+        .single();
+      
+      if (settings) {
+        const settingsData = settings as { gst_enabled?: boolean; gst_percentage?: number } | null;
+        if (settingsData) {
+          gstEnabled = settingsData.gst_enabled ?? true;
+          gstPercentage = settingsData.gst_percentage ?? 18;
+        }
+      }
+    }
+
+    // Calculate totals based on outlet settings
     const subtotal = Number(orderData.subtotal);
-    const tax = subtotal * validatedData.tax_rate;
+    // Use tax_rate from request if provided (for backward compatibility), otherwise use settings
+    const taxRate = validatedData.tax_rate !== undefined 
+      ? validatedData.tax_rate 
+      : (gstEnabled ? gstPercentage / 100 : 0);
+    const tax = subtotal * taxRate;
     const total = subtotal + tax;
 
     // Update order with payment method and totals
@@ -83,8 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto stock deduction when order is completed via bill generation
-    const profile = await getUserProfile();
-    const effectiveOutletId = getEffectiveOutletId(profile);
+    // (profile and effectiveOutletId already fetched above)
     if (effectiveOutletId && updatedOrderData.order_items) {
       const serviceClient = createServiceRoleClient();
 

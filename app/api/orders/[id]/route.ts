@@ -4,6 +4,56 @@ import { requireAuth } from '@/lib/auth';
 import { updateOrderStatusSchema, orderIdSchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAuth();
+    const supabase = await createClient();
+
+    // Await params in Next.js 15+
+    const { id: paramsId } = await params;
+    const { id } = orderIdSchema.parse({ id: paramsId });
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        order_items (
+          *,
+          items (*)
+        ),
+        tables (*),
+        users (*)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+
+    if (!data) {
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch order' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

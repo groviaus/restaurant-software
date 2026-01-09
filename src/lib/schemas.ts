@@ -107,7 +107,7 @@ export const tableIdSchema = z.object({
 export const billRequestSchema = z.object({
   order_id: z.string().uuid(),
   payment_method: z.nativeEnum(PaymentMethod),
-  tax_rate: z.number().min(0).max(1).default(0.18), // 18% GST default
+  tax_rate: z.number().min(0).max(1).optional(), // Optional - backend will use outlet settings if not provided
 });
 
 export const billOrderIdSchema = z.object({

@@ -33,6 +33,12 @@ export default async function BillsPage() {
     .order('created_at', { ascending: false })
     .limit(200);
 
+  const { data: tables, error: tablesError } = await supabase
+    .from('tables')
+    .select('*')
+    .eq('outlet_id', effectiveOutletId)
+    .order('name', { ascending: true });
+
   if (error) {
     return (
       <div className="p-6">
@@ -48,7 +54,7 @@ export default async function BillsPage() {
         <h1 className="text-3xl font-bold text-gray-900">Bills</h1>
         <p className="text-gray-600">View and manage all bills and receipts</p>
       </div>
-      <BillsTable bills={orders || []} outletId={effectiveOutletId} />
+      <BillsTable bills={orders || []} outletId={effectiveOutletId} tables={tables || []} />
     </div>
   );
 }

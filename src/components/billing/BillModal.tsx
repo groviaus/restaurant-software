@@ -63,7 +63,7 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
         body: JSON.stringify({
           order_id: order.id,
           payment_method: paymentMethod,
-          tax_rate: 0.18,
+          // tax_rate is now optional - backend will use outlet settings
         }),
       });
 

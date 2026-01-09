@@ -7,6 +7,7 @@ import { OrderHistoryFilters, OrderHistoryFilters as FiltersType } from '@/compo
 import { OrderWithItems } from '@/lib/types';
 import { Table } from '@/lib/types';
 import { useRealtimeOrders } from '@/hooks/useRealtime';
+import { Filter } from 'lucide-react';
 
 interface OrderHistoryPageClientProps {
   initialOrders: OrderWithItems[];
@@ -63,6 +64,7 @@ export function OrderHistoryPageClient({ initialOrders, tables, outletId }: Orde
   };
 
   const [filters, setFilters] = useState<FiltersType>(getDefaultFilters());
+  const [showFilters, setShowFilters] = useState(false);
 
   // Apply filters
   const filteredOrders = orders.filter((order) => {
@@ -124,18 +126,27 @@ export function OrderHistoryPageClient({ initialOrders, tables, outletId }: Orde
         <h1 className="text-3xl font-bold text-gray-900">Order History</h1>
         <p className="text-gray-600">View completed and cancelled orders</p>
       </div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-sm text-gray-600">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
+        <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
+          <p className="text-xs sm:text-sm text-gray-600">
             Showing {filteredOrders.length} of {orders.length} orders
           </p>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="p-2 hover:bg-muted rounded-md transition-colors"
+            aria-label="Toggle filters"
+          >
+            <Filter className="h-4 w-4" />
+          </button>
         </div>
       </div>
-      <OrderHistoryFilters
-        tables={tables}
-        filters={filters}
-        onFiltersChange={setFilters}
-      />
+      <div className={`${showFilters ? 'block' : 'hidden'} md:block`}>
+        <OrderHistoryFilters
+          tables={tables}
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
+      </div>
       <div className="mt-4" />
       <OrderHistoryTable orders={filteredOrders} outletId={outletId} />
     </div>

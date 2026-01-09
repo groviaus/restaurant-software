@@ -67,13 +67,14 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                 <TableHead className="min-w-[110px]">Status</TableHead>
                 <TableHead className="min-w-[100px]">Total</TableHead>
                 <TableHead className="min-w-[140px]">Created</TableHead>
+                <TableHead className="min-w-[120px]">Staff</TableHead>
                 <TableHead className="text-right min-w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {orders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <div className="space-y-3 max-w-sm mx-auto">
                       <p className="text-muted-foreground font-medium">No order history found</p>
                       <p className="text-xs text-muted-foreground">
@@ -94,7 +95,7 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs sm:text-sm">
-                      {order.table?.name || '-'}
+                      {(order as any).tables?.name || (order as any).table?.name || '-'}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getStatusColor(order.status)} className="text-[10px] sm:text-xs">
@@ -106,6 +107,9 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                     </TableCell>
                     <TableCell className="text-[10px] sm:text-xs whitespace-nowrap">
                       {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm max-w-[120px] truncate">
+                      {(order as any).users?.name || (order as any).user?.name || '-'}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
