@@ -162,7 +162,6 @@ export async function POST(request: NextRequest) {
       subtotal: subtotal,
       tax: tax,
       total: total,
-      tax_rate: taxRate, // Store the tax rate used
     };
     const { data: order, error: orderError } = await supabase
       .from('orders')
