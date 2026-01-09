@@ -75,22 +75,52 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
   // Function to refetch orders from API
   const refetchOrders = useCallback(async () => {
     try {
-      const response = await fetch(`/api/orders?outlet_id=${outletId}`);
+      console.log('[OrdersTable] Refetching orders...');
+      // Calculate today's date range to match server-side filtering
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStart = today.toISOString();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const todayEnd = tomorrow.toISOString();
+      
+      const response = await fetch(
+        `/api/orders?outlet_id=${outletId}&start_date=${encodeURIComponent(todayStart)}&end_date=${encodeURIComponent(todayEnd)}`
+      );
       if (response.ok) {
         const data = await response.json();
-        setOrders(data);
+        console.log('[OrdersTable] Refetched orders:', data?.length || 0, 'orders');
+        if (data && Array.isArray(data)) {
+          setOrders(data);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('[OrdersTable] Failed to refetch orders:', response.status, response.statusText, errorText);
       }
     } catch (error) {
-      console.error('Failed to refetch orders:', error);
+      console.error('[OrdersTable] Failed to refetch orders:', error);
     }
   }, [outletId, setOrders]);
 
   // Subscribe to real-time order changes
   useRealtimeOrders({
     outletId,
-    onChange: () => {
+    onChange: (payload) => {
+      console.log('[OrdersTable] Realtime change received:', payload.eventType);
       // Refetch orders when any change happens on another device
       refetchOrders();
+      // Also refresh the router to ensure server-side data is updated
+      router.refresh();
+    },
+    onInsert: (payload) => {
+      console.log('[OrdersTable] New order inserted:', payload);
+      refetchOrders();
+      router.refresh();
+    },
+    onUpdate: (payload) => {
+      console.log('[OrdersTable] Order updated:', payload);
+      refetchOrders();
+      router.refresh();
     },
   });
 

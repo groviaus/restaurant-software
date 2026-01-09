@@ -42,17 +42,34 @@ export function useRealtimeOrders({
 
     const handleChange = useCallback(
         (payload: OrderChangePayload) => {
-            console.log('[Realtime] Order change:', payload.eventType, payload);
+            // Handle both payload structures (Supabase client transforms it, but be defensive)
+            const newRecord = (payload as any).new || (payload as any).data?.record || payload.new;
+            const oldRecord = (payload as any).old || (payload as any).data?.old_record || payload.old;
+            
+            console.log('[Realtime] Order change received:', {
+                eventType: payload.eventType,
+                table: payload.table,
+                schema: payload.schema,
+                new: newRecord,
+                old: oldRecord,
+                fullPayload: payload,
+            });
 
             // Call specific handler
             switch (payload.eventType) {
                 case 'INSERT':
+                    console.log('[Realtime] INSERT event - new order:', newRecord);
                     onInsert?.(payload);
                     break;
                 case 'UPDATE':
+                    console.log('[Realtime] UPDATE event - order changed:', {
+                        from: oldRecord,
+                        to: newRecord,
+                    });
                     onUpdate?.(payload);
                     break;
                 case 'DELETE':
+                    console.log('[Realtime] DELETE event - order deleted:', oldRecord);
                     onDelete?.(payload);
                     break;
             }
