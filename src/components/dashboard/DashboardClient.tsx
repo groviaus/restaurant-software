@@ -57,13 +57,24 @@ export function DashboardClient({
     try {
       const supabase = createClient();
       
-      // Get today's date range
+      // Get today's date range - use IST timezone to match server-side and orders page
+      // This ensures consistency across all components
       const now = new Date();
+      
+      // Use local timezone (which should match IST for the restaurant)
+      // This matches the orders page behavior which uses local timezone
       const localYear = now.getFullYear();
       const localMonth = now.getMonth();
       const localDate = now.getDate();
       const todayStart = new Date(localYear, localMonth, localDate, 0, 0, 0, 0);
       const todayEnd = new Date(localYear, localMonth, localDate + 1, 0, 0, 0, 0);
+
+      console.log('[Dashboard] Client-side fetch - Date range:', {
+        outletId: effectiveOutletId,
+        todayStart: todayStart.toISOString(),
+        todayEnd: todayEnd.toISOString(),
+        clientTime: now.toISOString(),
+      });
 
       // Fetch today's orders
       const { data: todayOrders, error: ordersError } = await supabase
@@ -202,12 +213,37 @@ export function DashboardClient({
     setTotalInventoryItems(initialTotalInventoryItems);
   }, [initialTotalSales, initialTotalOrders, initialCompletedOrders, initialTopItem, initialLowStockAlertsCount, initialTotalInventoryItems]);
 
-  // Client-side fetch fallback: if initial values are 0 and we have an outlet ID, fetch client-side
+  // Client-side fetch fallback: trigger when server data looks incomplete or suspicious
   // This is important for Capacitor apps where server-side cookies might not work
+  // Also helps when Vercel returns incomplete data due to timezone/auth issues
   useEffect(() => {
     const effectiveOutletId = currentOutletId || outletId;
-    if (effectiveOutletId && profile && (initialTotalSales === 0 && initialTotalOrders === 0)) {
-      console.log('[Dashboard] Initial values are 0, fetching client-side data...');
+    
+    // Determine if we should fetch fallback data
+    // Trigger when:
+    // 1. Both sales and orders are 0 (no data at all)
+    // 2. Sales is 0 but orders > 0 (suspicious - should have sales if there are orders)
+    // 3. Sales > 0 but orders is 0 (suspicious - can't have sales without orders)
+    const shouldFetchFallback = 
+      effectiveOutletId && 
+      profile && 
+      (
+        (initialTotalSales === 0 && initialTotalOrders === 0) || // No data at all
+        (initialTotalSales === 0 && initialTotalOrders > 0) ||   // Orders but no sales (incomplete data)
+        (initialTotalSales > 0 && initialTotalOrders === 0)     // Sales but no orders (incomplete data)
+      );
+
+    if (shouldFetchFallback) {
+      console.log('[Dashboard] Server data looks incomplete, fetching client-side data...', {
+        outletId: effectiveOutletId,
+        initialSales: initialTotalSales,
+        initialOrders: initialTotalOrders,
+        reason: initialTotalSales === 0 && initialTotalOrders === 0 
+          ? 'no_data' 
+          : initialTotalSales === 0 && initialTotalOrders > 0 
+            ? 'orders_but_no_sales' 
+            : 'sales_but_no_orders',
+      });
       fetchDashboardData();
     }
   }, [currentOutletId, outletId, profile, initialTotalSales, initialTotalOrders, fetchDashboardData]);

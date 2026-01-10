@@ -23,21 +23,44 @@ export default async function DashboardPage() {
     );
   }
 
-  // Get today's date range - use local date boundaries
-  // Create date range in local timezone, then convert to ISO for database query
+  // Get today's date range - use IST timezone (Asia/Kolkata) to match orders page behavior
+  // The orders page uses local timezone (IST), so dashboard should match
+  // Calculate "today" in IST, then convert to UTC for database queries
   const now = new Date();
-  const localYear = now.getFullYear();
-  const localMonth = now.getMonth();
-  const localDate = now.getDate();
+  
+  // Get current time in IST (UTC+5:30)
+  // Format: "Asia/Kolkata" timezone
+  // IST is UTC+5:30, so we add 5.5 hours to get IST time
+  const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  const nowIST = new Date(now.getTime() + istOffsetMs);
+  
+  // Get date components in IST
+  const istYear = nowIST.getUTCFullYear();
+  const istMonth = nowIST.getUTCMonth();
+  const istDate = nowIST.getUTCDate();
 
-  // Start of today in local timezone
-  const todayStart = new Date(localYear, localMonth, localDate, 0, 0, 0, 0);
-  // End of today in local timezone (start of tomorrow)
-  const todayEnd = new Date(localYear, localMonth, localDate + 1, 0, 0, 0, 0);
+  // Calculate start of today in IST (midnight IST)
+  // Then convert back to UTC by subtracting the offset
+  const todayStartIST = Date.UTC(istYear, istMonth, istDate, 0, 0, 0, 0);
+  const todayStart = new Date(todayStartIST - istOffsetMs);
+  
+  // Calculate end of today in IST (midnight of tomorrow in IST)
+  // Then convert back to UTC
+  const todayEndIST = Date.UTC(istYear, istMonth, istDate + 1, 0, 0, 0, 0);
+  const todayEnd = new Date(todayEndIST - istOffsetMs);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'app/dashboard/page.tsx:28', message: 'Date range calculation', data: { todayLocal: todayStart.toString(), todayISO: todayStart.toISOString(), todayEndISO: todayEnd.toISOString(), outletId: effectiveOutletId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'A' }) }).catch(() => { });
-  // #endregion
+  // Debug logging for troubleshooting
+  console.log('[Dashboard] Server-side date range calculation (IST timezone):', {
+    outletId: effectiveOutletId,
+    userId: user?.id,
+    todayStart: todayStart.toISOString(),
+    todayEnd: todayEnd.toISOString(),
+    serverTime: now.toISOString(),
+    istDate: `${istYear}-${String(istMonth + 1).padStart(2, '0')}-${String(istDate).padStart(2, '0')}`,
+    profileRole: profile?.role,
+    effectiveOutletId,
+    timezone: 'IST (Asia/Kolkata)',
+  });
 
   // Fetch today's sales with error handling
   const serviceClient = createServiceRoleClient();
@@ -59,6 +82,15 @@ export default async function DashboardPage() {
       .eq('outlet_id', effectiveOutletId)
       .gte('created_at', todayStart.toISOString())
       .lt('created_at', todayEnd.toISOString());
+
+    // Debug logging for query results
+    console.log('[Dashboard] Orders query result:', {
+      outletId: effectiveOutletId,
+      dateRange: { from: todayStart.toISOString(), to: todayEnd.toISOString() },
+      ordersCount: todayOrders?.length || 0,
+      hasError: !!ordersError,
+      error: ordersError?.message || null,
+    });
 
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'app/dashboard/page.tsx:50', message: 'Orders query result', data: { hasError: !!ordersError, error: ordersError?.message || null, ordersCount: todayOrders?.length || 0, orders: todayOrders?.map((o: any) => ({ total: o.total, status: o.status, created_at: o.created_at })) || [], allStatuses: todayOrders?.map((o: any) => o.status) || [] }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
@@ -157,9 +189,16 @@ export default async function DashboardPage() {
     console.error('Error fetching dashboard data:', error);
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'app/dashboard/page.tsx:118', message: 'Final values before render', data: { totalSales, totalOrders, completedOrders, topItem }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
-  // #endregion
+  // Debug logging for final values
+  console.log('[Dashboard] Final server-side values before render:', {
+    outletId: effectiveOutletId,
+    totalSales,
+    totalOrders,
+    completedOrders,
+    topItem,
+    lowStockAlertsCount,
+    totalInventoryItems,
+  });
 
   return (
     <DashboardClient

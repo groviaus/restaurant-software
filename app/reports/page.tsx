@@ -14,9 +14,20 @@ import { downloadFile } from '@/lib/capacitor/download';
 export default function ReportsPage() {
   const router = useRouter();
   const { checkPermission, loading: permLoading } = usePermissions();
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  // Get today's date in IST timezone to match dashboard and analytics
+  const getTodayIST = () => {
+    const now = new Date();
+    const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes
+    const nowIST = new Date(now.getTime() + istOffsetMs);
+    const year = nowIST.getUTCFullYear();
+    const month = String(nowIST.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(nowIST.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [date, setDate] = useState(getTodayIST());
+  const [startDate, setStartDate] = useState(getTodayIST());
+  const [endDate, setEndDate] = useState(getTodayIST());
   const [loading, setLoading] = useState<string | null>(null);
 
   useEffect(() => {

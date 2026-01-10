@@ -36,12 +36,25 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
     
-    // Parse date strings
+    // Parse date strings - use IST timezone to match dashboard and orders page
     const [startYear, startMonth, startDay] = startDateParam.split('-').map(Number);
     const [endYear, endMonth, endDay] = endDateParam.split('-').map(Number);
     
-    const startDate = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
-    const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+    // Convert IST date boundaries to UTC for database queries
+    const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    
+    // Determine if this is a "today" period
+    const startIST = Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+    const endIST = Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0, 0);
+    const startDateObj = new Date(startIST - istOffsetMs);
+    const endDateObj = new Date(endIST - istOffsetMs);
+    const daysDiff = Math.round((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+    const isTodayPeriod = daysDiff === 1;
+    
+    const startDate = new Date(startIST - istOffsetMs);
+    const endDate = isTodayPeriod
+      ? new Date(endIST - istOffsetMs)
+      : new Date(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999) - istOffsetMs);
 
     const { data: orders, error } = await supabase
       .from('orders')

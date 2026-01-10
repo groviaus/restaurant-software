@@ -20,10 +20,19 @@ export async function GET(request: NextRequest) {
     const format = searchParams.get('format') || 'json';
 
     const supabase = createServiceRoleClient();
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    
+    // Parse date strings and convert IST boundaries to UTC for database queries
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    
+    // Start of day in IST (midnight IST), converted to UTC
+    const startIST = Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+    const start = new Date(startIST - istOffsetMs);
+    
+    // End of day in IST (23:59:59 IST), converted to UTC
+    const endIST = Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+    const end = new Date(endIST - istOffsetMs);
 
     const { data: orders, error } = await supabase
       .from('orders')

@@ -99,56 +99,69 @@ export default function AnalyticsPage() {
   const [ordersGroupBy, setOrdersGroupBy] = useState<'none' | 'day'>('none');
   const [hasFetchedFallback, setHasFetchedFallback] = useState(false);
 
-  // Helper function to format date as YYYY-MM-DD in local timezone
+  // Helper function to format date as YYYY-MM-DD using IST timezone
+  // The date passed in is already in UTC (converted from IST), so we need to convert back to IST to get the correct date
   const formatLocalDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    // Convert UTC date back to IST to get the correct date components
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + istOffsetMs);
+    const year = istDate.getUTCFullYear();
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istDate.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
 
-  // Calculate date ranges for each period
+  // Calculate date ranges for each period - use IST timezone (Asia/Kolkata) to match dashboard and orders page
   const getDateRange = (period: TimePeriod): { start: string; end: string } => {
     const now = new Date();
-    const localYear = now.getFullYear();
-    const localMonth = now.getMonth();
-    const localDate = now.getDate();
-    const today = new Date(localYear, localMonth, localDate, 0, 0, 0, 0);
+    
+    // Get current time in IST (UTC+5:30)
+    const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const nowIST = new Date(now.getTime() + istOffsetMs);
+    
+    // Get date components in IST
+    const istYear = nowIST.getUTCFullYear();
+    const istMonth = nowIST.getUTCMonth();
+    const istDate = nowIST.getUTCDate();
 
     switch (period) {
       case 'today': {
-        const start = new Date(localYear, localMonth, localDate, 0, 0, 0, 0);
-        const end = new Date(localYear, localMonth, localDate + 1, 0, 0, 0, 0);
+        // Calculate start of today in IST (midnight IST), then convert back to UTC
+        const todayStartIST = Date.UTC(istYear, istMonth, istDate, 0, 0, 0, 0);
+        const start = new Date(todayStartIST - istOffsetMs);
+        // Calculate end of today in IST (midnight of tomorrow in IST), then convert back to UTC
+        const todayEndIST = Date.UTC(istYear, istMonth, istDate + 1, 0, 0, 0, 0);
+        const end = new Date(todayEndIST - istOffsetMs);
         return {
           start: formatLocalDate(start),
           end: formatLocalDate(end),
         };
       }
       case 'week': {
-        const start = new Date(today);
-        start.setDate(start.getDate() - 6);
-        const end = new Date(today);
-        end.setDate(end.getDate() + 1);
+        const weekStartIST = Date.UTC(istYear, istMonth, istDate - 6, 0, 0, 0, 0);
+        const start = new Date(weekStartIST - istOffsetMs);
+        const weekEndIST = Date.UTC(istYear, istMonth, istDate + 1, 0, 0, 0, 0);
+        const end = new Date(weekEndIST - istOffsetMs);
         return {
           start: formatLocalDate(start),
           end: formatLocalDate(end),
         };
       }
       case 'month': {
-        const start = new Date(today);
-        start.setDate(start.getDate() - 29);
-        const end = new Date(today);
-        end.setDate(end.getDate() + 1);
+        const monthStartIST = Date.UTC(istYear, istMonth, istDate - 29, 0, 0, 0, 0);
+        const start = new Date(monthStartIST - istOffsetMs);
+        const monthEndIST = Date.UTC(istYear, istMonth, istDate + 1, 0, 0, 0, 0);
+        const end = new Date(monthEndIST - istOffsetMs);
         return {
           start: formatLocalDate(start),
           end: formatLocalDate(end),
         };
       }
       case 'year': {
-        const start = new Date(today);
-        start.setFullYear(start.getFullYear() - 1);
-        const end = new Date(today);
-        end.setDate(end.getDate() + 1);
+        const yearStartIST = Date.UTC(istYear - 1, istMonth, istDate, 0, 0, 0, 0);
+        const start = new Date(yearStartIST - istOffsetMs);
+        const yearEndIST = Date.UTC(istYear, istMonth, istDate + 1, 0, 0, 0, 0);
+        const end = new Date(yearEndIST - istOffsetMs);
         return {
           start: formatLocalDate(start),
           end: formatLocalDate(end),
@@ -172,16 +185,34 @@ export default function AnalyticsPage() {
     try {
       const supabase = createClient();
       
-      // Parse dates
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      // Parse dates - use IST timezone to match server-side logic
+      // The dates are already in IST boundaries, so we can use them directly
+      const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+      const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+      
+      // These dates represent IST boundaries, convert to UTC for database queries
+      const istOffsetMs = 5.5 * 60 * 60 * 1000;
+      const startIST = Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+      const start = new Date(startIST - istOffsetMs);
       
       const isTodayPeriod = periodType === 'today';
-      const endDateForQuery = isTodayPeriod 
-        ? new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1, 0, 0, 0, 0)
-        : end;
+      let endDateForQuery: Date;
+      if (isTodayPeriod) {
+        // For today, endDate is tomorrow's date in IST (exclusive)
+        const endIST = Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0, 0);
+        endDateForQuery = new Date(endIST - istOffsetMs);
+      } else {
+        // For other periods, include the full end date in IST
+        const endIST = Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+        endDateForQuery = new Date(endIST - istOffsetMs);
+      }
+
+      console.log('[Analytics] Client-side fetch - Date range:', {
+        outletId: effectiveOutletId,
+        period: periodType,
+        startISO: start.toISOString(),
+        endISO: endDateForQuery.toISOString(),
+      });
 
       // Fetch orders for summary
       let queryBuilder = supabase

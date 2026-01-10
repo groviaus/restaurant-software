@@ -27,32 +27,45 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Parse date strings - extract year, month, day to match dashboard logic exactly
-    // Dashboard uses: new Date(localYear, localMonth, localDate, 0, 0, 0, 0)
+    // Parse date strings - extract year, month, day and use IST timezone
+    // This matches the dashboard logic which uses IST (Asia/Kolkata) for consistency
     const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
     const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
 
+    // Convert IST date boundaries to UTC for database queries
+    const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    
     // Calculate if this is a "today" period (endDate is exactly 1 day after startDate)
-    const startDateObj = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
-    const endDateObj = new Date(endYear, endMonth - 1, endDay, 0, 0, 0, 0);
+    const startIST = Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+    const endIST = Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0, 0);
+    const startDateObj = new Date(startIST - istOffsetMs);
+    const endDateObj = new Date(endIST - istOffsetMs);
     const daysDiff = Math.round((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
     const isTodayPeriod = daysDiff === 1;
 
-    // Use the same calculation as dashboard: local timezone boundaries
-    const start = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+    // Convert IST boundaries to UTC for database queries
+    const start = new Date(startIST - istOffsetMs);
 
     let end: Date;
     if (isTodayPeriod) {
-      // For today, endDate is tomorrow's date (exclusive), use it as-is
-      end = new Date(endYear, endMonth - 1, endDay, 0, 0, 0, 0);
+      // For today, endDate is tomorrow's date in IST (exclusive)
+      end = new Date(endIST - istOffsetMs);
     } else {
-      // For other periods, include the full end date
-      end = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+      // For other periods, include the full end date in IST
+      const endISTFull = Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+      end = new Date(endISTFull - istOffsetMs);
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'app/api/analytics/summary/route.ts:50', message: 'Analytics Summary API - Date calculation', data: { startDate, endDate, startISO: start.toISOString(), endISO: end.toISOString(), isTodayPeriod, daysDiff, startLocal: start.toString(), endLocal: end.toString() }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run2', hypothesisId: 'A' }) }).catch(() => { });
-    // #endregion
+    // Debug logging
+    console.log('[Analytics Summary API] Date calculation:', {
+      outletId: effectiveOutletId,
+      startDate,
+      endDate,
+      startISO: start.toISOString(),
+      endISO: end.toISOString(),
+      isTodayPeriod,
+      daysDiff,
+    });
 
     // Fetch all orders with items and profit margins
     // Use .lt() for today period (exclusive) and .lte() for others (inclusive)
@@ -82,9 +95,14 @@ export async function GET(request: NextRequest) {
 
     const { data: orders, error } = await queryBuilder;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'app/api/analytics/summary/route.ts:70', message: 'Analytics Summary API - Query result', data: { hasError: !!error, error: error?.message || null, ordersCount: orders?.length || 0 }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run2', hypothesisId: 'B' }) }).catch(() => { });
-    // #endregion
+    // Debug logging
+    console.log('[Analytics Summary API] Query result:', {
+      outletId: effectiveOutletId,
+      dateRange: { from: start.toISOString(), to: end.toISOString() },
+      ordersCount: orders?.length || 0,
+      hasError: !!error,
+      error: error?.message || null,
+    });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -111,9 +129,17 @@ export async function GET(request: NextRequest) {
       return totalProfit + orderProfit;
     }, 0);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'app/api/analytics/summary/route.ts:80', message: 'Analytics Summary API - Calculated metrics', data: { totalSales, totalOrders, completedOrders: completedOrdersQuery.length, cancelledOrders, averageOrderValue, cancellationRate, netProfit }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run2', hypothesisId: 'C' }) }).catch(() => { });
-    // #endregion
+    // Debug logging for calculated metrics
+    console.log('[Analytics Summary API] Calculated metrics:', {
+      outletId: effectiveOutletId,
+      totalSales,
+      totalOrders,
+      completedOrders: completedOrdersQuery.length,
+      cancelledOrders,
+      averageOrderValue,
+      cancellationRate,
+      netProfit,
+    });
 
     return NextResponse.json({
       totalSales: Number(totalSales.toFixed(2)),

@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useOutlet } from '@/hooks/useOutlet';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Store, Loader2 } from 'lucide-react';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Store, Loader2, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function OutletSelector() {
@@ -68,44 +68,52 @@ export function OutletSelector() {
   return (
     <div className="flex items-center gap-2">
       <Store className="h-4 w-4 text-gray-600" />
-      <Select
-        value={currentOutletId || ''}
-        onValueChange={handleSwitch}
-        disabled={switching || outlets.length === 0}
-      >
-        <SelectTrigger
-          className={cn(
-            'w-[180px] sm:w-[200px] h-9',
-            switching && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          <SelectValue placeholder="Select outlet">
-            {currentOutlet ? (
-              <span className="truncate">{currentOutlet.name}</span>
-            ) : (
-              <span className="text-gray-500">No outlet</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            disabled={switching || outlets.length === 0}
+            className={cn(
+              'w-[180px] sm:w-[200px] h-9 justify-between',
+              switching && 'opacity-50 cursor-not-allowed'
             )}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
+          >
+            <span className="truncate">
+              {currentOutlet ? (
+                currentOutlet.name
+              ) : (
+                <span className="text-gray-500">Select outlet</span>
+              )}
+            </span>
+            <ChevronDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent 
+          side="bottom" 
+          sideOffset={4}
+          align="end"
+          className="w-[180px] sm:w-[200px]"
+        >
           {outlets.length === 0 ? (
-            <SelectItem value="no-outlets" disabled>
+            <DropdownMenuItem disabled>
               No outlets available
-            </SelectItem>
+            </DropdownMenuItem>
           ) : (
             outlets.map((outlet) => (
-              <SelectItem key={outlet.id} value={outlet.id}>
-                <div className="flex items-center gap-2">
-                  <span>{outlet.name}</span>
-                  {outlet.id === currentOutletId && (
-                    <span className="text-xs text-blue-600">(Active)</span>
-                  )}
-                </div>
-              </SelectItem>
+              <DropdownMenuItem
+                key={outlet.id}
+                onClick={() => handleSwitch(outlet.id)}
+                className="flex items-center justify-between"
+              >
+                <span className="truncate">{outlet.name}</span>
+                {outlet.id === currentOutletId && (
+                  <Check className="h-4 w-4 text-blue-600 ml-2" />
+                )}
+              </DropdownMenuItem>
             ))
           )}
-        </SelectContent>
-      </Select>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {switching && (
         <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
       )}

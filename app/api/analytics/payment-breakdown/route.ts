@@ -24,14 +24,26 @@ export async function GET(request: NextRequest) {
     let endDate: Date | null = null;
 
     if (startDateParam && endDateParam) {
+      // Use IST timezone to match dashboard and orders page
       const [startYear, startMonth, startDay] = startDateParam.split('-').map(Number);
       const [endYear, endMonth, endDay] = endDateParam.split('-').map(Number);
-      startDate = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
-      endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+      
+      // Convert IST date boundaries to UTC for database queries
+      const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+      const startIST = Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+      const endIST = Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+      startDate = new Date(startIST - istOffsetMs);
+      endDate = new Date(endIST - istOffsetMs);
     } else {
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-      startDate.setHours(0, 0, 0, 0);
+      // Use IST for default date calculation
+      const now = new Date();
+      const istOffsetMs = 5.5 * 60 * 60 * 1000;
+      const nowIST = new Date(now.getTime() + istOffsetMs);
+      const istYear = nowIST.getUTCFullYear();
+      const istMonth = nowIST.getUTCMonth();
+      const istDate = nowIST.getUTCDate();
+      const startIST = Date.UTC(istYear, istMonth, istDate - days, 0, 0, 0, 0);
+      startDate = new Date(startIST - istOffsetMs);
     }
 
     let queryBuilder = supabase
