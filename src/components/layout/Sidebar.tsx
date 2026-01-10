@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTransition } from 'react';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -20,9 +22,9 @@ import {
   Users,
   Shield,
   Settings,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -56,16 +58,35 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const { signOut } = useAuth();
   const router = useRouter();
   const { checkPermission, isAdmin, loading } = usePermissions();
+  const [isPending, startTransition] = useTransition();
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
   };
 
-  const handleLinkClick = () => {
+  const handleLinkClick = (href: string) => {
     // Close mobile menu when a link is clicked
     if (onClose) {
       onClose();
+    }
+    
+    // Use transition for smooth navigation
+    if (href !== pathname) {
+      setNavigatingTo(href);
+      startTransition(() => {
+        router.push(href);
+        // Clear navigating state after a short delay
+        setTimeout(() => setNavigatingTo(null), 300);
+      });
+    }
+  };
+
+  const handleLinkHover = (href: string) => {
+    // Prefetch route on hover for faster navigation
+    if (href !== pathname) {
+      router.prefetch(href);
     }
   };
 
@@ -117,20 +138,29 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 sm:px-3 py-3 sm:py-4">
           {fullNavigation.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+            const isNavigating = navigatingTo === item.href && isPending;
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                onClick={handleLinkClick}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleLinkClick(item.href);
+                }}
+                onMouseEnter={() => handleLinkHover(item.href)}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors min-h-[44px]',
+                  'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors min-h-[44px] relative',
                   isActive
                     ? 'bg-gray-800 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white active:bg-gray-700'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white active:bg-gray-700',
+                  isNavigating && 'opacity-70 cursor-wait'
                 )}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span className="truncate">{item.name}</span>
+                {isNavigating && (
+                  <Loader2 className="h-4 w-4 animate-spin ml-auto flex-shrink-0" />
+                )}
               </Link>
             );
           })}

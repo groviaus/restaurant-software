@@ -2,6 +2,11 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { OrdersTable } from '@/components/tables/OrdersTable';
 import { OrderForm } from '@/components/forms/OrderForm';
+import { Suspense } from 'react';
+
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 30; // Revalidate every 30 seconds
 
 export default async function OrdersPage() {
   await requirePermission('orders', 'view');
@@ -18,16 +23,38 @@ export default async function OrdersPage() {
     );
   }
 
+  // Optimize query - select only needed fields
   const { data: orders, error } = await supabase
     .from('orders')
     .select(`
-      *,
+      id,
+      order_type,
+      status,
+      total,
+      payment_method,
+      created_at,
+      table_id,
+      user_id,
       order_items (
-        *,
-        items (*)
+        id,
+        quantity,
+        price,
+        item_id,
+        items (
+          id,
+          name,
+          price
+        )
       ),
-      tables (*),
-      users (*)
+      tables (
+        id,
+        name
+      ),
+      users (
+        id,
+        name,
+        email
+      )
     `)
     .eq('outlet_id', effectiveOutletId)
     .order('created_at', { ascending: false })

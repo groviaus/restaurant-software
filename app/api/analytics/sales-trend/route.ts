@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { getCachedAuth } from '@/lib/auth/cache';
+
+// Route segment config for optimal caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+export const fetchCache = 'default-no-store';
 
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission('analytics', 'view');
-    const profile = await getUserProfile();
-    const effectiveOutletId = getEffectiveOutletId(profile);
+    // Use optimized auth cache that combines all 3 operations into one
+    const { outletId: effectiveOutletId } = await getCachedAuth('analytics', 'view');
     
-    if (!profile) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     if (!effectiveOutletId) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
@@ -56,6 +53,8 @@ export async function GET(request: NextRequest) {
       ? new Date(endIST - istOffsetMs)
       : new Date(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999) - istOffsetMs);
 
+    // OPTIMIZED: Only fetch total and created_at (minimal data transfer)
+    // Grouping is done in JavaScript for flexibility, but could be optimized with PostgreSQL GROUP BY
     const { data: orders, error } = await supabase
       .from('orders')
       .select('total, created_at')
@@ -209,6 +208,10 @@ export async function GET(request: NextRequest) {
       period: periodParam,
       totalOrders: orders?.length || 0,
       totalSales: orders?.reduce((sum, o: any) => sum + Number(o.total), 0) || 0,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
     });
   } catch (error: any) {
     return NextResponse.json(

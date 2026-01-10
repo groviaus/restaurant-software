@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type TimePeriod = 'today' | 'week' | 'month' | 'year' | 'custom';
 
@@ -83,6 +84,19 @@ interface GroupedOrders {
   totalSales: number;
   orderCount: number;
 }
+
+// Client-side cache for analytics data (similar to useSettings pattern)
+interface AnalyticsCache {
+  summary: SummaryMetrics | null;
+  salesTrend: SalesTrendData[];
+  paymentData: PaymentData[];
+  orders: Order[];
+  groupedOrders: GroupedOrders[];
+  timestamp: number;
+}
+
+const analyticsCache: Record<string, AnalyticsCache> = {};
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -374,68 +388,123 @@ export default function AnalyticsPage() {
     setHasFetchedFallback(false);
   }, [period, dateRange.start, dateRange.end]);
 
-  // Fetch all data
+  // Fetch all data - PARALLEL API CALLS with client-side caching
   useEffect(() => {
     if (!dateRange.start || !dateRange.end) return;
 
-    const fetchData = async () => {
+    const fetchFreshData = async (cacheKey: string) => {
       setLoading(true);
       try {
-        // Fetch summary metrics
-        const summaryRes = await fetch(
+        // Fetch all 4 API endpoints in parallel using Promise.all()
+        const [summaryRes, trendRes, paymentRes, ordersRes] = await Promise.all([
+          fetch(
           `/api/analytics/summary?startDate=${dateRange.start}&endDate=${dateRange.end}`
-        );
+          ),
+          fetch(
+            `/api/analytics/sales-trend?startDate=${dateRange.start}&endDate=${dateRange.end}&period=${period}`
+          ),
+          fetch(
+            `/api/analytics/payment-breakdown?startDate=${dateRange.start}&endDate=${dateRange.end}`
+          ),
+          fetch(
+            `/api/analytics/orders-list?startDate=${dateRange.start}&endDate=${dateRange.end}&groupBy=${ordersGroupBy}`
+          ),
+        ]);
+
+        let newSummary: SummaryMetrics | null = null;
+        let newSalesTrend: SalesTrendData[] = [];
+        let newPaymentData: PaymentData[] = [];
+        let newOrders: Order[] = [];
+        let newGroupedOrders: GroupedOrders[] = [];
+
+        // Process summary response
         if (summaryRes.ok) {
           const data = await summaryRes.json();
+          newSummary = data;
           setSummary(data);
+        } else {
+          console.error('Failed to fetch summary:', await summaryRes.text());
         }
 
-        // Fetch sales trend
-        const trendRes = await fetch(
-          `/api/analytics/sales-trend?startDate=${dateRange.start}&endDate=${dateRange.end}&period=${period}`
-        );
+        // Process sales trend response
         if (trendRes.ok) {
           const data = await trendRes.json();
-          setSalesTrend(data.data || []);
+          newSalesTrend = data.data || [];
+          setSalesTrend(newSalesTrend);
+        } else {
+          console.error('Failed to fetch sales trend:', await trendRes.text());
         }
 
-        // Fetch payment breakdown
-        const paymentRes = await fetch(
-          `/api/analytics/payment-breakdown?startDate=${dateRange.start}&endDate=${dateRange.end}`
-        );
+        // Process payment breakdown response
         if (paymentRes.ok) {
           const data = await paymentRes.json();
           // Format payment data - the fill will be set in the Pie component
-          const formattedPayment: PaymentData[] = data.data?.map((item: any) => ({
+          newPaymentData = data.data?.map((item: any) => ({
             method: item.method,
             amount: item.amount,
             fill: `var(--color-${item.method.toLowerCase()})`, // Use CSS variable format
           })) || [];
-          setPaymentData(formattedPayment);
+          setPaymentData(newPaymentData);
+        } else {
+          console.error('Failed to fetch payment breakdown:', await paymentRes.text());
         }
 
-        // Fetch orders list
-        const ordersRes = await fetch(
-          `/api/analytics/orders-list?startDate=${dateRange.start}&endDate=${dateRange.end}&groupBy=${ordersGroupBy}`
-        );
+        // Process orders list response
         if (ordersRes.ok) {
           const data = await ordersRes.json();
           console.log('Orders list response:', data);
           if (ordersGroupBy === 'day') {
-            setGroupedOrders(data.grouped || []);
+            newGroupedOrders = data.grouped || [];
+            setGroupedOrders(newGroupedOrders);
             setOrders([]); // Clear ungrouped orders
           } else {
-            setOrders(data.orders || []);
+            newOrders = data.orders || [];
+            setOrders(newOrders);
             setGroupedOrders([]); // Clear grouped orders
           }
         } else {
           console.error('Failed to fetch orders list:', await ordersRes.text());
         }
+
+        // Cache the results
+        analyticsCache[cacheKey] = {
+          summary: newSummary,
+          salesTrend: newSalesTrend,
+          paymentData: newPaymentData,
+          orders: newOrders,
+          groupedOrders: newGroupedOrders,
+          timestamp: Date.now(),
+        };
       } catch (error) {
         console.error('Error fetching analytics data:', error);
       } finally {
         setLoading(false);
       }
+    };
+
+    const fetchData = async () => {
+      // Create cache key based on date range, period, and groupBy
+      const cacheKey = `${dateRange.start}-${dateRange.end}-${period}-${ordersGroupBy}`;
+      
+      // Check cache first
+      const cached = analyticsCache[cacheKey];
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        // Use cached data immediately
+        setSummary(cached.summary);
+        setSalesTrend(cached.salesTrend);
+        setPaymentData(cached.paymentData);
+        setOrders(cached.orders);
+        setGroupedOrders(cached.groupedOrders);
+        setLoading(false);
+        
+        // Still fetch fresh data in background for next time
+        // (don't await, let it run in background)
+        fetchFreshData(cacheKey);
+        return;
+      }
+
+      // No cache or expired, fetch fresh data
+      await fetchFreshData(cacheKey);
     };
 
     fetchData();
@@ -522,19 +591,67 @@ export default function AnalyticsPage() {
 
         <TabsContent value={period} className="space-y-4 sm:space-y-6">
           {loading ? (
+            <>
+              {/* Skeleton for metrics cards */}
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Card key={i}>
-                  <CardHeader className="pb-2">
-                    <div className="h-4 bg-muted rounded animate-pulse w-24" />
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-4 rounded" />
                   </CardHeader>
                   <CardContent>
-                    <div className="h-8 bg-muted rounded animate-pulse w-32 mb-2" />
-                    <div className="h-3 bg-muted rounded animate-pulse w-20" />
+                      <Skeleton className="h-8 w-32 mb-2" />
+                      <Skeleton className="h-3 w-20 mb-2" />
+                      <Skeleton className="h-3 w-16" />
                   </CardContent>
                 </Card>
               ))}
             </div>
+              
+              {/* Skeleton for charts */}
+              <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-5 w-32 mb-2" />
+                    <Skeleton className="h-4 w-48" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-64 w-full" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-5 w-32 mb-2" />
+                    <Skeleton className="h-4 w-48" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-64 w-full rounded-full" />
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Skeleton for orders list */}
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-5 w-32 mb-2" />
+                  <Skeleton className="h-4 w-48" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                        <Skeleton className="h-6 w-20" />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           ) : summary ? (
             <>
               {/* Key Metrics Cards */}

@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { BillsTable } from '@/components/tables/BillsTable';
 
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 60; // Revalidate every 60 seconds (bills change less frequently)
+
 export default async function BillsPage() {
   await requirePermission('bills', 'view');
   const profile = await getUserProfile();
@@ -17,16 +21,38 @@ export default async function BillsPage() {
     );
   }
 
+  // Optimize query - select only needed fields
   const { data: orders, error } = await supabase
     .from('orders')
     .select(`
-      *,
+      id,
+      order_type,
+      status,
+      total,
+      payment_method,
+      created_at,
+      table_id,
+      user_id,
       order_items (
-        *,
-        items (*)
+        id,
+        quantity,
+        price,
+        item_id,
+        items (
+          id,
+          name,
+          price
+        )
       ),
-      tables (*),
-      users (*)
+      tables (
+        id,
+        name
+      ),
+      users (
+        id,
+        name,
+        email
+      )
     `)
     .eq('outlet_id', effectiveOutletId)
     .eq('status', 'COMPLETED')

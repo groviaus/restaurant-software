@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { getCachedAuth } from '@/lib/auth/cache';
+
+// Route segment config for optimal caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+export const fetchCache = 'default-no-store';
 
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission('analytics', 'view');
-    const profile = await getUserProfile();
-    const effectiveOutletId = getEffectiveOutletId(profile);
+    // Use optimized auth cache that combines all 3 operations into one
+    const { outletId: effectiveOutletId } = await getCachedAuth('analytics', 'view');
     if (!effectiveOutletId) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
@@ -127,6 +131,10 @@ export async function GET(request: NextRequest) {
         grouped: groupedArray,
         totalOrders: formattedOrders.length,
         totalSales: formattedOrders.reduce((sum, o) => sum + o.total, 0),
+      }, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        },
       });
     }
 
@@ -134,6 +142,10 @@ export async function GET(request: NextRequest) {
       orders: formattedOrders,
       totalOrders: formattedOrders.length,
       totalSales: formattedOrders.reduce((sum, o) => sum + o.total, 0),
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
     });
   } catch (error: any) {
     return NextResponse.json(

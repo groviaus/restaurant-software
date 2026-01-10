@@ -24,6 +24,13 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
   const [fullOrder, setFullOrder] = useState<OrderWithItems | null>(order);
   const [loading, setLoading] = useState(false);
 
+  // Helper function to safely format dates
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? '-' : format(date, 'dd MMM, HH:mm');
+  };
+
   // Always fetch full order details when modal opens to ensure we have all data
   // This ensures user details and order items are always available
   useEffect(() => {
@@ -130,11 +137,11 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Created</p>
-                  <p className="text-sm font-medium">{format(new Date(displayOrder.created_at), 'dd MMM, HH:mm')}</p>
+                  <p className="text-sm font-medium">{formatDate(displayOrder.created_at)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Updated</p>
-                  <p className="text-sm font-medium">{format(new Date(displayOrder.updated_at), 'dd MMM, HH:mm')}</p>
+                  <p className="text-sm font-medium">{formatDate(displayOrder.updated_at)}</p>
                 </div>
                 {displayOrder.cancellation_reason && (
                   <div className="col-span-2 lg:col-span-3 bg-red-50 p-3 rounded-lg border border-red-100">

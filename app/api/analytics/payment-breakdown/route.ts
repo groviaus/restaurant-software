@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { getCachedAuth } from '@/lib/auth/cache';
+
+// Route segment config for optimal caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+export const fetchCache = 'default-no-store';
 
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission('analytics', 'view');
-    const profile = await getUserProfile();
-    const effectiveOutletId = getEffectiveOutletId(profile);
+    // Use optimized auth cache that combines all 3 operations into one
+    const { outletId: effectiveOutletId } = await getCachedAuth('analytics', 'view');
     if (!effectiveOutletId) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
@@ -46,6 +50,8 @@ export async function GET(request: NextRequest) {
       startDate = new Date(startIST - istOffsetMs);
     }
 
+    // OPTIMIZED: Only fetch total and payment_method (minimal data transfer)
+    // Aggregation by payment method is done in JavaScript for simplicity
     let queryBuilder = supabase
       .from('orders')
       .select('total, payment_method')
@@ -81,7 +87,11 @@ export async function GET(request: NextRequest) {
       { method: 'Card', amount: breakdown.CARD, fill: 'var(--chart-3)' },
     ].filter((item) => item.amount > 0);
 
-    return NextResponse.json({ data: chartData });
+    return NextResponse.json({ data: chartData }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch payment breakdown' },

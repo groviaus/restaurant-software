@@ -3,6 +3,10 @@ import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } 
 import { TableGrid } from '@/components/tables/TableGrid';
 import { Table } from '@/lib/types';
 
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 10; // Revalidate every 10 seconds (tables change frequently)
+
 export default async function TablesPage() {
   await requirePermission('tables', 'view');
   const profile = await getUserProfile();

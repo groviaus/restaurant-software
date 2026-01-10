@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { InventoryPageClient } from '@/components/inventory/InventoryPageClient';
 
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 30; // Revalidate every 30 seconds
+
 export default async function InventoryPage() {
   await requirePermission('inventory', 'view');
   const profile = await getUserProfile();

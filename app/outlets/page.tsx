@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { OutletsTable } from '@/components/tables/OutletsTable';
 
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 60; // Revalidate every 60 seconds
+
 export default async function OutletsPage() {
   await requirePermission('outlets', 'view');
   const profile = await getUserProfile();

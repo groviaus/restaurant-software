@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { MenuTable } from '@/components/tables/MenuTable';
 
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 30; // Revalidate every 30 seconds
+
 export default async function MenuPage() {
   await requirePermission('menu', 'view');
   const profile = await getUserProfile();

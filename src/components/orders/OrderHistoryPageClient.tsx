@@ -68,55 +68,34 @@ export function OrderHistoryPageClient({ initialOrders, tables, outletId }: Orde
 
   // Apply filters
   const filteredOrders = orders.filter((order) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'filtering order',data:{orderId:order.id,orderStatus:order.status,orderType:order.order_type,orderPaymentMethod:order.payment_method,filters},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     // Date range filter
     if (filters.startDate && filters.endDate) {
       const orderDate = new Date(order.created_at).toISOString().split('T')[0];
       if (orderDate < filters.startDate || orderDate > filters.endDate) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'filtered out by date',data:{orderId:order.id,orderDate},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         return false;
       }
     }
 
     // Status filter
     if (filters.statuses.length > 0 && !filters.statuses.includes(order.status)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'filtered out by status',data:{orderId:order.id,orderStatus:order.status,filterStatuses:filters.statuses,includes:filters.statuses.includes(order.status)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       return false;
     }
 
     // Order type filter
     if (filters.orderTypes.length > 0 && !filters.orderTypes.includes(order.order_type)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'filtered out by orderType',data:{orderId:order.id,orderType:order.order_type,filterOrderTypes:filters.orderTypes,includes:filters.orderTypes.includes(order.order_type)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       return false;
     }
 
     // Payment method filter
     if (filters.paymentMethods.length > 0 && order.payment_method && !filters.paymentMethods.includes(order.payment_method)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'filtered out by paymentMethod',data:{orderId:order.id,orderPaymentMethod:order.payment_method,filterPaymentMethods:filters.paymentMethods,includes:order.payment_method?filters.paymentMethods.includes(order.payment_method):'no payment method'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       return false;
     }
 
     // Table filter
     if (filters.tableId && order.table_id !== filters.tableId) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'filtered out by table',data:{orderId:order.id,orderTableId:order.table_id,filterTableId:filters.tableId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       return false;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryPageClient.tsx:filter',message:'order passed all filters',data:{orderId:order.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     return true;
   });
 

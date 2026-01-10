@@ -65,53 +65,29 @@ export function OrderHistoryFilters({ tables, filters, onFiltersChange }: OrderH
   }, []);
 
   const updateFilter = (key: keyof OrderHistoryFilters, value: any) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:updateFilter',message:'updateFilter called',data:{key,value,currentFilters:localFilters},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     const updated = { ...localFilters, [key]: value };
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:updateFilter',message:'updated filters',data:{updatedFilters:updated},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     setLocalFilters(updated);
     onFiltersChange(updated);
   };
 
   const toggleStatus = (status: OrderStatus) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:toggleStatus',message:'toggleStatus called',data:{status,currentStatuses:localFilters.statuses},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const statuses = localFilters.statuses.includes(status)
       ? localFilters.statuses.filter(s => s !== status)
       : [...localFilters.statuses, status];
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:toggleStatus',message:'new statuses array',data:{newStatuses:statuses},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     updateFilter('statuses', statuses);
   };
 
   const toggleOrderType = (type: 'DINE_IN' | 'TAKEAWAY') => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:toggleOrderType',message:'toggleOrderType called',data:{type,currentOrderTypes:localFilters.orderTypes},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     const orderTypes = localFilters.orderTypes.includes(type)
       ? localFilters.orderTypes.filter(t => t !== type)
       : [...localFilters.orderTypes, type];
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:toggleOrderType',message:'new orderTypes array',data:{newOrderTypes:orderTypes},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     updateFilter('orderTypes', orderTypes);
   };
 
   const togglePaymentMethod = (method: PaymentMethod) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:togglePaymentMethod',message:'togglePaymentMethod called',data:{method,currentPaymentMethods:localFilters.paymentMethods},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     const methods = localFilters.paymentMethods.includes(method)
       ? localFilters.paymentMethods.filter(m => m !== method)
       : [...localFilters.paymentMethods, method];
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f28a182b-47f0-4b96-ad1c-42d93b6e9063',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OrderHistoryFilters.tsx:togglePaymentMethod',message:'new paymentMethods array',data:{newPaymentMethods:methods},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     updateFilter('paymentMethods', methods);
   };
 

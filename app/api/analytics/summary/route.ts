@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { getCachedAuth } from '@/lib/auth/cache';
+
+// Route segment config for optimal caching
+export const dynamic = 'force-dynamic'; // Analytics data is dynamic
+export const revalidate = 60; // Revalidate every 60 seconds for semi-static analytics data
+export const fetchCache = 'default-no-store'; // Don't cache fetch requests
 
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission('analytics', 'view');
-    const profile = await getUserProfile();
-    const effectiveOutletId = getEffectiveOutletId(profile);
+    // Use optimized auth cache that combines all 3 operations into one
+    const { outletId: effectiveOutletId } = await getCachedAuth('analytics', 'view');
     if (!effectiveOutletId) {
       return NextResponse.json(
         { error: 'User not assigned to an outlet' },
@@ -67,8 +71,10 @@ export async function GET(request: NextRequest) {
       daysDiff,
     });
 
-    // Fetch all orders with items and profit margins
-    // Use .lt() for today period (exclusive) and .lte() for others (inclusive)
+    // OPTIMIZATION: Fetch only necessary fields to reduce data transfer
+    // For profit calculation, we still need order_items with profit_margin_percent
+    // TODO: Consider creating a PostgreSQL function (RPC) for better performance with large datasets
+    // This would allow aggregations at the database level instead of fetching all data
     let queryBuilder = supabase
       .from('orders')
       .select(`
@@ -149,6 +155,10 @@ export async function GET(request: NextRequest) {
       averageOrderValue: Number(averageOrderValue.toFixed(2)),
       cancellationRate: Number(cancellationRate.toFixed(2)),
       netProfit: Number(netProfit.toFixed(2)),
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
     });
   } catch (error: any) {
     return NextResponse.json(

@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { OrderHistoryPageClient } from '@/components/orders/OrderHistoryPageClient';
 
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 60; // Revalidate every 60 seconds (history changes less frequently)
+
 export default async function OrderHistoryPage() {
   await requireAuth();
   const profile = await getUserProfile();
@@ -17,16 +21,37 @@ export default async function OrderHistoryPage() {
     );
   }
 
+  // Optimize query - select only needed fields
   const { data: orders, error } = await supabase
     .from('orders')
     .select(`
-      *,
+      id,
+      order_type,
+      status,
+      total,
+      payment_method,
+      created_at,
+      table_id,
+      user_id,
       order_items (
-        *,
-        items (*)
+        id,
+        quantity,
+        price,
+        item_id,
+        items (
+          id,
+          name
+        )
       ),
-      tables (*),
-      users (*)
+      tables (
+        id,
+        name
+      ),
+      users (
+        id,
+        name,
+        email
+      )
     `)
     .eq('outlet_id', effectiveOutletId)
     .in('status', ['COMPLETED', 'CANCELLED'])
