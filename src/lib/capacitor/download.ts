@@ -32,17 +32,12 @@ export async function downloadFile(
         reader.readAsDataURL(blob);
       });
 
-      // Determine the file extension and directory
-      const extension = filename.split('.').pop()?.toLowerCase() || '';
-      const directory = getDirectoryForFileType(extension);
-
-      // Write file to device storage
-      // For binary files (images, PDFs), don't use encoding parameter
-      // For text files (CSV), use UTF8 encoding
+      // Use Cache directory - doesn't require storage permissions on Android
+      // We'll share the file immediately, so it doesn't need to persist
       const writeOptions: any = {
         path: filename,
         data: base64Data,
-        directory,
+        directory: Directory.Cache, // Cache directory doesn't require permissions
       };
       
       // Only add encoding for text files
@@ -52,7 +47,7 @@ export async function downloadFile(
       
       const filePath = await Filesystem.writeFile(writeOptions);
 
-      // Try to share the file (opens native share dialog)
+      // Share the file (opens native share dialog)
       // This allows users to save to Downloads, share via apps, etc.
       try {
         const fileUri = filePath.uri;
@@ -62,10 +57,29 @@ export async function downloadFile(
           url: fileUri,
           dialogTitle: 'Save or Share File',
         });
-      } catch (shareError) {
-        // If share fails, at least the file is saved
-        // On some platforms, we might need to use a different approach
-        console.warn('Share failed, file saved to:', filePath.uri);
+        
+        // Clean up the cached file after sharing (optional)
+        // The file will be shared, so we can delete it from cache
+        try {
+          await Filesystem.deleteFile({
+            path: filename,
+            directory: Directory.Cache,
+          });
+        } catch (deleteError) {
+          // Ignore delete errors - cache cleanup is optional
+          console.warn('Failed to clean up cache file:', deleteError);
+        }
+      } catch (shareError: any) {
+        // If share fails, try to clean up and throw error
+        try {
+          await Filesystem.deleteFile({
+            path: filename,
+            directory: Directory.Cache,
+          });
+        } catch (deleteError) {
+          // Ignore delete errors
+        }
+        throw new Error(`Failed to share file: ${shareError.message || 'Unknown error'}`);
       }
     } catch (error: any) {
       console.error('Failed to download file in native app:', error);
@@ -106,13 +120,4 @@ export async function downloadFileFromUrl(
   }
 }
 
-/**
- * Determines the appropriate directory for different file types
- * Note: Capacitor Filesystem uses Directory.Documents for all user-accessible files
- */
-function getDirectoryForFileType(extension: string): Directory {
-  // Use Documents directory for all file types
-  // The Share API will allow users to save to Downloads or other locations
-  return Directory.Documents;
-}
 

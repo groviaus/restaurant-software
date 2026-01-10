@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePermissions } from '@/hooks/usePermissions';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/providers/AuthProvider';
+import { useOutlet } from '@/hooks/useOutlet';
 import {
   TrendingUp,
   TrendingDown,
@@ -84,6 +87,8 @@ interface GroupedOrders {
 export default function AnalyticsPage() {
   const router = useRouter();
   const { checkPermission, loading: permLoading } = usePermissions();
+  const { profile } = useAuth();
+  const { currentOutletId } = useOutlet();
   const [period, setPeriod] = useState<TimePeriod>('today');
   const [summary, setSummary] = useState<SummaryMetrics | null>(null);
   const [salesTrend, setSalesTrend] = useState<SalesTrendData[]>([]);
@@ -92,6 +97,7 @@ export default function AnalyticsPage() {
   const [groupedOrders, setGroupedOrders] = useState<GroupedOrders[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersGroupBy, setOrdersGroupBy] = useState<'none' | 'day'>('none');
+  const [hasFetchedFallback, setHasFetchedFallback] = useState(false);
 
   // Helper function to format date as YYYY-MM-DD in local timezone
   const formatLocalDate = (date: Date): string => {
@@ -154,6 +160,188 @@ export default function AnalyticsPage() {
   };
 
   const dateRange = useMemo(() => getDateRange(period), [period]);
+
+  // Client-side fallback fetch function (for Capacitor when API calls fail)
+  const fetchDataClientSide = useCallback(async (startDate: string, endDate: string, periodType: TimePeriod) => {
+    const effectiveOutletId = currentOutletId;
+    if (!effectiveOutletId || !profile) {
+      console.warn('[Analytics] No outlet ID or profile for client-side fetch');
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      
+      // Parse dates
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      
+      const isTodayPeriod = periodType === 'today';
+      const endDateForQuery = isTodayPeriod 
+        ? new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1, 0, 0, 0, 0)
+        : end;
+
+      // Fetch orders for summary
+      let queryBuilder = supabase
+        .from('orders')
+        .select(`
+          id,
+          total,
+          status,
+          created_at,
+          payment_method,
+          order_items (
+            quantity,
+            price,
+            items (
+              profit_margin_percent
+            )
+          )
+        `)
+        .eq('outlet_id', effectiveOutletId)
+        .gte('created_at', start.toISOString());
+
+      if (isTodayPeriod) {
+        queryBuilder = queryBuilder.lt('created_at', endDateForQuery.toISOString());
+      } else {
+        queryBuilder = queryBuilder.lte('created_at', endDateForQuery.toISOString());
+      }
+
+      const { data: ordersData, error: ordersError } = await queryBuilder;
+
+      if (ordersError) {
+        console.error('[Analytics] Error fetching orders client-side:', ordersError);
+        return;
+      }
+
+      if (ordersData && ordersData.length > 0) {
+        // Calculate summary metrics
+        const completedOrders = ordersData.filter((o: any) => o.status === 'COMPLETED');
+        const totalSales = completedOrders.reduce((sum: number, o: any) => sum + Number(o.total), 0);
+        const totalOrders = ordersData.length;
+        const cancelledOrders = ordersData.filter((o: any) => o.status === 'CANCELLED').length;
+        const averageOrderValue = completedOrders.length > 0 ? totalSales / completedOrders.length : 0;
+        const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
+        
+        // Calculate net profit
+        let netProfit = 0;
+        completedOrders.forEach((order: any) => {
+          const orderProfit = order.order_items?.reduce((sum: number, oi: any) => {
+            const margin = oi.items?.profit_margin_percent || 0;
+            const itemTotal = Number(oi.price) * Number(oi.quantity);
+            return sum + (itemTotal * margin / 100);
+          }, 0) || 0;
+          netProfit += orderProfit;
+        });
+
+        setSummary({
+          totalSales,
+          totalOrders,
+          completedOrders: completedOrders.length,
+          cancelledOrders,
+          averageOrderValue,
+          cancellationRate,
+          netProfit,
+        });
+
+        // Calculate sales trend (simplified - group by day/hour)
+        const trendMap = new Map<string, { sales: number; orderCount: number }>();
+        completedOrders.forEach((order: any) => {
+          const orderDate = new Date(order.created_at);
+          let key: string;
+          
+          if (periodType === 'today') {
+            key = `${orderDate.getHours()}:00`;
+          } else {
+            key = formatLocalDate(orderDate);
+          }
+          
+          const existing = trendMap.get(key) || { sales: 0, orderCount: 0 };
+          existing.sales += Number(order.total);
+          existing.orderCount += 1;
+          trendMap.set(key, existing);
+        });
+
+        const trendData: SalesTrendData[] = Array.from(trendMap.entries()).map(([date, data]) => ({
+          date: periodType === 'today' ? '' : date,
+          time: periodType === 'today' ? date : undefined,
+          sales: data.sales,
+          orderCount: data.orderCount,
+        })).sort((a, b) => {
+          if (periodType === 'today') {
+            return (a.time || '').localeCompare(b.time || '');
+          }
+          return a.date.localeCompare(b.date);
+        });
+
+        setSalesTrend(trendData);
+
+        // Calculate payment breakdown
+        const paymentMap = new Map<string, number>();
+        completedOrders.forEach((order: any) => {
+          const method = order.payment_method?.toLowerCase() || 'cash';
+          const existing = paymentMap.get(method) || 0;
+          paymentMap.set(method, existing + Number(order.total));
+        });
+
+        const paymentDataArray: PaymentData[] = Array.from(paymentMap.entries()).map(([method, amount]) => ({
+          method: method.charAt(0).toUpperCase() + method.slice(1),
+          amount,
+          fill: `var(--color-${method.toLowerCase()})`,
+        }));
+
+        setPaymentData(paymentDataArray);
+
+        // Format orders list
+        const formattedOrders: Order[] = ordersData.map((order: any) => ({
+          id: order.id,
+          orderNumber: order.id.slice(0, 8).toUpperCase(),
+          total: Number(order.total),
+          status: order.status,
+          paymentMethod: order.payment_method || 'CASH',
+          createdAt: order.created_at,
+          items: order.order_items?.map((oi: any) => ({
+            name: oi.items?.name || 'Item',
+            quantity: Number(oi.quantity),
+            price: Number(oi.price),
+          })) || [],
+        }));
+
+        if (ordersGroupBy === 'day') {
+          // Group by day
+          const grouped = new Map<string, Order[]>();
+          formattedOrders.forEach((order) => {
+            const date = formatLocalDate(new Date(order.createdAt));
+            const existing = grouped.get(date) || [];
+            existing.push(order);
+            grouped.set(date, existing);
+          });
+
+          const groupedArray: GroupedOrders[] = Array.from(grouped.entries()).map(([date, orders]) => ({
+            date,
+            orders,
+            totalSales: orders.filter(o => o.status === 'COMPLETED').reduce((sum, o) => sum + o.total, 0),
+            orderCount: orders.length,
+          })).sort((a, b) => b.date.localeCompare(a.date));
+
+          setGroupedOrders(groupedArray);
+          setOrders([]);
+        } else {
+          setOrders(formattedOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+          setGroupedOrders([]);
+        }
+      }
+    } catch (error) {
+      console.error('[Analytics] Error in client-side fetch:', error);
+    }
+  }, [currentOutletId, profile, ordersGroupBy]);
+
+  // Reset fallback flag when period or date range changes
+  useEffect(() => {
+    setHasFetchedFallback(false);
+  }, [period, dateRange.start, dateRange.end]);
 
   // Fetch all data
   useEffect(() => {
@@ -220,7 +408,23 @@ export default function AnalyticsPage() {
     };
 
     fetchData();
-  }, [dateRange, ordersGroupBy]);
+  }, [dateRange, ordersGroupBy, period]);
+
+  // Client-side fallback: if summary is null or has zero values, fetch directly from Supabase
+  // This is important for Capacitor apps where server-side cookies might not work
+  useEffect(() => {
+    const effectiveOutletId = currentOutletId;
+    if (effectiveOutletId && profile && !hasFetchedFallback && dateRange.start && dateRange.end) {
+      // Check if we need fallback (summary is null or has zero sales/orders)
+      const needsFallback = !summary || (summary.totalSales === 0 && summary.totalOrders === 0);
+      
+      if (needsFallback && !loading) {
+        console.log('[Analytics] Initial values are 0 or null, fetching client-side data...');
+        setHasFetchedFallback(true);
+        fetchDataClientSide(dateRange.start, dateRange.end, period);
+      }
+    }
+  }, [currentOutletId, profile, summary, loading, dateRange, period, hasFetchedFallback, fetchDataClientSide]);
 
   useEffect(() => {
     if (!permLoading && !checkPermission('analytics', 'view')) {
