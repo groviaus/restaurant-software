@@ -5,14 +5,15 @@ import { useSearchParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Store, MapPin, AlertCircle, UtensilsCrossed, Search, X } from 'lucide-react';
-import { MenuItem, Outlet, QuantityType, PricingMode } from '@/lib/types';
+import { Store, MapPin, AlertCircle, UtensilsCrossed, Search, X, Users } from 'lucide-react';
+import { MenuItem, Outlet, QuantityType, PricingMode, Table, TableStatus } from '@/lib/types';
 
 function QRMenuContent() {
   const searchParams = useSearchParams();
   const outletId = searchParams.get('outlet');
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [outlet, setOutlet] = useState<Outlet | null>(null);
+  const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,6 +46,18 @@ function QRMenuContent() {
       if (menuResponse.ok) {
         const menuData = await menuResponse.json();
         setMenuItems((menuData.items || []).filter((item: MenuItem) => item.available));
+      }
+
+      // Fetch tables (public access for QR menu)
+      try {
+        const tablesResponse = await fetch(`/api/tables?outlet_id=${id}`);
+        if (tablesResponse.ok) {
+          const tablesData = await tablesResponse.json();
+          setTables(tablesData.tables || []);
+        }
+      } catch (err) {
+        // Tables are optional, don't fail if they can't be loaded
+        console.warn('Failed to fetch tables:', err);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load menu');
@@ -147,6 +160,20 @@ function QRMenuContent() {
     }
   };
 
+  // Get table status color and label
+  const getTableStatusInfo = (status: TableStatus) => {
+    switch (status) {
+      case TableStatus.EMPTY:
+        return { label: 'Available', color: 'bg-green-100 text-green-700 border-green-200' };
+      case TableStatus.OCCUPIED:
+        return { label: 'Occupied', color: 'bg-orange-100 text-orange-700 border-orange-200' };
+      case TableStatus.BILLED:
+        return { label: 'Available', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+      default:
+        return { label: 'Unknown', color: 'bg-gray-100 text-gray-700 border-gray-200' };
+    }
+  };
+
   // Error state
   if (!outletId) {
     return (
@@ -223,6 +250,57 @@ function QRMenuContent() {
             )}
           </div>
         ) : null}
+
+        {/* Tables Card - Minimalistic for Mobile */}
+        {!loading && tables.length > 0 && (
+          <div className="mb-4 sm:mb-6 bg-[#fefcf8] rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] p-3 sm:p-4 border-l-4 border-blue-500">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
+              <h3 className="text-sm sm:text-base font-bold text-gray-900">Available Tables</h3>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {tables
+                .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+                .map((table) => {
+                  const statusInfo = getTableStatusInfo(table.status);
+                  return (
+                    <div
+                      key={table.id}
+                      className={`rounded-lg border-2 p-2 text-center transition-all ${statusInfo.color}`}
+                    >
+                      <div className="font-semibold text-xs sm:text-sm mb-0.5">
+                        {table.name}
+                      </div>
+                      {table.capacity && (
+                        <div className="text-[10px] sm:text-xs opacity-75">
+                          {table.capacity} seats
+                        </div>
+                      )}
+                      <div className="mt-1 text-[9px] sm:text-[10px] font-medium">
+                        {statusInfo.label}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-green-100 border border-green-200"></div>
+                  <span>Available</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-orange-100 border border-orange-200"></div>
+                  <span>Occupied</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-blue-100 border border-blue-200"></div>
+                  <span>Ready</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Menu Header */}
         <div className="text-center mb-4 sm:mb-6">

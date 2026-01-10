@@ -72,18 +72,18 @@ export function OutletSelector() {
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            disabled={switching || outlets.length === 0}
-            className={cn(
+        disabled={switching || outlets.length === 0}
+          className={cn(
               'w-[180px] sm:w-[200px] h-9 justify-between',
-              switching && 'opacity-50 cursor-not-allowed'
-            )}
-          >
+            switching && 'opacity-50 cursor-not-allowed'
+          )}
+        >
             <span className="truncate">
-              {currentOutlet ? (
+            {currentOutlet ? (
                 currentOutlet.name
-              ) : (
+            ) : (
                 <span className="text-gray-500">Select outlet</span>
-              )}
+            )}
             </span>
             <ChevronDown className="h-4 w-4 opacity-50" />
           </Button>
@@ -106,9 +106,9 @@ export function OutletSelector() {
                 className="flex items-center justify-between"
               >
                 <span className="truncate">{outlet.name}</span>
-                {outlet.id === currentOutletId && (
+                  {outlet.id === currentOutletId && (
                   <Check className="h-4 w-4 text-blue-600 ml-2" />
-                )}
+                  )}
               </DropdownMenuItem>
             ))
           )}

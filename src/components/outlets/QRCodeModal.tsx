@@ -75,7 +75,7 @@ export function QRCodeModal({ open, onOpenChange, outletId, outletName }: QRCode
                 const filename = `qr-menu-${outletName.toLowerCase().replace(/\s+/g, '-')}.png`;
                 
                 await downloadFile(blob, filename, 'image/png');
-                toast.success('QR code downloaded successfully');
+            toast.success('QR code downloaded successfully');
             } catch (error: any) {
                 toast.error(error.message || 'Failed to download QR code');
             }

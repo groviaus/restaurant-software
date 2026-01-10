@@ -3,14 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -22,10 +14,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MenuItem } from '@/lib/types';
+import { MenuItem, PricingMode, QuantityType } from '@/lib/types';
 import { MenuItemForm } from '@/components/forms/MenuItemForm';
-import { Pencil, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2, Plus, AlertTriangle, Tag, IndianRupee, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MenuTableProps {
@@ -192,10 +185,10 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
 
   return (
     <>
-      <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div className="flex items-center gap-3">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <p className="text-sm text-gray-600">
-            Total items: {items.length}
+            Total items: <span className="font-semibold">{items.length}</span>
           </p>
           {selectedItems.size > 0 && (
             <Button
@@ -203,6 +196,7 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
               size="sm"
               onClick={openBulkDeleteDialog}
               disabled={deleting}
+              className="text-xs sm:text-sm"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''}
@@ -214,81 +208,144 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
           Add Menu Item
         </Button>
       </div>
-      <div className="rounded-md border overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Select all items"
-                    className={someSelected ? 'data-[state=checked]:bg-gray-400' : ''}
-                  />
-                </TableHead>
-                <TableHead className="min-w-[150px]">Name</TableHead>
-                <TableHead className="min-w-[120px]">Category</TableHead>
-                <TableHead className="min-w-[100px]">Price</TableHead>
-                <TableHead className="min-w-[80px]">Margin</TableHead>
-                <TableHead className="min-w-[100px]">Status</TableHead>
-                <TableHead className="text-right min-w-[120px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                    No menu items found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedItems.has(item.id)}
-                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
-                        aria-label={`Select ${item.name}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.category || '-'}</TableCell>
-                    <TableCell className="font-medium text-gray-900">₹{item.price.toFixed(2)}</TableCell>
-                    <TableCell>{item.profit_margin_percent ? `${item.profit_margin_percent}%` : '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.available ? 'default' : 'secondary'}>
-                        {item.available ? 'Available' : 'Unavailable'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                          aria-label="Edit item"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openDeleteDialog(item.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          aria-label="Delete item"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+
+      {/* Select All Checkbox */}
+      {items.length > 0 && (
+        <div className="mb-3 flex items-center gap-2">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={handleSelectAll}
+            aria-label="Select all items"
+            className={`!h-4 !w-4 flex-shrink-0 ${someSelected ? 'data-[state=checked]:bg-gray-400' : ''}`}
+          />
+          <span className="text-sm text-gray-600">
+            {selectedItems.size > 0
+              ? `${selectedItems.size} of ${items.length} selected`
+              : 'Select all items'}
+          </span>
         </div>
-      </div>
+      )}
+
+      {/* Card Grid Layout */}
+      {items.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Tag className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No menu items found</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {items.map((item) => (
+            <Card
+              key={item.id}
+              className={`hover:shadow-md transition-all duration-200 border ${
+                selectedItems.has(item.id) ? 'ring-2 ring-primary border-primary' : ''
+              } ${!item.available ? 'opacity-60' : ''}`}
+            >
+              <CardContent className="p-4 sm:p-5">
+                {/* Header with Checkbox */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <Checkbox
+                      checked={selectedItems.has(item.id)}
+                      onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
+                      aria-label={`Select ${item.name}`}
+                      className="!h-4 !w-4 flex-shrink-0 mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base sm:text-lg text-gray-900 mb-1 line-clamp-2">
+                        {item.name}
+                      </h3>
+                      {item.category && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <Tag className="h-3 w-3" />
+                          <span className="truncate">{item.category}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {item.description && (
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+                )}
+
+                {/* Price and Info */}
+                <div className="space-y-2 mb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <IndianRupee className="h-4 w-4" />
+                      <span className="font-medium">Price</span>
+                    </div>
+                    <span className="text-lg font-bold text-gray-900">
+                      ₹{item.price.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Pricing Mode Info */}
+                  {item.pricing_mode !== PricingMode.FIXED && (
+                    <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                      {item.pricing_mode === PricingMode.QUANTITY_AUTO && 'Auto-calculated by quantity'}
+                      {item.pricing_mode === PricingMode.QUANTITY_MANUAL && 'Manual pricing by quantity'}
+                      {item.requires_quantity && item.available_quantity_types && item.available_quantity_types.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {item.available_quantity_types.map((qType) => (
+                            <span key={qType} className="text-[10px] bg-white px-1.5 py-0.5 rounded">
+                              {qType === QuantityType.QUARTER && 'Q'}
+                              {qType === QuantityType.HALF && 'H'}
+                              {qType === QuantityType.THREE_QUARTER && '3Q'}
+                              {qType === QuantityType.FULL && 'F'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Profit Margin */}
+                  {item.profit_margin_percent && (
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <TrendingUp className="h-3 w-3" />
+                      <span>Margin: {item.profit_margin_percent}%</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Badge */}
+                <div className="mb-3">
+                  <Badge variant={item.available ? 'default' : 'secondary'} className="text-xs">
+                    {item.available ? 'Available' : 'Unavailable'}
+                  </Badge>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(item)}
+                    className="flex-1 text-xs"
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openDeleteDialog(item.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-1 text-xs"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <MenuItemForm
         open={formOpen}

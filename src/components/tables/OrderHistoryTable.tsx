@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OrderWithItems } from '@/lib/types';
 import { OrderStatus } from '@/lib/types';
-import { Receipt, Eye } from 'lucide-react';
+import { ReceiptIndianRupee, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { BillModal } from '@/components/billing/BillModal';
 import { format } from 'date-fns';
@@ -125,7 +125,7 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                     onClick={() => handleReprint(order)}
                     className="h-8 px-3 text-xs"
                   >
-                    <Receipt className="h-4 w-4 mr-1.5" />
+                    <ReceiptIndianRupee className="h-4 w-4 mr-1.5" />
                     Receipt
                   </Button>
                 )}
@@ -209,7 +209,7 @@ export function OrderHistoryTable({ orders }: OrderHistoryTableProps) {
                            onClick={() => handleReprint(order)}
                            className="h-8 px-3 text-xs"
                          >
-                           <Receipt className="h-4 w-4 mr-1.5" />
+                           <ReceiptIndianRupee className="h-4 w-4 mr-1.5" />
                            Receipt
                          </Button>
                         )}

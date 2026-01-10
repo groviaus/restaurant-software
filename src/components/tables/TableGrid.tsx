@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { TableStatus } from '@/lib/types';
 import { TableForm } from '@/components/forms/TableForm';
 import { useState, useEffect, useCallback } from 'react';
-import { Pencil, Trash2, Receipt } from 'lucide-react';
+import { Pencil, Trash2, ReceiptIndianRupee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTableOrderStore } from '@/store/tableOrderStore';
@@ -266,7 +266,7 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh, activeOr
                       <div key={order.id} className="bg-white rounded-md p-2 border border-yellow-200">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5">
-                            <Receipt className="h-3 w-3 text-yellow-700" />
+                            <ReceiptIndianRupee className="h-3 w-3 text-yellow-700" />
                             <span className="text-xs font-mono text-yellow-900">
                               {order.id.slice(0, 8)}
                             </span>

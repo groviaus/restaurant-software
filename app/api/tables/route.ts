@@ -5,12 +5,19 @@ import { createTableSchema, tablesQuerySchema } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission('tables', 'view');
+    const { searchParams } = new URL(request.url);
+    const outletIdParam = searchParams.get('outlet_id');
+    
+    // Allow public access if outlet_id is provided (for QR menu)
+    // Otherwise require view permission
+    if (!outletIdParam) {
+      await requirePermission('tables', 'view');
+    }
+    
     const supabase = await createClient();
 
-    const { searchParams } = new URL(request.url);
     const query = tablesQuerySchema.parse({
-      outlet_id: searchParams.get('outlet_id'),
+      outlet_id: outletIdParam,
       status: searchParams.get('status'),
     });
 

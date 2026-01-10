@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     // Convert IST date boundaries to UTC for database queries
     const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
-    
+
     // Calculate if this is a "today" period (endDate is exactly 1 day after startDate)
     const startIST = Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
     const endIST = Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0, 0);

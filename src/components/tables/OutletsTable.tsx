@@ -2,20 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Outlet } from '@/lib/types';
 import { OutletForm } from '@/components/forms/OutletForm';
 import { QRCodeModal } from '@/components/outlets/QRCodeModal';
-import { Store, Plus, BarChart3, CheckCircle2, QrCode } from 'lucide-react';
+import { Store, Plus, BarChart3, CheckCircle2, QrCode, MapPin, Calendar } from 'lucide-react';
 import { UserRole } from '@/lib/types';
 import { format } from 'date-fns';
 import { useOutlet } from '@/hooks/useOutlet';
@@ -45,8 +38,6 @@ export function OutletsTable({ outlets, userRole, currentOutletId }: OutletsTabl
     setSwitching(outletId);
     try {
       await switchOutlet(outletId);
-      // switchOutlet already calls window.location.reload(), so toast won't show
-      // But we can show it before the reload
       toast.success('Outlet switched successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to switch outlet');
@@ -57,106 +48,116 @@ export function OutletsTable({ outlets, userRole, currentOutletId }: OutletsTabl
   return (
     <>
       {isAdmin && (
-        <div className="flex justify-end mb-4">
-          <Button onClick={() => setFormOpen(true)} className="w-full sm:w-auto h-11 sm:h-10">
+        <div className="flex justify-end mb-4 sm:mb-6">
+          <Button onClick={() => setFormOpen(true)} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add Outlet
           </Button>
         </div>
       )}
-      <div className="rounded-md border overflow-hidden">
-        <div className="overflow-x-auto text-responsive-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[150px]">Name</TableHead>
-                <TableHead className="min-w-[200px]">Address</TableHead>
-                <TableHead className="min-w-[120px]">Created</TableHead>
-                {isAdmin && <TableHead className="text-right min-w-[150px]">Actions</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {outlets.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={isAdmin ? 4 : 3} className="text-center text-gray-500 py-8">
-                    No outlets found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                outlets.map((outlet) => (
-                  <TableRow key={outlet.id}>
-                    <TableCell className="font-medium text-xs sm:text-sm">
-                      <div className="flex items-center gap-2">
-                        <Store className="h-4 w-4 text-blue-600 hidden sm:block" />
-                        <span>{outlet.name}</span>
-                        {currentOutletId === outlet.id && (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+
+      {/* Card Grid Layout */}
+      {outlets.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Store className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No outlets found</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {outlets.map((outlet) => (
+            <Card
+              key={outlet.id}
+              className={`hover:shadow-md transition-all duration-200 ${
+                currentOutletId === outlet.id
+                  ? 'border-2 border-green-500 bg-green-50/30'
+                  : 'border'
+              }`}
+            >
+              <CardContent className="p-4 sm:p-5">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Store className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                    <h3 className="font-semibold text-base sm:text-lg text-gray-900 truncate">
+                      {outlet.name}
+                    </h3>
+                  </div>
+                  {currentOutletId === outlet.id && (
+                    <Badge className="bg-green-100 text-green-700 border-green-200 flex-shrink-0">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Active
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Address */}
+                {outlet.address && (
+                  <div className="flex items-start gap-2 mb-3 text-sm text-gray-600">
+                    <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0 text-gray-400" />
+                    <span className="line-clamp-2">{outlet.address}</span>
+                  </div>
+                )}
+
+                {/* Created Date */}
+                <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
+                  <Calendar className="h-3 w-3" />
+                  <span>Created {format(new Date(outlet.created_at), 'dd MMM yyyy')}</span>
+                </div>
+
+                {/* Actions */}
+                {isAdmin && (
+                  <div className="flex flex-wrap gap-2 pt-3 border-t">
+                    {currentOutletId !== outlet.id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSwitchOutlet(outlet.id)}
+                        disabled={switching === outlet.id}
+                        className="flex-1 sm:flex-initial text-xs"
+                      >
+                        {switching === outlet.id ? (
+                          'Switching...'
+                        ) : (
+                          <>
                             <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Active
-                          </Badge>
+                            Switch
+                          </>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs sm:text-sm text-gray-600 truncate max-w-[200px]">
-                      {outlet.address || '-'}
-                    </TableCell>
-                    <TableCell className="text-xs sm:text-sm text-gray-600">
-                      {format(new Date(outlet.created_at), 'dd/MM/yyyy')}
-                    </TableCell>
-                    {isAdmin && (
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {currentOutletId !== outlet.id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSwitchOutlet(outlet.id)}
-                              disabled={switching === outlet.id}
-                              className="h-8 sm:h-9"
-                            >
-                              {switching === outlet.id ? (
-                                'Switching...'
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="h-4 w-4 sm:mr-2" />
-                                  <span className="hidden sm:inline">Switch To</span>
-                                </>
-                              )}
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedOutlet({ id: outlet.id, name: outlet.name });
-                              setQrModalOpen(true);
-                            }}
-                            className="h-8 sm:h-9"
-                          >
-                            <QrCode className="h-4 w-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Generate QR</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              window.location.href = `/outlets/${outlet.id}`;
-                            }}
-                            className="h-8 sm:h-9"
-                          >
-                            <BarChart3 className="h-4 w-4 sm:mr-2" />
-                            <span className="hidden sm:inline">View Dashboard</span>
-                          </Button>
-                        </div>
-                      </TableCell>
+                      </Button>
                     )}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedOutlet({ id: outlet.id, name: outlet.name });
+                        setQrModalOpen(true);
+                      }}
+                      className="flex-1 sm:flex-initial text-xs"
+                    >
+                      <QrCode className="h-3 w-3 mr-1" />
+                      QR Code
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        window.location.href = `/outlets/${outlet.id}`;
+                      }}
+                      className="flex-1 sm:flex-initial text-xs"
+                    >
+                      <BarChart3 className="h-3 w-3 mr-1" />
+                      Dashboard
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </div>
+      )}
+
       {isAdmin && (
         <OutletForm
           open={formOpen}
@@ -177,4 +178,3 @@ export function OutletsTable({ outlets, userRole, currentOutletId }: OutletsTabl
     </>
   );
 }
-
