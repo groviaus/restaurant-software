@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { billOrderIdSchema } from '@/lib/schemas';
 
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    await requireAuth();
+    await requirePermission('bills', 'view');
     const supabase = await createClient();
 
     const { orderId: paramsOrderId } = await params;

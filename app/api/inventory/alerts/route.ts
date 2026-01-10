@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 
 export async function GET() {
   try {
+    await requirePermission('inventory', 'view');
     const profile = await getUserProfile();
     const effectiveOutletId = getEffectiveOutletId(profile);
     if (!effectiveOutletId) {

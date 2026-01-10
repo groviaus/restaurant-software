@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { billOrderIdSchema } from '@/lib/schemas';
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
+    await requirePermission('bills', 'view');
     const supabase = await createClient();
 
     const body = await request.json();

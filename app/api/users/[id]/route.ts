@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { getSession } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 
 // UPDATE User (Change role/outlet)
 // UPDATE User (Change role/outlet)
@@ -8,8 +8,7 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await requirePermission('users', 'edit');
 
     const { id } = await params;
     const body = await request.json();
@@ -55,8 +54,7 @@ export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await requirePermission('users', 'delete');
 
     const { id } = await params;
     const supabaseAdmin = createServiceRoleClient();

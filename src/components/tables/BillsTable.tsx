@@ -244,8 +244,97 @@ export function BillsTable({ bills: initialBills, outletId, tables }: BillsTable
           />
         </div>
 
-        {/* Bills Table */}
-        <div className="rounded-md border overflow-hidden">
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-3">
+          {paginatedBills.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="space-y-2">
+                <p className="text-muted-foreground">
+                  {searchQuery || Object.keys(filters).some(k => {
+                    const key = k as keyof FiltersType;
+                    if (key === 'datePreset') return filters.datePreset !== 'today';
+                    if (key === 'orderTypes') return filters.orderTypes.length > 0;
+                    if (key === 'paymentMethods') return filters.paymentMethods.length > 0;
+                    return filters[key] !== undefined && filters[key] !== '';
+                  }) ? 'No bills found matching your filters' : 'No bills found'}
+                </p>
+                {!searchQuery && (
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    Completed orders will appear here as bills. Generate bills from the Orders page.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            paginatedBills.map((bill, index) => (
+              <div
+                key={bill.id}
+                className="bg-white border rounded-lg p-4 space-y-3 shadow-sm"
+              >
+                {/* Header Row */}
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-xs text-gray-500">
+                        Bill #{totalBills - (startIndex + index)}
+                      </span>
+                      <span className="font-mono text-xs text-gray-500">#{bill.id.slice(0, 8)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                      <Badge variant="outline" className="text-xs">
+                        {bill.order_type === 'DINE_IN' ? 'Dine In' : 'Takeaway'}
+                      </Badge>
+                      {(bill as any).tables?.name || (bill as any).table?.name ? (
+                        <>
+                          <span>•</span>
+                          <span>{(bill as any).tables?.name || (bill as any).table?.name}</span>
+                        </>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+                        {bill.payment_method === 'UPI' ? (
+                          <>
+                            <QrCode className="h-3 w-3" />
+                            <span>UPI</span>
+                          </>
+                        ) : (
+                          <span>{bill.payment_method || 'N/A'}</span>
+                        )}
+                      </Badge>
+                      <span>•</span>
+                      <span>Staff: {(bill as any).users?.name || (bill as any).user?.name || '-'}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-base font-semibold text-gray-900">
+                      ₹{Number(bill.total).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {format(new Date(bill.created_at), 'dd/MM HH:mm')}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions Row */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewBill(bill)}
+                    className="h-8 px-3 text-xs"
+                  >
+                    <Eye className="h-4 w-4 mr-1.5" />
+                    View Bill
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block rounded-md border overflow-hidden">
           <div className="overflow-x-auto text-responsive-sm">
             <Table>
               <TableHeader>

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSession } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 
 // GET all roles
 export async function GET(request: NextRequest) {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await requirePermission('roles', 'view');
 
     const supabase = await createClient();
     const { data: roles, error } = await supabase
@@ -22,10 +21,7 @@ export async function GET(request: NextRequest) {
 
 // CREATE new role
 export async function POST(request: NextRequest) {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    // TODO: Add stricter admin check here if needed (via RBAC or role check)
+    await requirePermission('roles', 'create');
 
     const body = await request.json();
     const { name, description } = body;

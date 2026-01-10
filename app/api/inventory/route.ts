@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { z } from 'zod';
 
 const updateInventorySchema = z.object({
@@ -11,6 +11,7 @@ const updateInventorySchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    await requirePermission('inventory', 'view');
     const profile = await getUserProfile();
     const effectiveOutletId = getEffectiveOutletId(profile);
     if (!effectiveOutletId) {
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    await requirePermission('inventory', 'edit');
     const profile = await getUserProfile();
     if (!profile) {
       return NextResponse.json(

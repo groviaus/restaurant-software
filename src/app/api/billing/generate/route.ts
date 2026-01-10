@@ -38,26 +38,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch outlet settings to get GST configuration
+    // Fetch global GST settings (same for all outlets)
+    const orderOutletId = orderData.outlet_id;
     const profile = await getUserProfile();
     const effectiveOutletId = getEffectiveOutletId(profile);
     
     let gstEnabled = true;
     let gstPercentage = 18; // Default 18%
     
-    if (effectiveOutletId) {
-      const { data: settings } = await supabase
-        .from('outlet_settings')
-        .select('gst_enabled, gst_percentage')
-        .eq('outlet_id', effectiveOutletId)
-        .single();
-      
-      if (settings) {
-        const settingsData = settings as { gst_enabled?: boolean; gst_percentage?: number } | null;
-        if (settingsData) {
-          gstEnabled = settingsData.gst_enabled ?? true;
-          gstPercentage = settingsData.gst_percentage ?? 18;
-        }
+    // Get global GST settings (not per-outlet)
+    const { data: globalSettings } = await supabase
+      .from('global_settings')
+      .select('gst_enabled, gst_percentage')
+      .eq('id', 'global')
+      .single();
+    
+    if (globalSettings) {
+      const settingsData = globalSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
+      if (settingsData) {
+        gstEnabled = settingsData.gst_enabled ?? true;
+        gstPercentage = settingsData.gst_percentage ?? 18;
       }
     }
 
@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto stock deduction when order is completed via bill generation
-    // (profile and effectiveOutletId already fetched above)
-    if (effectiveOutletId && updatedOrderData.order_items) {
+    // Use order's outlet_id for inventory deduction (not user's effective outlet)
+    if (orderOutletId && updatedOrderData.order_items) {
       const serviceClient = createServiceRoleClient();
 
       for (const orderItem of updatedOrderData.order_items) {
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         const { data: inventory } = await serviceClient
           .from('inventory')
           .select('*')
-          .eq('outlet_id', effectiveOutletId)
+          .eq('outlet_id', orderOutletId)
           .eq('item_id', orderItem.item_id)
           .single();
 
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
           // Log the deduction
           const logData: any = {
-            outlet_id: effectiveOutletId,
+            outlet_id: orderOutletId,
             item_id: orderItem.item_id,
             change: -orderItem.quantity,
             reason: `Order ${updatedOrderData.id} completed (bill generated)`,

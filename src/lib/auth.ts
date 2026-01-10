@@ -151,7 +151,8 @@ export async function checkPermission(
   if (permissions === 'ADMIN') return true;
 
   if (Array.isArray(permissions)) {
-    const modulePerm = permissions.find((p: any) => p.module === moduleName);
+    // Case-insensitive module name matching
+    const modulePerm = permissions.find((p: any) => p.module?.toLowerCase() === moduleName.toLowerCase());
     if (!modulePerm) return false;
 
     switch (action) {

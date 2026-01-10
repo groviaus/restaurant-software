@@ -33,6 +33,7 @@ interface OrderFormProps {
   outletId: string;
   tables: Table[];
   onSuccess: () => void;
+  order?: any; // Optional: if provided, form is in edit mode
 }
 
 interface OrderItem {
@@ -40,6 +41,7 @@ interface OrderItem {
   quantity: number;
   quantity_type?: QuantityType;
   notes?: string;
+  order_item_id?: string; // For edit mode: track original order_item id
 }
 
 interface TopSellingItem {
@@ -54,8 +56,9 @@ export function OrderForm({
   outletId,
   tables,
   onSuccess,
+  order: existingOrder,
 }: OrderFormProps) {
-  const { addOrder, tables: storeTables } = useTableOrderStore();
+  const { addOrder, tables: storeTables, updateOrder } = useTableOrderStore();
   const { settings, calculateTax } = useSettings();
   const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY'>('DINE_IN');
   const [tableId, setTableId] = useState<string>('');
@@ -65,20 +68,89 @@ export function OrderForm({
   const [topSellers, setTopSellers] = useState<TopSellingItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingOrder, setLoadingOrder] = useState(false); // Loading state for fetching order data
+  const [existingOrderItems, setExistingOrderItems] = useState<any[]>([]); // Track original order items for edit mode
 
   const availableTables = storeTables.length > 0 ? storeTables : tables;
+  const isEditMode = !!existingOrder;
 
   useEffect(() => {
     if (open) {
       fetchMenuItems();
       fetchCategories();
       fetchTopSellers();
+      
+      if (existingOrder?.id) {
+        // Edit mode: Load existing order data
+        setLoadingOrder(true);
+        const fetchFullOrder = async () => {
+          try {
+            const response = await fetch(`/api/orders/${existingOrder.id}`);
+            if (response.ok) {
+              const fullOrder = await response.json();
+              setOrderType(fullOrder.order_type);
+              setTableId(fullOrder.table_id || '');
+              
+              // Convert order items to form items
+              const orderItems = (fullOrder.order_items || fullOrder.items || []).map((oi: any) => ({
+                item_id: oi.item_id,
+                quantity: oi.quantity,
+                quantity_type: oi.quantity_type,
+                notes: oi.notes || '',
+                order_item_id: oi.id, // Track original order_item id for updates
+              }));
+              setItems(orderItems);
+              setExistingOrderItems(fullOrder.order_items || fullOrder.items || []);
+            } else {
+              // Fallback to passed order
+              setOrderType(existingOrder.order_type);
+              setTableId(existingOrder.table_id || '');
+              const orderItems = (existingOrder.order_items || existingOrder.items || []).map((oi: any) => ({
+                item_id: oi.item_id,
+                quantity: oi.quantity,
+                quantity_type: oi.quantity_type,
+                notes: oi.notes || '',
+                order_item_id: oi.id, // Track original order_item id for updates
+              }));
+              setItems(orderItems);
+              setExistingOrderItems(existingOrder.order_items || existingOrder.items || []);
+            }
+          } catch (error) {
+            console.error('Failed to fetch full order:', error);
+            // Fallback to passed order
+            setOrderType(existingOrder.order_type);
+            setTableId(existingOrder.table_id || '');
+            const orderItems = (existingOrder.order_items || existingOrder.items || []).map((oi: any) => ({
+              item_id: oi.item_id,
+              quantity: oi.quantity,
+              quantity_type: oi.quantity_type,
+              notes: oi.notes || '',
+              order_item_id: oi.id, // Track original order_item id for updates
+            }));
+            setItems(orderItems);
+            setExistingOrderItems(existingOrder.order_items || existingOrder.items || []);
+          } finally {
+            setLoadingOrder(false);
+          }
+        };
+        fetchFullOrder();
+      } else {
+        // Create mode: Reset form
+        setItems([]);
+        setTableId('');
+        setOrderType('DINE_IN');
+        setExistingOrderItems([]);
+      }
+      setSelectedCategory(null);
+    } else {
+      // Reset when modal closes
       setItems([]);
       setTableId('');
       setOrderType('DINE_IN');
+      setExistingOrderItems([]);
       setSelectedCategory(null);
     }
-  }, [open, outletId]);
+  }, [open, outletId, existingOrder?.id]);
 
   const fetchMenuItems = async () => {
     try {
@@ -243,35 +315,133 @@ export function OrderForm({
 
     setLoading(true);
     try {
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          outlet_id: outletId,
-          table_id: orderType === 'DINE_IN' ? tableId : undefined,
-          order_type: orderType,
-          items: items.map(item => ({
+      if (isEditMode && existingOrder) {
+        // Edit mode: Update existing order
+        // Track items by their order_item_id for proper updates
+        const existingItemsById = new Map(
+          existingOrderItems.map((oi: any) => [oi.id, oi])
+        );
+        const currentItemsWithId = items.filter(item => item.order_item_id);
+
+        // Find items to remove (exist in original but not in current items with IDs)
+        const currentItemIds = new Set(currentItemsWithId.map(item => item.order_item_id).filter(Boolean));
+        const itemsToRemove = existingOrderItems
+          .filter((oi: any) => !currentItemIds.has(oi.id))
+          .map((oi: any) => oi.id);
+
+        // Find items to add (items without order_item_id are new)
+        const itemsToAdd = items.filter(item => !item.order_item_id);
+
+        // Find items to update (items with order_item_id that have changes)
+        const itemsToUpdate = currentItemsWithId
+          .map(item => {
+            if (!item.order_item_id) return null;
+            const existing = existingItemsById.get(item.order_item_id);
+            if (!existing) return null;
+
+            const hasChanges = 
+              existing.quantity !== item.quantity ||
+              (existing.notes || '') !== (item.notes || '');
+
+            if (!hasChanges) return null;
+
+            return {
+              order_item_id: item.order_item_id,
+              quantity: item.quantity,
+              notes: item.notes || null,
+            };
+          })
+          .filter((update): update is { order_item_id: string; quantity: number; notes: string | null } => update !== null);
+
+        // Prepare payload
+        const payload: any = {};
+        if (itemsToRemove.length > 0) {
+          payload.items_to_remove = itemsToRemove;
+        }
+        if (itemsToAdd.length > 0) {
+          payload.items_to_add = itemsToAdd.map(item => ({
             item_id: item.item_id,
             quantity: item.quantity,
-            quantity_type: item.quantity_type,
-            notes: item.notes || undefined,
-          })),
-        }),
-      });
+            ...(item.quantity_type && { quantity_type: item.quantity_type }),
+            ...(item.notes && { notes: item.notes }),
+          }));
+        }
+        if (itemsToUpdate.length > 0) {
+          payload.items_to_update = itemsToUpdate.map(update => {
+            const updateObj: any = {
+              order_item_id: update.order_item_id,
+            };
+            // Always include quantity since we only add items with changes
+            updateObj.quantity = update.quantity;
+            // Notes can be null
+            updateObj.notes = update.notes ?? null;
+            return updateObj;
+          });
+        }
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create order');
+        // Check if there are any changes
+        if (itemsToRemove.length === 0 && itemsToAdd.length === 0 && itemsToUpdate.length === 0) {
+          toast.info('No changes to save');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`/api/orders/${existingOrder.id}/items`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          // Show detailed validation errors if available
+          if (error.details && Array.isArray(error.details)) {
+            const errorMessages = error.details.map((detail: any) => 
+              `${detail.path?.join('.') || 'Field'}: ${detail.message || 'Invalid value'}`
+            ).join(', ');
+            throw new Error(`Validation error: ${errorMessages}`);
+          }
+          throw new Error(error.error || 'Failed to update order');
+        }
+
+        const updatedOrder = await response.json();
+        updateOrder(updatedOrder);
+
+        toast.success('Order updated successfully');
+        onSuccess();
+        onOpenChange(false);
+      } else {
+        // Create mode: Create new order
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            outlet_id: outletId,
+            table_id: orderType === 'DINE_IN' ? tableId : undefined,
+            order_type: orderType,
+            items: items.map(item => ({
+              item_id: item.item_id,
+              quantity: item.quantity,
+              quantity_type: item.quantity_type,
+              notes: item.notes || undefined,
+            })),
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create order');
+        }
+
+        const orderData = await response.json();
+        addOrder(orderData);
+
+        toast.success('Order created successfully');
+        onSuccess();
+        onOpenChange(false);
       }
-
-      const orderData = await response.json();
-      addOrder(orderData);
-
-      toast.success('Order created successfully');
-      onSuccess();
-      onOpenChange(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create order');
+      toast.error(error.message || `Failed to ${isEditMode ? 'update' : 'create'} order`);
     } finally {
       setLoading(false);
     }
@@ -281,13 +451,26 @@ export function OrderForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md sm:max-w-[800px] max-h-[100vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-4 sm:px-6 pt-5 pb-3 sm:pt-6 sm:pb-4 border-b">
-          <DialogTitle className="text-lg sm:text-xl">Create New Order</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">
+            {isEditMode ? 'Edit Order' : 'Create New Order'}
+          </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm mt-1">
-            Quick select items or add manually
+            {isEditMode 
+              ? `Edit items for order ${existingOrder?.id?.slice(0, 8) || ''}`
+              : 'Quick select items or add manually'
+            }
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          {loadingOrder ? (
+            <div className="flex-1 flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-sm text-muted-foreground">Loading order details...</p>
+              </div>
+            </div>
+          ) : (
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 space-y-5 sm:space-y-6">
             {/* Order Type & Table Selection */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -296,11 +479,14 @@ export function OrderForm({
                 <Select
                   value={orderType}
                   onValueChange={(value) => {
-                    setOrderType(value as 'DINE_IN' | 'TAKEAWAY');
-                    if (value === 'TAKEAWAY') {
-                      setTableId('');
+                    if (!isEditMode) {
+                      setOrderType(value as 'DINE_IN' | 'TAKEAWAY');
+                      if (value === 'TAKEAWAY') {
+                        setTableId('');
+                      }
                     }
                   }}
+                  disabled={isEditMode}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -315,13 +501,22 @@ export function OrderForm({
               {orderType === 'DINE_IN' && (
                 <div className="space-y-2">
                   <Label htmlFor="table">Table</Label>
-                  <Select value={tableId} onValueChange={setTableId} required={orderType === 'DINE_IN'}>
+                  <Select 
+                    value={tableId} 
+                    onValueChange={(value) => {
+                      if (!isEditMode) {
+                        setTableId(value);
+                      }
+                    }} 
+                    required={orderType === 'DINE_IN'}
+                    disabled={isEditMode}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select table" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableTables
-                        .filter((table) => table.status === 'EMPTY' || table.status === 'BILLED')
+                        .filter((table) => isEditMode || table.status === 'EMPTY' || table.status === 'BILLED')
                         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
                         .map((table) => (
                           <SelectItem key={table.id} value={table.id}>
@@ -614,56 +809,62 @@ export function OrderForm({
                 </p>
               </div>
             )}
-          </div>
 
-          {/* Footer with Totals */}
-          <div className="px-4 sm:px-6 py-4 sm:py-5 bg-gray-50 border-t space-y-4">
-            {items.length > 0 && (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center text-gray-600">
-                  <span>Subtotal</span>
-                  <span className="font-semibold">{settings.currency_symbol}{calculateOrderTotal().toFixed(2)}</span>
+            {/* Footer with Totals */}
+            <div className="px-4 sm:px-6 py-4 sm:py-5 bg-gray-50 border-t space-y-4">
+              {items.length > 0 && (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-semibold">{settings.currency_symbol}{calculateOrderTotal().toFixed(2)}</span>
+                  </div>
+                  {settings.gst_enabled && (
+                    <>
+                      <div className="flex justify-between items-center text-gray-600">
+                        <span>CGST ({settings.cgst_percentage}%)</span>
+                        <span className="font-medium">{settings.currency_symbol}{calculateTax(calculateOrderTotal()).cgst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-gray-600">
+                        <span>SGST ({settings.sgst_percentage}%)</span>
+                        <span className="font-medium">{settings.currency_symbol}{calculateTax(calculateOrderTotal()).sgst.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between items-center text-base sm:text-lg font-bold pt-2 border-t">
+                    <span>Grand Total</span>
+                    <span className="text-primary">
+                      {settings.currency_symbol}{(calculateOrderTotal() + calculateTax(calculateOrderTotal()).total).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-                {settings.gst_enabled && (
-                  <>
-                    <div className="flex justify-between items-center text-gray-600">
-                      <span>CGST ({settings.cgst_percentage}%)</span>
-                      <span className="font-medium">{settings.currency_symbol}{calculateTax(calculateOrderTotal()).cgst.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-gray-600">
-                      <span>SGST ({settings.sgst_percentage}%)</span>
-                      <span className="font-medium">{settings.currency_symbol}{calculateTax(calculateOrderTotal()).sgst.toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between items-center text-base sm:text-lg font-bold pt-2 border-t">
-                  <span>Grand Total</span>
-                  <span className="text-primary">
-                    {settings.currency_symbol}{(calculateOrderTotal() + calculateTax(calculateOrderTotal()).total).toFixed(2)}
-                  </span>
-                </div>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={loading || loadingOrder}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading || loadingOrder || items.length === 0}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
+                  {loading 
+                    ? 'Processing...' 
+                    : isEditMode 
+                      ? `Update Order${items.length > 0 ? ` (${items.filter(i => i.item_id).length})` : ''}`
+                      : `Place Order${items.length > 0 ? ` (${items.filter(i => i.item_id).length})` : ''}`
+                  }
+                </Button>
               </div>
-            )}
-
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={loading}
-                className="w-full sm:w-auto min-h-[44px]"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading || items.length === 0}
-                className="w-full sm:w-auto min-h-[44px]"
-              >
-                {loading ? 'Processing...' : `Place Order${items.length > 0 ? ` (${items.filter(i => i.item_id).length})` : ''}`}
-              </Button>
             </div>
           </div>
+          )}
         </form>
       </DialogContent>
     </Dialog>

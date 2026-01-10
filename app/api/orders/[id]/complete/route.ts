@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { orderIdSchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
+    await requirePermission('orders', 'edit');
     const supabase = await createClient();
 
     // Await params in Next.js 15+
@@ -43,14 +43,21 @@ export async function POST(
     // Update table status to EMPTY if dine-in (table is now available for new orders)
     if (orderData.table_id && orderData.order_type === 'DINE_IN') {
       const tableUpdateData: any = { status: 'EMPTY' };
-      await supabase
+      const { error: tableUpdateError } = await supabase
         .from('tables')
         // @ts-expect-error - Supabase type inference issue
         .update(tableUpdateData)
         .eq('id', orderData.table_id);
+      
+      if (tableUpdateError) {
+        console.error('Failed to update table status to EMPTY:', tableUpdateError);
+        // Don't fail the request, but log the error
+      }
     }
 
     // Auto stock deduction
+    // Use order's outlet_id for inventory deduction (not user's effective outlet)
+    const orderOutletId = orderData.outlet_id;
     const profile = await getUserProfile();
     if (!profile) {
       // Profile check already done by requireAuth, but TypeScript needs this
@@ -59,8 +66,7 @@ export async function POST(
         { status: 401 }
       );
     }
-    const effectiveOutletId = getEffectiveOutletId(profile);
-    if (effectiveOutletId && orderData.order_items) {
+    if (orderOutletId && orderData.order_items) {
       const serviceClient = createServiceRoleClient();
 
       for (const orderItem of orderData.order_items) {
@@ -68,7 +74,7 @@ export async function POST(
         const { data: inventory } = await serviceClient
           .from('inventory')
           .select('*')
-          .eq('outlet_id', effectiveOutletId)
+          .eq('outlet_id', orderOutletId)
           .eq('item_id', orderItem.item_id)
           .single();
 
@@ -86,7 +92,7 @@ export async function POST(
 
           // Log the deduction
           const logData: any = {
-            outlet_id: effectiveOutletId,
+            outlet_id: orderOutletId,
             item_id: orderItem.item_id,
             change: -orderItem.quantity,
             reason: `Order ${orderData.id} completed`,

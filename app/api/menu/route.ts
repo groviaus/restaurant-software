@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSession } from '@/lib/auth';
+import { getSession, requirePermission } from '@/lib/auth';
 import { createMenuItemSchema, menuQuerySchema } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
@@ -9,15 +9,9 @@ export async function GET(request: NextRequest) {
     const outletIdParam = searchParams.get('outlet_id');
 
     // Allow public access if outlet_id is provided (for QR menu)
-    // Otherwise require authentication
+    // Otherwise require view permission
     if (!outletIdParam) {
-      const session = await getSession();
-      if (!session) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
+      await requirePermission('menu', 'view');
     }
 
     const supabase = await createClient();
@@ -80,13 +74,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    await requirePermission('menu', 'create');
 
     const supabase = await createClient();
 

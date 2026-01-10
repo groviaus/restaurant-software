@@ -55,6 +55,12 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
                   <span>{order.tables.name}</span>
                 </div>
               )}
+              {order.users && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Handled By:</span>
+                  <span>{order.users.name || order.users.email || 'Staff'}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-600">Payment Method:</span>
                 <span className="flex items-center gap-2">

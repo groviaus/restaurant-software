@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { updateOrderStatusSchema, orderIdSchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
+    await requirePermission('orders', 'view');
     const supabase = await createClient();
 
     // Await params in Next.js 15+
@@ -59,7 +59,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
+    await requirePermission('orders', 'edit');
     const supabase = await createClient();
 
     // Await params in Next.js 15+
@@ -101,11 +101,16 @@ export async function PATCH(
     // Update table status if order is completed or cancelled
     if (orderData.table_id && (validatedData.status === 'COMPLETED' || validatedData.status === 'CANCELLED')) {
       const tableUpdateData: any = { status: 'EMPTY' };
-      await supabase
+      const { error: tableUpdateError } = await supabase
         .from('tables')
         // @ts-expect-error - Supabase type inference issue
         .update(tableUpdateData)
         .eq('id', orderData.table_id);
+      
+      if (tableUpdateError) {
+        console.error('Failed to update table status to EMPTY:', tableUpdateError);
+        // Don't fail the request, but log the error
+      }
     }
 
     return NextResponse.json(orderData);

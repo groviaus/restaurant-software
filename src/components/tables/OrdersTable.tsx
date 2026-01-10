@@ -20,7 +20,7 @@ import { OrderForm } from '@/components/forms/OrderForm';
 import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { Table as TableType } from '@/lib/types';
-import { Plus, Eye, X, Filter } from 'lucide-react';
+import { Plus, Eye, X, Filter, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTableOrderStore } from '@/store/tableOrderStore';
 import { OrdersFilters, OrdersFilters as FiltersType } from '@/components/orders/OrdersFilters';
@@ -48,6 +48,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+  const [orderToEdit, setOrderToEdit] = useState<any | null>(null);
   const [filters, setFilters] = useState<FiltersType>({
     datePreset: 'today',
     statuses: [],
@@ -57,6 +58,12 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
 
   const { checkPermission, isAdmin } = usePermissions();
   const canCreateOrder = isAdmin || checkPermission('orders', 'create');
+  const canEditOrder = isAdmin || checkPermission('orders', 'edit');
+  
+  // Check if an order can be edited (not completed or cancelled)
+  const canEditThisOrder = (order: any) => {
+    return canEditOrder && order.status !== 'COMPLETED' && order.status !== 'CANCELLED';
+  };
 
   // Initialize store with data from server
   useEffect(() => {
@@ -251,6 +258,18 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
     setOrderDetailsOpen(true);
   };
 
+  const handleEditOrder = (order: any) => {
+    setOrderToEdit(order);
+    setOrderFormOpen(true);
+  };
+
+  const handleOrderFormSuccess = async () => {
+    // Refetch orders to get updated data
+    await refetchOrders();
+    setOrderToEdit(null);
+    router.refresh();
+  };
+
   const handleCancelClick = (orderId: string) => {
     setOrderToCancel(orderId);
     setCancelDialogOpen(true);
@@ -283,7 +302,143 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
         />
       </div>
       <div className="mt-4" />
-      <div className="rounded-md border overflow-hidden">
+      
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {orders.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            No orders found
+          </div>
+        ) : (
+          orders.map((order) => (
+            <div
+              key={order.id}
+              className="bg-white border rounded-lg p-4 space-y-3 shadow-sm"
+            >
+              {/* Header Row */}
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-xs text-gray-500">#{order.id.slice(0, 8)}</span>
+                    <Badge className={getStatusColor(order.status)} variant="outline">
+                      {order.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <span>{order.order_type}</span>
+                    {order.tables?.name && (
+                      <>
+                        <span>•</span>
+                        <span>{order.tables.name}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-base font-semibold text-gray-900">
+                    ₹{Number(order.total).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {format(new Date(order.created_at), 'dd/MM HH:mm')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions Row */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t">
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleViewDetails(order)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {canEditThisOrder(order) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEditOrder(order)}
+                      className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleCancelClick(order.id)}
+                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {order.status !== OrderStatus.COMPLETED && order.status !== OrderStatus.CANCELLED && (
+                    <>
+                      {order.status === OrderStatus.NEW && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARING)}
+                          className="text-xs h-8 px-3"
+                        >
+                          Prepare
+                        </Button>
+                      )}
+                      {order.status === OrderStatus.PREPARING && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusUpdate(order.id, OrderStatus.READY)}
+                          className="text-xs h-8 px-3"
+                        >
+                          Ready
+                        </Button>
+                      )}
+                      {order.status === OrderStatus.READY && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusUpdate(order.id, OrderStatus.SERVED)}
+                          className="text-xs h-8 px-3"
+                        >
+                          Served
+                        </Button>
+                      )}
+                      {order.status === OrderStatus.SERVED && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleBill(order)}
+                          className="text-xs h-8 px-3"
+                        >
+                          Bill
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {order.status === 'COMPLETED' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleBill(order)}
+                      className="text-xs h-8 px-3"
+                    >
+                      Bill
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-md border overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -320,17 +475,30 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                       {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1 sm:gap-2 flex-wrap">
+                      <div className="flex justify-end gap-0.5 sm:gap-2 flex-nowrap overflow-x-auto">
                         {/* View Details Button - Always visible */}
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => handleViewDetails(order)}
                           title="View Order Details"
-                          className="min-h-[36px] min-w-[36px]"
+                          className="h-8 w-8 sm:min-h-[36px] sm:min-w-[36px] p-0 shrink-0"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
+
+                        {/* Edit Order Button - Only for editable orders */}
+                        {canEditThisOrder(order) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditOrder(order)}
+                            title="Edit Order"
+                            className="h-8 w-8 sm:min-h-[36px] sm:min-w-[36px] p-0 shrink-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          </Button>
+                        )}
 
                         {/* Cancel Button - Only for non-completed/cancelled orders */}
                         {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
@@ -339,9 +507,9 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                             variant="ghost"
                             onClick={() => handleCancelClick(order.id)}
                             title="Cancel Order"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 min-h-[36px] min-w-[36px]"
+                            className="h-8 w-8 sm:min-h-[36px] sm:min-w-[36px] p-0 shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Button>
                         )}
 
@@ -353,7 +521,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStatusUpdate(order.id, OrderStatus.PREPARING)}
-                                className="text-xs whitespace-nowrap"
+                                className="text-[10px] sm:text-xs whitespace-nowrap h-8 px-2 sm:px-3 shrink-0"
                               >
                                 <span className="hidden sm:inline">Start Preparing</span>
                                 <span className="sm:hidden">Prepare</span>
@@ -364,7 +532,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStatusUpdate(order.id, OrderStatus.READY)}
-                                className="text-xs whitespace-nowrap"
+                                className="text-[10px] sm:text-xs whitespace-nowrap h-8 px-2 sm:px-3 shrink-0"
                               >
                                 <span className="hidden sm:inline">Mark Ready</span>
                                 <span className="sm:hidden">Ready</span>
@@ -375,7 +543,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStatusUpdate(order.id, OrderStatus.SERVED)}
-                                className="text-xs whitespace-nowrap"
+                                className="text-[10px] sm:text-xs whitespace-nowrap h-8 px-2 sm:px-3 shrink-0"
                               >
                                 <span className="hidden sm:inline">Mark Served</span>
                                 <span className="sm:hidden">Served</span>
@@ -385,7 +553,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                               <Button
                                 size="sm"
                                 onClick={() => handleBill(order)}
-                                className="text-xs whitespace-nowrap"
+                                className="text-[10px] sm:text-xs whitespace-nowrap h-8 px-2 sm:px-3 shrink-0"
                               >
                                 <span className="hidden sm:inline">Generate Bill</span>
                                 <span className="sm:hidden">Bill</span>
@@ -398,7 +566,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                             size="sm"
                             variant="outline"
                             onClick={() => handleBill(order)}
-                            className="text-xs whitespace-nowrap"
+                            className="text-[10px] sm:text-xs whitespace-nowrap h-8 px-2 sm:px-3 shrink-0"
                           >
                             <span className="hidden sm:inline">View Bill</span>
                             <span className="sm:hidden">Bill</span>
@@ -422,9 +590,15 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
       )}
       <OrderForm
         open={orderFormOpen}
-        onOpenChange={setOrderFormOpen}
+        onOpenChange={(open) => {
+          setOrderFormOpen(open);
+          if (!open) {
+            setOrderToEdit(null);
+          }
+        }}
         outletId={outletId}
         tables={tables}
+        order={orderToEdit}
         onSuccess={async () => {
           // Refresh tables and orders from server
           const tablesRes = await fetch(`/api/tables?outlet_id=${outletId}`);
@@ -433,6 +607,24 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
             const updatedTables = tablesData.tables || tablesData || [];
             setTables(updatedTables);
           }
+          const ordersRes = await fetch(`/api/orders?outlet_id=${outletId}`);
+          if (ordersRes.ok) {
+            const ordersData = await ordersRes.json();
+            setOrders(ordersData);
+            // If order details modal is open, refresh the selected order
+            if (selectedOrder && orderToEdit && selectedOrder.id === orderToEdit.id) {
+              const updatedOrder = ordersData.find((o: any) => o.id === selectedOrder.id);
+              if (updatedOrder) {
+                // Fetch full order details
+                const fullOrderRes = await fetch(`/api/orders/${updatedOrder.id}`);
+                if (fullOrderRes.ok) {
+                  const fullOrder = await fullOrderRes.json();
+                  setSelectedOrder(fullOrder);
+                }
+              }
+            }
+          }
+          setOrderToEdit(null);
           router.refresh();
         }}
       />

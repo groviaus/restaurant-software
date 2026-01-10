@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile } from '@/lib/auth';
+import { requirePermission, getUserProfile } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    await requirePermission('reports', 'view');
     const profile = await getUserProfile();
     // Only admins can view outlet-wise reports
     if (profile?.role !== 'admin') {

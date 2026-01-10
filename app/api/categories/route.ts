@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSession, getUserProfile } from '@/lib/auth';
+import { getSession, requirePermission } from '@/lib/auth';
 import { z } from 'zod';
 
 const createCategorySchema = z.object({
@@ -18,13 +18,7 @@ const updateCategorySchema = z.object({
 
 export async function GET(request: NextRequest) {
     try {
-        const session = await getSession();
-        if (!session) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
+        await requirePermission('menu', 'view');
 
         const supabase = await createClient();
         const { searchParams } = new URL(request.url);
@@ -59,21 +53,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const session = await getSession();
-        if (!session) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
-
-        const profile = await getUserProfile();
-        if (profile?.role !== 'admin') {
-            return NextResponse.json(
-                { error: 'Forbidden - Admin access required' },
-                { status: 403 }
-            );
-        }
+        await requirePermission('menu', 'create');
 
         const supabase = await createClient();
         const body = await request.json();

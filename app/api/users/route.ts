@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { getSession } from '@/lib/auth';
+import { requirePermission, getSession } from '@/lib/auth';
 
 // GET all users with roles
 export async function GET(request: NextRequest) {
+    await requirePermission('users', 'view');
+
     const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const supabase = await createClient();
 
@@ -40,8 +44,7 @@ export async function GET(request: NextRequest) {
 
 // CREATE User (Admin only)
 export async function POST(request: NextRequest) {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await requirePermission('users', 'create');
 
     const body = await request.json();
     const { email, password, name, role_id, outlet_id } = body;

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requireAuth, requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { createOrderSchema, ordersQuerySchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
+    await requirePermission('orders', 'view');
     const supabase = await createClient();
     const profile = await getUserProfile();
 
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireAuth();
+    const session = await requirePermission('orders', 'create');
     const supabase = await createClient();
     const profile = await getUserProfile();
 
@@ -138,15 +138,15 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    // Fetch outlet settings for GST calculation
+    // Fetch global GST settings (same for all outlets)
     let taxRate = 0.18; // Default 18% GST
-    const { data: outletSettings } = await supabase
-      .from('outlet_settings')
+    const { data: globalSettings } = await supabase
+      .from('global_settings')
       .select('gst_enabled, gst_percentage')
-      .eq('outlet_id', validatedData.outlet_id)
+      .eq('id', 'global')
       .single();
 
-    const settings = outletSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
+    const settings = globalSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
     if (settings) {
       if (!settings.gst_enabled) {
         taxRate = 0;

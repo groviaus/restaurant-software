@@ -3,6 +3,37 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { z } from 'zod';
 
+// Type for global settings
+type GlobalSettings = {
+    gst_enabled?: boolean;
+    gst_percentage?: number;
+    cgst_percentage?: number;
+    sgst_percentage?: number;
+} | null;
+
+// Type for outlet settings
+type OutletSettings = {
+    business_name?: string | null;
+    gstin?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    pincode?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    receipt_header?: string | null;
+    receipt_footer?: string | null;
+    show_gstin_on_bill?: boolean;
+    show_address_on_bill?: boolean;
+    default_order_type?: 'DINE_IN' | 'TAKEAWAY';
+    auto_print_bill?: boolean;
+    allow_takeaway?: boolean;
+    allow_dine_in?: boolean;
+    currency_symbol?: string;
+    currency_code?: string;
+} | null;
+
 const settingsSchema = z.object({
     // Tax Settings
     gst_enabled: z.boolean().optional(),
@@ -54,8 +85,18 @@ export async function GET(request: NextRequest) {
 
         const supabase = await createClient();
 
-        // Get settings for the current outlet
-        const { data, error } = await supabase
+        // Get global GST settings (same for all outlets)
+        const { data: globalSettings } = await supabase
+            .from('global_settings')
+            .select('gst_enabled, gst_percentage, cgst_percentage, sgst_percentage')
+            .eq('id', 'global')
+            .single();
+
+        // Type assertion for global settings
+        const typedGlobalSettings = globalSettings as GlobalSettings;
+
+        // Get outlet-specific settings (business info, receipt settings, etc.)
+        const { data: outletData, error } = await supabase
             .from('outlet_settings')
             .select('*')
             .eq('outlet_id', outletId)
@@ -66,27 +107,40 @@ export async function GET(request: NextRequest) {
             throw error;
         }
 
-        // If no settings exist, return defaults
-        if (!data) {
-            return NextResponse.json({
-                settings: {
-                    outlet_id: outletId,
-                    gst_enabled: true,
-                    gst_percentage: 18,
-                    cgst_percentage: 9,
-                    sgst_percentage: 9,
-                    currency_symbol: '₹',
-                    currency_code: 'INR',
-                    allow_takeaway: true,
-                    allow_dine_in: true,
-                    default_order_type: 'DINE_IN',
-                    show_gstin_on_bill: true,
-                    show_address_on_bill: true,
-                }
-            });
-        }
+        // Type assertion for outlet settings
+        const typedOutletData = outletData as OutletSettings;
 
-        return NextResponse.json({ settings: data });
+        // Merge global GST settings with outlet-specific settings
+        const mergedSettings = {
+            outlet_id: outletId,
+            // GST from global settings
+            gst_enabled: typedGlobalSettings?.gst_enabled ?? true,
+            gst_percentage: typedGlobalSettings?.gst_percentage ?? 18,
+            cgst_percentage: typedGlobalSettings?.cgst_percentage ?? 9,
+            sgst_percentage: typedGlobalSettings?.sgst_percentage ?? 9,
+            // Outlet-specific settings
+            business_name: typedOutletData?.business_name ?? null,
+            gstin: typedOutletData?.gstin ?? null,
+            address_line1: typedOutletData?.address_line1 ?? null,
+            address_line2: typedOutletData?.address_line2 ?? null,
+            city: typedOutletData?.city ?? null,
+            state: typedOutletData?.state ?? null,
+            pincode: typedOutletData?.pincode ?? null,
+            phone: typedOutletData?.phone ?? null,
+            email: typedOutletData?.email ?? null,
+            receipt_header: typedOutletData?.receipt_header ?? null,
+            receipt_footer: typedOutletData?.receipt_footer ?? null,
+            show_gstin_on_bill: typedOutletData?.show_gstin_on_bill ?? true,
+            show_address_on_bill: typedOutletData?.show_address_on_bill ?? true,
+            default_order_type: typedOutletData?.default_order_type ?? 'DINE_IN',
+            auto_print_bill: typedOutletData?.auto_print_bill ?? false,
+            allow_takeaway: typedOutletData?.allow_takeaway ?? true,
+            allow_dine_in: typedOutletData?.allow_dine_in ?? true,
+            currency_symbol: typedOutletData?.currency_symbol ?? '₹',
+            currency_code: typedOutletData?.currency_code ?? 'INR',
+        };
+
+        return NextResponse.json({ settings: mergedSettings });
     } catch (error: any) {
         console.error('Settings GET error:', error);
         return NextResponse.json(
@@ -119,25 +173,87 @@ export async function POST(request: NextRequest) {
         // Validate the settings
         const validatedData = settingsSchema.parse(body);
 
-        // Upsert settings
-        const { data, error } = await supabase
-            .from('outlet_settings')
-            .upsert({
-                outlet_id: outletId,
-                ...validatedData,
-                updated_at: new Date().toISOString(),
-            } as any, {
-                onConflict: 'outlet_id'
-            })
-            .select()
-            .single();
+        // Separate GST settings (global) from outlet-specific settings
+        const {
+            gst_enabled,
+            gst_percentage,
+            cgst_percentage,
+            sgst_percentage,
+            ...outletSpecificSettings
+        } = validatedData;
 
-        if (error) {
-            console.error('Error saving settings:', error);
-            throw error;
+        // Update global GST settings if provided
+        if (gst_enabled !== undefined || gst_percentage !== undefined || 
+            cgst_percentage !== undefined || sgst_percentage !== undefined) {
+            const globalUpdate: any = {};
+            if (gst_enabled !== undefined) globalUpdate.gst_enabled = gst_enabled;
+            if (gst_percentage !== undefined) globalUpdate.gst_percentage = gst_percentage;
+            if (cgst_percentage !== undefined) globalUpdate.cgst_percentage = cgst_percentage;
+            if (sgst_percentage !== undefined) globalUpdate.sgst_percentage = sgst_percentage;
+
+            const { error: globalError } = await supabase
+                .from('global_settings')
+                .upsert({
+                    id: 'global',
+                    ...globalUpdate,
+                    updated_at: new Date().toISOString(),
+                } as any, {
+                    onConflict: 'id'
+                });
+
+            if (globalError) {
+                console.error('Error saving global GST settings:', globalError);
+                throw globalError;
+            }
         }
 
-        return NextResponse.json({ settings: data });
+        // Update outlet-specific settings
+        if (Object.keys(outletSpecificSettings).length > 0) {
+            const { data, error } = await supabase
+                .from('outlet_settings')
+                .upsert({
+                    outlet_id: outletId,
+                    ...outletSpecificSettings,
+                    updated_at: new Date().toISOString(),
+                } as any, {
+                    onConflict: 'outlet_id'
+                })
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Error saving outlet settings:', error);
+                throw error;
+            }
+        }
+
+        // Return merged settings (fetch fresh to ensure consistency)
+        const { data: freshGlobalSettings } = await supabase
+            .from('global_settings')
+            .select('gst_enabled, gst_percentage, cgst_percentage, sgst_percentage')
+            .eq('id', 'global')
+            .single();
+
+        const { data: outletData } = await supabase
+            .from('outlet_settings')
+            .select('*')
+            .eq('outlet_id', outletId)
+            .single();
+
+        // Type assertions
+        const typedFreshGlobalSettings = freshGlobalSettings as GlobalSettings;
+        const typedOutletData = outletData as OutletSettings;
+
+        const mergedSettings = {
+            outlet_id: outletId,
+            gst_enabled: typedFreshGlobalSettings?.gst_enabled ?? true,
+            gst_percentage: typedFreshGlobalSettings?.gst_percentage ?? 18,
+            cgst_percentage: typedFreshGlobalSettings?.cgst_percentage ?? 9,
+            sgst_percentage: typedFreshGlobalSettings?.sgst_percentage ?? 9,
+            ...(typedOutletData || {}),
+        };
+
+        return NextResponse.json({ settings: mergedSettings });
     } catch (error: any) {
         if (error.name === 'ZodError') {
             return NextResponse.json(

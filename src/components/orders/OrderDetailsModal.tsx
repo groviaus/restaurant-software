@@ -24,36 +24,46 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
   const [fullOrder, setFullOrder] = useState<OrderWithItems | null>(order);
   const [loading, setLoading] = useState(false);
 
-  // Fetch full order details when modal opens
+  // Always fetch full order details when modal opens to ensure we have all data
+  // This ensures user details and order items are always available
   useEffect(() => {
     if (open && order?.id) {
-      // Check if order already has items
-      const hasItems = !!(order as any).order_items || !!(order as any).items;
-      
-      if (!hasItems) {
-        // Fetch full order details with items
-        setLoading(true);
-        fetch(`/api/orders/${order.id}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data && !data.error) {
-              setFullOrder(data);
-            } else {
-              setFullOrder(order);
-            }
-          })
-          .catch(err => {
-            console.error('[OrderDetailsModal] Failed to fetch order details:', err);
+      // Always fetch fresh order details to ensure we have:
+      // - User details (order creator)
+      // - Order items with menu item details
+      // - Table information
+      setLoading(true);
+      fetch(`/api/orders/${order.id}`)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch order: ${res.statusText}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data && !data.error) {
+            console.log('[OrderDetailsModal] Fetched full order:', {
+              id: data.id,
+              hasUser: !!(data.users || data.user),
+              hasItems: !!(data.order_items || data.items),
+              itemsCount: (data.order_items || data.items || []).length
+            });
+            setFullOrder(data);
+          } else {
+            console.warn('[OrderDetailsModal] No data returned, using passed order');
             setFullOrder(order);
-          })
-          .finally(() => setLoading(false));
-      } else {
-        setFullOrder(order);
-      }
+          }
+        })
+        .catch(err => {
+          console.error('[OrderDetailsModal] Failed to fetch order details:', err);
+          // Fallback to passed order if fetch fails
+          setFullOrder(order);
+        })
+        .finally(() => setLoading(false));
     } else {
       setFullOrder(order);
     }
-  }, [open, order]);
+  }, [open, order?.id]); // Only depend on order.id, not the whole order object
 
   if (!fullOrder) return null;
 

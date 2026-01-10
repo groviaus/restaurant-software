@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { z } from 'zod';
 
 const createOutletSchema = z.object({
@@ -10,6 +10,7 @@ const createOutletSchema = z.object({
 
 export async function GET() {
   try {
+    await requirePermission('outlets', 'view');
     const profile = await getUserProfile();
     const supabase = createServiceRoleClient();
 
@@ -53,13 +54,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    await requirePermission('outlets', 'create');
     const profile = await getUserProfile();
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      );
-    }
 
     const body = await request.json();
     const validated = createOutletSchema.parse(body);
