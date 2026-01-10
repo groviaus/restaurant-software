@@ -110,16 +110,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-lg">
+    <div className="w-full h-full sm:h-auto sm:max-w-md space-y-6 sm:space-y-8 rounded-none sm:rounded-lg bg-white p-6 sm:p-8 shadow-none sm:shadow-lg flex flex-col justify-center">
       <div>
-        <h2 className="text-center text-3xl font-bold text-gray-900">
+        <h2 className="text-center text-2xl sm:text-3xl font-bold text-gray-900">
           Restaurant POS
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Sign in to your account
         </p>
       </div>
-      <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+      <form className="mt-6 sm:mt-8 space-y-6" onSubmit={handleLogin}>
         {error && (
           <div className="rounded-md bg-red-50 p-4">
             <p className="text-sm text-red-800">{error}</p>
