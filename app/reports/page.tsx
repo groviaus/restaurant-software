@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Download, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/usePermissions';
+import { downloadFile } from '@/lib/capacitor/download';
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -39,15 +40,10 @@ export default function ReportsPage() {
       }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${type}-report.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
+      const filename = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${type}-report.csv`;
+      const contentType = response.headers.get('content-type') || 'text/csv';
+      
+      await downloadFile(blob, filename, contentType);
       toast.success('Report downloaded successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to download report');

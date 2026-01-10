@@ -1,5 +1,5 @@
 {
-  "name": "javed-nihari",
+  "name": "restaurant-pos",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -22,7 +22,9 @@
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/network": "^8.0.0",
+    "@capacitor/filesystem": "^8.0.0",
     "@capacitor/preferences": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
     "@fastify/cors": "^11.2.0",

@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Download, Copy, QrCode, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { downloadFile } from '@/lib/capacitor/download';
 
 interface QRCodeModalProps {
     open: boolean;
@@ -65,15 +66,19 @@ export function QRCodeModal({ open, onOpenChange, outletId, outletName }: QRCode
         }
     };
 
-    const handleDownloadQR = () => {
+    const handleDownloadQR = async () => {
         if (qrCodeUrl) {
-            const a = document.createElement('a');
-            a.href = qrCodeUrl;
-            a.download = `qr-menu-${outletName.toLowerCase().replace(/\s+/g, '-')}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            toast.success('QR code downloaded successfully');
+            try {
+                // Fetch the blob from the URL
+                const response = await fetch(qrCodeUrl);
+                const blob = await response.blob();
+                const filename = `qr-menu-${outletName.toLowerCase().replace(/\s+/g, '-')}.png`;
+                
+                await downloadFile(blob, filename, 'image/png');
+                toast.success('QR code downloaded successfully');
+            } catch (error: any) {
+                toast.error(error.message || 'Failed to download QR code');
+            }
         }
     };
 
