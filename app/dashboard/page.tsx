@@ -75,7 +75,7 @@ export default async function DashboardPage() {
       console.error('Error fetching today\'s orders:', ordersError);
     } else {
       totalSales = todayOrders?.reduce((sum, order: any) => {
-        return sum + (order.status === 'COMPLETED' ? Number(order.total) : 0);
+        return sum + (order.status === 'COMPLETED' ? (Number(order.total) || 0) : 0);
       }, 0) || 0;
 
       totalOrders = todayOrders?.length || 0;

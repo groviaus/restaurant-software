@@ -17,6 +17,33 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
     window.print();
   };
 
+  // Calculate values if they are NaN or missing
+  const calculateSubtotal = (): number => {
+    if (billData.subtotal != null && !isNaN(Number(billData.subtotal))) {
+      return Number(billData.subtotal);
+    }
+    // Calculate from items
+    return billData.items.reduce((sum: number, item: any) => {
+      const price = Number(item.price) || 0;
+      const quantity = Number(item.quantity) || 0;
+      return sum + (price * quantity);
+    }, 0);
+  };
+
+  const calculateTax = (subtotal: number): number => {
+    if (billData.tax != null && !isNaN(Number(billData.tax))) {
+      return Number(billData.tax);
+    }
+    // Default to 18% if no tax specified
+    return subtotal * 0.18;
+  };
+
+  const subtotal = calculateSubtotal();
+  const tax = calculateTax(subtotal);
+  const total = billData.total != null && !isNaN(Number(billData.total)) 
+    ? Number(billData.total) 
+    : subtotal + tax;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto print:max-h-none print:shadow-none">
@@ -118,15 +145,15 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
-                <span>₹{billData.subtotal.toFixed(2)}</span>
+                <span>₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Tax (18%):</span>
-                <span>₹{billData.tax.toFixed(2)}</span>
+                <span>₹{tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>Total:</span>
-                <span>₹{billData.total.toFixed(2)}</span>
+                <span>₹{total.toFixed(2)}</span>
               </div>
             </div>
 

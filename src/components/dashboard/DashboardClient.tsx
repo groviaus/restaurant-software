@@ -88,7 +88,7 @@ export function DashboardClient({
         console.error('[Dashboard] Error fetching orders:', ordersError);
       } else if (todayOrders) {
         const sales = todayOrders.reduce((sum, order: any) => {
-          return sum + (order.status === 'COMPLETED' ? Number(order.total) : 0);
+          return sum + (order.status === 'COMPLETED' ? (Number(order.total) || 0) : 0);
         }, 0);
         const orders = todayOrders.length;
         const completed = todayOrders.filter((o: any) => o.status === 'COMPLETED').length;

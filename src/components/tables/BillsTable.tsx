@@ -172,7 +172,7 @@ export function BillsTable({ bills: initialBills, outletId, tables }: BillsTable
       }
 
       // Amount range filter
-      const amount = Number(bill.total);
+      const amount = Number(bill.total) || 0;
       if (filters.minAmount !== undefined && amount < filters.minAmount) {
         return false;
       }
@@ -201,7 +201,7 @@ export function BillsTable({ bills: initialBills, outletId, tables }: BillsTable
   };
 
   // Calculate totals for display
-  const totalAmount = filteredBills.reduce((sum, bill) => sum + Number(bill.total), 0);
+  const totalAmount = filteredBills.reduce((sum, bill) => sum + (Number(bill.total) || 0), 0);
   const totalBills = filteredBills.length;
 
   return (
@@ -308,7 +308,7 @@ export function BillsTable({ bills: initialBills, outletId, tables }: BillsTable
                   </div>
                   <div className="text-right">
                     <div className="text-base font-semibold text-gray-900">
-                      ₹{Number(bill.total).toFixed(2)}
+                      ₹{(Number(bill.total) || 0).toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-500">
                       {format(new Date(bill.created_at), 'dd/MM HH:mm')}
@@ -402,7 +402,7 @@ export function BillsTable({ bills: initialBills, outletId, tables }: BillsTable
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold text-xs sm:text-sm text-gray-900">
-                        ₹{Number(bill.total).toFixed(2)}
+                        ₹{(Number(bill.total) || 0).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-[10px] sm:text-xs whitespace-nowrap">
                         {format(new Date(bill.created_at), 'dd/MM/yyyy HH:mm')}

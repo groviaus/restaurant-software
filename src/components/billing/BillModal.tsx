@@ -92,13 +92,19 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
 
   const handleGenerateBill = async () => {
     if (order.status === 'COMPLETED') {
-      // Just show the receipt
+      // Just show the receipt - ensure no NaN values
+      const orderSubtotal = calculateSubtotal();
+      const orderTax = calculateTax(orderSubtotal);
+      const orderTotal = order?.total != null && !isNaN(Number(order.total)) 
+        ? Number(order.total) 
+        : orderSubtotal + orderTax;
+
       setBillData({
         order_id: order.id,
-        subtotal: Number(order.subtotal),
-        tax: Number(order.tax),
-        total: Number(order.total),
-        payment_method: order.payment_method,
+        subtotal: orderSubtotal,
+        tax: orderTax,
+        total: orderTotal,
+        payment_method: order.payment_method || PaymentMethod.CASH,
         items: order.order_items,
         created_at: order.created_at,
       });
@@ -156,12 +162,19 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
   // If readOnly, show receipt directly
   useEffect(() => {
     if (readOnly && order) {
+      // Ensure no NaN values
+      const orderSubtotal = calculateSubtotal();
+      const orderTax = calculateTax(orderSubtotal);
+      const orderTotal = order?.total != null && !isNaN(Number(order.total)) 
+        ? Number(order.total) 
+        : orderSubtotal + orderTax;
+
       setBillData({
         order_id: order.id,
-        subtotal: Number(order.subtotal),
-        tax: Number(order.tax),
-        total: Number(order.total),
-        payment_method: order.payment_method,
+        subtotal: orderSubtotal,
+        tax: orderTax,
+        total: orderTotal,
+        payment_method: order.payment_method || PaymentMethod.CASH,
         items: order.order_items,
         created_at: order.created_at,
       });

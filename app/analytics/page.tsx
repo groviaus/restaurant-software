@@ -264,7 +264,7 @@ export default function AnalyticsPage() {
       if (ordersData && ordersData.length > 0) {
         // Calculate summary metrics
         const completedOrders = ordersData.filter((o: any) => o.status === 'COMPLETED');
-        const totalSales = completedOrders.reduce((sum: number, o: any) => sum + Number(o.total), 0);
+        const totalSales = completedOrders.reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0);
         const totalOrders = ordersData.length;
         const cancelledOrders = ordersData.filter((o: any) => o.status === 'CANCELLED').length;
         const averageOrderValue = completedOrders.length > 0 ? totalSales / completedOrders.length : 0;
@@ -304,7 +304,7 @@ export default function AnalyticsPage() {
           }
           
           const existing = trendMap.get(key) || { sales: 0, orderCount: 0 };
-          existing.sales += Number(order.total);
+          existing.sales += (Number(order.total) || 0);
           existing.orderCount += 1;
           trendMap.set(key, existing);
         });
@@ -328,7 +328,7 @@ export default function AnalyticsPage() {
         completedOrders.forEach((order: any) => {
           const method = order.payment_method?.toLowerCase() || 'cash';
           const existing = paymentMap.get(method) || 0;
-          paymentMap.set(method, existing + Number(order.total));
+          paymentMap.set(method, existing + (Number(order.total) || 0));
         });
 
         const paymentDataArray: PaymentData[] = Array.from(paymentMap.entries()).map(([method, amount]) => ({
@@ -343,7 +343,7 @@ export default function AnalyticsPage() {
         const formattedOrders: Order[] = ordersData.map((order: any) => ({
           id: order.id,
           orderNumber: order.id.slice(0, 8).toUpperCase(),
-          total: Number(order.total),
+          total: Number(order.total) || 0,
           status: order.status,
           paymentMethod: order.payment_method || 'CASH',
           createdAt: order.created_at,

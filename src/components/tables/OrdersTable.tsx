@@ -336,7 +336,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                 </div>
                 <div className="text-right">
                   <div className="text-base font-semibold text-gray-900">
-                    ₹{Number(order.total).toFixed(2)}
+                    ₹{(Number(order.total) || 0).toFixed(2)}
                   </div>
                   <div className="text-xs text-gray-500">
                     {format(new Date(order.created_at), 'dd/MM HH:mm')}
@@ -470,7 +470,7 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
                         {order.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs sm:text-sm">₹{Number(order.total).toFixed(2)}</TableCell>
+                    <TableCell className="text-xs sm:text-sm">₹{(Number(order.total) || 0).toFixed(2)}</TableCell>
                     <TableCell className="text-xs sm:text-sm whitespace-nowrap">
                       {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
                     </TableCell>

@@ -216,15 +216,15 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
             <div className="space-y-2.5">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground font-medium">Subtotal</span>
-                <span className="font-semibold">₹{Number(displayOrder.subtotal).toFixed(2)}</span>
+                <span className="font-semibold">₹{(Number(displayOrder.subtotal) || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground font-medium">Service Tax & GST</span>
-                <span className="font-semibold">₹{Number(displayOrder.tax).toFixed(2)}</span>
+                <span className="font-semibold">₹{(Number(displayOrder.tax) || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center text-lg sm:text-xl font-black border-t border-primary/20 pt-3 mt-1">
                 <span className="text-primary">Amount to be Paid</span>
-                <span className="text-primary">₹{Number(displayOrder.total).toFixed(2)}</span>
+                <span className="text-primary">₹{(Number(displayOrder.total) || 0).toFixed(2)}</span>
               </div>
               {displayOrder.payment_method && (
                 <div className="flex justify-between items-center text-xs pt-1">
