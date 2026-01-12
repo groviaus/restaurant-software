@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile } from '@/lib/auth';
 import { createOrderSchema, ordersQuerySchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
@@ -150,13 +150,21 @@ export async function POST(request: NextRequest) {
     if (orderItemsError) throw orderItemsError;
 
     // Update table status if dine-in
+    // Use service role client to bypass RLS since order_taker role may not have table update permissions
     if (validatedData.table_id && validatedData.order_type === 'DINE_IN') {
       const tableUpdateData: any = { status: 'OCCUPIED' };
-      await supabase
+      const serviceClient = createServiceRoleClient();
+      const { error: tableUpdateError } = await serviceClient
         .from('tables')
         // @ts-expect-error - Supabase type inference issue
         .update(tableUpdateData)
         .eq('id', validatedData.table_id);
+      
+      if (tableUpdateError) {
+        console.error('Failed to update table status:', tableUpdateError);
+        // Don't fail the order creation, but log the error
+        // The table status update is important but shouldn't block order creation
+      }
     }
 
     // Fetch complete order with relations
