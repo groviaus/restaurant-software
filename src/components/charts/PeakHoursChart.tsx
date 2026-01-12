@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  Bar, 
-  BarChart, 
-  CartesianGrid, 
-  XAxis, 
-  YAxis, 
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
   ResponsiveContainer,
   Tooltip
 } from 'recharts';
@@ -31,7 +31,7 @@ export function PeakHoursChart() {
       })
       .then((result) => {
         const rawData = result.data || [];
-        
+
         // Group into 2-hour intervals for better visualization
         const grouped: Record<string, number> = {};
         rawData.forEach((item: HourData) => {
@@ -41,7 +41,7 @@ export function PeakHoursChart() {
           const intervalKey = `${intervalStart}-${intervalEnd}`;
           grouped[intervalKey] = (grouped[intervalKey] || 0) + item.orders;
         });
-        
+
         // Convert to array and sort by interval start time
         const chartData = Object.entries(grouped)
           .map(([hour, orders]) => ({
@@ -51,7 +51,7 @@ export function PeakHoursChart() {
           }))
           .sort((a, b) => a.intervalStart - b.intervalStart)
           .map(({ intervalStart, ...rest }) => rest);
-        
+
         setData(chartData);
         setLoading(false);
       })
@@ -69,8 +69,14 @@ export function PeakHoursChart() {
           <CardDescription>Order distribution by time (Last 30 days)</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-gray-500">
-            Loading...
+          <div className="h-[200px] sm:h-[250px] lg:h-[300px] flex items-center gap-1 justify-center">
+            {[...Array(12)].map((_, i) => (
+              <div
+                key={i}
+                className="skeleton flex-1"
+                style={{ height: `${Math.random() * 70 + 30}%` }}
+              />
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -117,26 +123,26 @@ export function PeakHoursChart() {
         <CardDescription>Order distribution by time (Last 30 days)</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full">
+        <div className="h-[200px] sm:h-[250px] lg:h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={data}
               margin={{
                 top: 10,
-                right: 20,
-                left: 10,
+                right: 10,
+                left: -10,
                 bottom: 10,
               }}
             >
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                stroke="#e5e7eb" 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#e5e7eb"
                 vertical={false}
               />
-              <XAxis 
+              <XAxis
                 dataKey="hour"
                 stroke="#6b7280"
-                fontSize={11}
+                fontSize={10}
                 tickLine={false}
                 axisLine={true}
                 tickMargin={8}
@@ -144,17 +150,17 @@ export function PeakHoursChart() {
                 textAnchor="end"
                 height={60}
               />
-              <YAxis 
+              <YAxis
                 stroke="#6b7280"
-                fontSize={12}
+                fontSize={11}
                 tickLine={false}
                 axisLine={true}
                 tickMargin={8}
                 allowDecimals={false}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar 
-                dataKey="orders" 
+              <Bar
+                dataKey="orders"
                 fill="#10b981"
                 radius={[4, 4, 0, 0]}
                 name="Orders"

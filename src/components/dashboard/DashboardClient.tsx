@@ -10,10 +10,14 @@ import { PaymentBreakdownChart } from '@/components/charts/PaymentBreakdownChart
 import { PeakHoursChart } from '@/components/charts/PeakHoursChart';
 import { TopItemsList } from '@/components/charts/TopItemsList';
 import { StaffPerformanceList } from '@/components/charts/StaffPerformanceList';
-import { AlertTriangle, Package } from 'lucide-react';
+import { AlertTriangle, Package, DollarSign, ShoppingCart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
 import { useOutlet } from '@/hooks/useOutlet';
+import { AlertBanner, type Alert } from '@/components/dashboard/AlertBanner';
+import { ActiveOrdersWidget } from '@/components/dashboard/ActiveOrdersWidget';
+import { MetricCard } from '@/components/dashboard/MetricCard';
+import { QuickActionsDesktop } from '@/components/dashboard/QuickActionsDesktop';
 
 interface DashboardClientProps {
   initialTotalSales: number;
@@ -56,11 +60,11 @@ export function DashboardClient({
     setLoading(true);
     try {
       const supabase = createClient();
-      
+
       // Get today's date range - use IST timezone to match server-side and orders page
       // This ensures consistency across all components
       const now = new Date();
-      
+
       // Use local timezone (which should match IST for the restaurant)
       // This matches the orders page behavior which uses local timezone
       const localYear = now.getFullYear();
@@ -218,15 +222,15 @@ export function DashboardClient({
   // Also helps when Vercel returns incomplete data due to timezone/auth issues
   useEffect(() => {
     const effectiveOutletId = currentOutletId || outletId;
-    
+
     // Determine if we should fetch fallback data
     // Trigger when:
     // 1. Both sales and orders are 0 (no data at all)
     // 2. Sales is 0 but orders > 0 (suspicious - should have sales if there are orders)
     // 3. Sales > 0 but orders is 0 (suspicious - can't have sales without orders)
-    const shouldFetchFallback = 
-      effectiveOutletId && 
-      profile && 
+    const shouldFetchFallback =
+      effectiveOutletId &&
+      profile &&
       (
         (initialTotalSales === 0 && initialTotalOrders === 0) || // No data at all
         (initialTotalSales === 0 && initialTotalOrders > 0) ||   // Orders but no sales (incomplete data)
@@ -238,101 +242,110 @@ export function DashboardClient({
         outletId: effectiveOutletId,
         initialSales: initialTotalSales,
         initialOrders: initialTotalOrders,
-        reason: initialTotalSales === 0 && initialTotalOrders === 0 
-          ? 'no_data' 
-          : initialTotalSales === 0 && initialTotalOrders > 0 
-            ? 'orders_but_no_sales' 
+        reason: initialTotalSales === 0 && initialTotalOrders === 0
+          ? 'no_data'
+          : initialTotalSales === 0 && initialTotalOrders > 0
+            ? 'orders_but_no_sales'
             : 'sales_but_no_orders',
       });
       fetchDashboardData();
     }
   }, [currentOutletId, outletId, profile, initialTotalSales, initialTotalOrders, fetchDashboardData]);
 
+  // Generate alerts based on low stock and other conditions
+  const alerts: Alert[] = [];
+
+  if (lowStockAlertsCount > 0) {
+    alerts.push({
+      id: 'low-stock',
+      message: `${lowStockAlertsCount} item${lowStockAlertsCount > 1 ? 's' : ''} running low on stock`,
+      severity: 'warning',
+      actionLabel: 'View Inventory',
+      actionHref: '/inventory',
+    });
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Overview of your restaurant operations</p>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Desktop Quick Actions - Only on Dashboard */}
+      <QuickActionsDesktop />
+
+      {/* Header */}
+      <div className="px-4 sm:px-0">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Overview of your restaurant operations</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-5">
-        <Card>
-          <CardHeader>
-            <CardTitle>Today&apos;s Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">₹{totalSales.toFixed(2)}</div>
-            <p className="text-sm text-gray-600 mt-1">
-              {completedOrders} completed orders
-            </p>
-          </CardContent>
-        </Card>
+      {/* Alert Banner */}
+      {alerts.length > 0 && (
+        <div className="px-4 sm:px-0">
+          <AlertBanner alerts={alerts} />
+        </div>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Today&apos;s Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalOrders}</div>
-            <p className="text-sm text-gray-600 mt-1">Total orders today</p>
-          </CardContent>
-        </Card>
+      {/* Metric Cards */}
+      <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 px-4 sm:px-0">
+        <MetricCard
+          title="Today's Sales"
+          value={`₹${totalSales.toFixed(2)}`}
+          subtitle={`${completedOrders} completed orders`}
+          icon={<DollarSign className="h-4 w-4" />}
+          href="/orders"
+          loading={loading}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Item</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{topItem}</div>
-            <p className="text-sm text-gray-600 mt-1">Best selling item today</p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Today's Orders"
+          value={totalOrders}
+          subtitle="Total orders today"
+          icon={<ShoppingCart className="h-4 w-4" />}
+          href="/orders"
+          loading={loading}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Inventory Items
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalInventoryItems}</div>
-            <p className="text-sm text-gray-600 mt-1">Total tracked items</p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Top Item"
+          value={topItem}
+          subtitle="Best selling item today"
+          href="/menu"
+          loading={loading}
+          className="col-span-2 sm:col-span-1"
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Low Stock Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {lowStockAlertsCount > 0 ? (
-                <Badge variant="destructive" className="text-2xl px-3 py-1">
-                  {lowStockAlertsCount}
-                </Badge>
-              ) : (
-                <span className="text-green-600">0</span>
-              )}
-            </div>
-            <p className="text-sm text-gray-600 mt-1">
-              {lowStockAlertsCount > 0 ? 'Items need restocking' : 'All items in stock'}
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Inventory Items"
+          value={totalInventoryItems}
+          subtitle="Total tracked items"
+          icon={<Package className="h-4 w-4" />}
+          href="/inventory"
+          loading={loading}
+        />
+
+        <MetricCard
+          title="Low Stock Alerts"
+          value={lowStockAlertsCount}
+          subtitle={lowStockAlertsCount > 0 ? 'Items need restocking' : 'All items in stock'}
+          icon={<AlertTriangle className="h-4 w-4" />}
+          href="/inventory"
+          loading={loading}
+          className={lowStockAlertsCount > 0 ? 'ring-2 ring-orange-500 ring-offset-2' : ''}
+        />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Active Orders Widget - Full Width on Mobile, Part of Grid on Desktop */}
+      <div className="px-4 sm:px-0">
+        <ActiveOrdersWidget outletId={outletId} />
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 px-4 sm:px-0">
         <SalesTrendChart />
         <PaymentBreakdownChart />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 px-4 sm:px-0">
         <PeakHoursChart />
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <TopItemsList />
           <StaffPerformanceList />
         </div>

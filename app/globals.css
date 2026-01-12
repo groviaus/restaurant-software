@@ -117,6 +117,7 @@
 
 /* Responsive Utilities */
 @layer utilities {
+
   /* Mobile-first container utilities */
   .container-responsive {
     @apply w-full px-4 sm:px-6 lg:px-8;
@@ -224,13 +225,18 @@
 
 /* Base responsive adjustments */
 @media (max-width: 640px) {
+
   /* Reduce default spacing on mobile */
   body {
     font-size: 14px;
   }
 
   /* Ensure touch targets are at least 44px */
-  button, a, input, select, textarea {
+  button,
+  a,
+  input,
+  select,
+  textarea {
     min-height: 44px;
   }
 
@@ -244,4 +250,48 @@
   }
 }
 
+/* Dashboard-specific utilities */
+@layer utilities {
 
+  /* Touch feedback for interactive elements */
+  .touch-feedback {
+    @apply active:scale-95 transition-transform duration-100;
+  }
+
+  /* Skeleton loading animations */
+  .skeleton {
+    @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+  }
+
+  /* Dashboard metric card styles */
+  .dashboard-metric-card {
+    @apply transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer;
+  }
+
+  .dashboard-metric-card:focus-visible {
+    @apply ring-2 ring-primary ring-offset-2 outline-none;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Glassmorphism effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .glass-dark {
+    background: rgba(17, 24, 39, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+}

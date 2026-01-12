@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  CartesianGrid, 
-  Line, 
-  LineChart, 
-  XAxis, 
-  YAxis, 
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
   ResponsiveContainer,
   Tooltip,
   Legend
@@ -28,7 +28,7 @@ export function SalesTrendChart() {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 6); // 7 days including today
-    
+
     // Format dates as YYYY-MM-DD
     const formatDate = (date: Date) => {
       const year = date.getFullYear();
@@ -76,8 +76,14 @@ export function SalesTrendChart() {
           <CardDescription>Last 7 days</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-gray-500">
-            Loading...
+          <div className="h-[200px] sm:h-[250px] lg:h-[300px] flex flex-col gap-2 justify-end p-4">
+            {[...Array(7)].map((_, i) => (
+              <div
+                key={i}
+                className="skeleton"
+                style={{ height: `${Math.random() * 60 + 40}%`, width: '100%' }}
+              />
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -122,33 +128,33 @@ export function SalesTrendChart() {
         <CardDescription>Last 7 days</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full">
+        <div className="h-[200px] sm:h-[250px] lg:h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={data}
               margin={{
                 top: 10,
-                right: 20,
-                left: 10,
+                right: 10,
+                left: -10,
                 bottom: 10,
               }}
             >
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                stroke="#e5e7eb" 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#e5e7eb"
                 vertical={false}
               />
-              <XAxis 
+              <XAxis
                 dataKey="date"
                 stroke="#6b7280"
-                fontSize={12}
+                fontSize={11}
                 tickLine={false}
                 axisLine={true}
                 tickMargin={8}
               />
-              <YAxis 
+              <YAxis
                 stroke="#6b7280"
-                fontSize={12}
+                fontSize={11}
                 tickLine={false}
                 axisLine={true}
                 tickMargin={8}

@@ -70,8 +70,8 @@ export function PaymentBreakdownChart() {
           <CardDescription>Last 30 days</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[250px] flex items-center justify-center text-gray-500">
-            Loading...
+          <div className="h-[200px] sm:h-[220px] lg:h-[250px] flex items-center justify-center">
+            <div className="skeleton rounded-full aspect-square max-h-[150px] sm:max-h-[180px] lg:max-h-[200px] w-full max-w-[150px] sm:max-w-[180px] lg:max-w-[200px]" />
           </div>
         </CardContent>
       </Card>
@@ -116,7 +116,7 @@ export function PaymentBreakdownChart() {
               };
               return acc;
             }, {} as ChartConfig)}
-            className="mx-auto aspect-square max-h-[200px]"
+            className="mx-auto aspect-square max-h-[150px] sm:max-h-[180px] lg:max-h-[200px]"
           >
             <PieChart>
               <ChartTooltip

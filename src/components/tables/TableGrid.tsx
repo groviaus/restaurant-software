@@ -124,6 +124,12 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh, activeOr
   // Subscribe to real-time order changes to update order info on tables
   useRealtimeOrders({
     outletId,
+    onInsert: () => {
+      console.log('[TableGrid] Realtime order INSERT received, updating tables and orders');
+      // Refetch tables to update status when new orders are created
+      refetchTables();
+      fetchActiveOrders();
+    },
     onChange: () => {
       console.log('[TableGrid] Realtime order change received, updating order info');
       fetchActiveOrders();

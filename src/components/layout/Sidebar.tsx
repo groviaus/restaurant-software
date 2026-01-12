@@ -115,12 +115,12 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       {/* Sidebar */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col bg-gray-900 text-white transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-[99] flex h-screen w-64 flex-col bg-gray-900 text-white transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         {/* Header with close button on mobile */}
-        <div className="mt-[1.5rem] flex h-14 sm:h-16 items-center justify-between border-b border-gray-800 px-4">
+        <div className="mt-[3rem] flex h-14 sm:h-16 items-center justify-between border-b border-gray-800 px-4">
           <h1 className="text-lg sm:text-xl font-bold truncate">Restaurant POS</h1>
           {onClose && (
             <Button

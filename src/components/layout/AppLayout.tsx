@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { OfflineBanner } from '@/components/capacitor/OfflineBanner';
+import { QuickActions } from '@/components/dashboard/QuickActions';
 import { initializeStatusBar } from '@/lib/capacitor/status-bar';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,11 +28,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
-          <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 lg:p-6">
+          <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 lg:p-6 pb-30 sm:pb-4 lg:pb-6">
             {children}
           </main>
         </div>
       </div>
+
+      {/* Global floating dock for mobile navigation */}
+      <QuickActions />
     </ProtectedRoute>
   );
 }
