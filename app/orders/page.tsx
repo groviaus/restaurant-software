@@ -30,6 +30,8 @@ export default async function OrdersPage() {
       id,
       order_type,
       status,
+      subtotal,
+      tax,
       total,
       payment_method,
       created_at,
@@ -40,6 +42,8 @@ export default async function OrdersPage() {
         quantity,
         price,
         item_id,
+        quantity_type,
+        notes,
         items (
           id,
           name,

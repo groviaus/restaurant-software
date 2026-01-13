@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth();
     const supabase = await createClient();
-    
+
     const body = await request.json();
     const validatedData = billRequestSchema.parse(body);
 
@@ -42,30 +42,36 @@ export async function POST(request: NextRequest) {
     const orderOutletId = orderData.outlet_id;
     const profile = await getUserProfile();
     const effectiveOutletId = getEffectiveOutletId(profile);
-    
+
     let gstEnabled = true;
     let gstPercentage = 18; // Default 18%
-    
+
     // Get global GST settings (not per-outlet)
-    const { data: globalSettings } = await supabase
-      .from('global_settings')
-      .select('gst_enabled, gst_percentage')
-      .eq('id', 'global')
-      .single();
-    
-    if (globalSettings) {
-      const settingsData = globalSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
-      if (settingsData) {
-        gstEnabled = settingsData.gst_enabled ?? true;
-        gstPercentage = settingsData.gst_percentage ?? 18;
+    try {
+      const { data: globalSettings, error: settingsError } = await supabase
+        .from('global_settings')
+        .select('gst_enabled, gst_percentage')
+        .eq('id', 'global')
+        .single();
+
+      if (settingsError) {
+        console.warn('Could not fetch global settings, using defaults:', settingsError.message);
+      } else if (globalSettings) {
+        const settingsData = globalSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
+        if (settingsData) {
+          gstEnabled = settingsData.gst_enabled ?? true;
+          gstPercentage = settingsData.gst_percentage ?? 18;
+        }
       }
+    } catch (settingsError: any) {
+      console.warn('Error fetching global settings, using defaults:', settingsError.message);
     }
 
     // Calculate totals based on outlet settings
     const subtotal = Number(orderData.subtotal);
     // Use tax_rate from request if provided (for backward compatibility), otherwise use settings
-    const taxRate = validatedData.tax_rate !== undefined 
-      ? validatedData.tax_rate 
+    const taxRate = validatedData.tax_rate !== undefined
+      ? validatedData.tax_rate
       : (gstEnabled ? gstPercentage / 100 : 0);
     const tax = subtotal * taxRate;
     const total = subtotal + tax;
@@ -111,41 +117,46 @@ export async function POST(request: NextRequest) {
     // Auto stock deduction when order is completed via bill generation
     // Use order's outlet_id for inventory deduction (not user's effective outlet)
     if (orderOutletId && updatedOrderData.order_items) {
-      const serviceClient = createServiceRoleClient();
+      try {
+        const serviceClient = createServiceRoleClient();
 
-      for (const orderItem of updatedOrderData.order_items) {
-        // Get current inventory
-        const { data: inventory } = await serviceClient
-          .from('inventory')
-          .select('*')
-          .eq('outlet_id', orderOutletId)
-          .eq('item_id', orderItem.item_id)
-          .single();
-
-        if (inventory) {
-          const inventoryData = inventory as any;
-          const newStock = inventoryData.stock - orderItem.quantity;
-
-          // Update stock
-          const stockUpdateData: any = { stock: Math.max(0, newStock) };
-          await serviceClient
+        for (const orderItem of updatedOrderData.order_items) {
+          // Get current inventory
+          const { data: inventory } = await serviceClient
             .from('inventory')
-            // @ts-expect-error - Supabase type inference issue
-            .update(stockUpdateData)
-            .eq('id', inventoryData.id);
+            .select('*')
+            .eq('outlet_id', orderOutletId)
+            .eq('item_id', orderItem.item_id)
+            .single();
 
-          // Log the deduction
-          const logData: any = {
-            outlet_id: orderOutletId,
-            item_id: orderItem.item_id,
-            change: -orderItem.quantity,
-            reason: `Order ${updatedOrderData.id} completed (bill generated)`,
-            created_by: profile?.id || null,
-          };
-          await serviceClient
-            .from('inventory_logs')
-            .insert(logData);
+          if (inventory) {
+            const inventoryData = inventory as any;
+            const newStock = inventoryData.stock - orderItem.quantity;
+
+            // Update stock
+            const stockUpdateData: any = { stock: Math.max(0, newStock) };
+            await serviceClient
+              .from('inventory')
+              // @ts-expect-error - Supabase type inference issue
+              .update(stockUpdateData)
+              .eq('id', inventoryData.id);
+
+            // Log the deduction
+            const logData: any = {
+              outlet_id: orderOutletId,
+              item_id: orderItem.item_id,
+              change: -orderItem.quantity,
+              reason: `Order ${updatedOrderData.id} completed (bill generated)`,
+              created_by: profile?.id || null,
+            };
+            await serviceClient
+              .from('inventory_logs')
+              .insert(logData);
+          }
         }
+      } catch (inventoryError: any) {
+        console.error('Inventory deduction failed (non-critical):', inventoryError.message);
+        // Don't fail the bill generation if inventory update fails
       }
     }
 
@@ -159,6 +170,9 @@ export async function POST(request: NextRequest) {
       created_at: updatedOrderData.created_at,
     });
   } catch (error: any) {
+    console.error('Bill generation error:', error);
+    console.error('Error stack:', error.stack);
+
     if (error.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },

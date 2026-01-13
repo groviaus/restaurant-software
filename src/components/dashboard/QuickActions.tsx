@@ -9,6 +9,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface QuickAction {
     icon: React.ReactNode;
@@ -16,17 +17,20 @@ interface QuickAction {
     href: string;
     variant?: 'default' | 'outline' | 'secondary';
     primary?: boolean;
+    module: string;
 }
 
 export function QuickActions() {
     const router = useRouter();
+    const { checkPermission } = usePermissions();
 
-    const actions: QuickAction[] = [
+    const allActions: QuickAction[] = [
         {
             icon: <Home className="h-5 w-5" />,
             label: 'Dashboard',
             href: '/dashboard',
             variant: 'outline',
+            module: 'dashboard',
         },
         {
             icon: <Plus className="h-5 w-5" />,
@@ -34,26 +38,33 @@ export function QuickActions() {
             href: '/orders',
             variant: 'default',
             primary: true,
+            module: 'orders',
         },
         {
             icon: <LayoutGrid className="h-5 w-5" />,
             label: 'Tables',
             href: '/tables',
             variant: 'outline',
+            module: 'tables',
         },
         {
             icon: <Package className="h-5 w-5" />,
             label: 'Inventory',
             href: '/inventory',
             variant: 'outline',
+            module: 'inventory',
         },
         {
             icon: <Receipt className="h-5 w-5" />,
             label: 'Bills',
             href: '/bills',
             variant: 'outline',
+            module: 'bills',
         },
     ];
+
+    // Filter actions based on user permissions
+    const actions = allActions.filter(action => checkPermission(action.module, 'view'));
 
     const handleAction = (href: string) => {
         router.push(href);

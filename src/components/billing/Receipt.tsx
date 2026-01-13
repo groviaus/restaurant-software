@@ -17,13 +17,21 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
     window.print();
   };
 
+  // Get items from billData or fallback to order.order_items
+  const items = billData.items && Array.isArray(billData.items) && billData.items.length > 0
+    ? billData.items
+    : (order?.order_items || order?.items || []);
+
   // Calculate values if they are NaN or missing
   const calculateSubtotal = (): number => {
     if (billData.subtotal != null && !isNaN(Number(billData.subtotal))) {
       return Number(billData.subtotal);
     }
     // Calculate from items
-    return billData.items.reduce((sum: number, item: any) => {
+    if (!items || items.length === 0) {
+      return 0;
+    }
+    return items.reduce((sum: number, item: any) => {
       const price = Number(item.price) || 0;
       const quantity = Number(item.quantity) || 0;
       return sum + (price * quantity);
@@ -114,15 +122,24 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {billData.items.map((item: any) => {
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center py-4 text-gray-500">
+                        No items found
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((item: any) => {
                     // Price is already the effective price (base_price * multiplier) stored in order_items
                     const itemPrice = Number(item.price);
                     const total = itemPrice * item.quantity;
+                    // Get item name from nested items relation or item_name field
+                    const itemName = item.items?.name || item.item_name || 'Item';
                     return (
                       <tr key={item.id} className="border-b">
                         <td className="py-2">
                           <div>
-                            <div className="font-medium">{item.items?.name || 'Item'}</div>
+                            <div className="font-medium">{itemName}</div>
                             {item.notes && (
                               <div className="text-xs text-gray-600">{item.notes}</div>
                             )}
@@ -137,7 +154,7 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>

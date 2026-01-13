@@ -151,7 +151,11 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
       
       setBillData(data);
       setShowReceipt(true);
-      toast.success('Bill generated successfully');
+      
+      // Show success message
+      toast.success('Bill generated successfully', {
+        description: `Order #${order.id.slice(0, 8)} has been completed`,
+      });
     } catch (error: any) {
       toast.error(error.message || 'Failed to generate bill');
     } finally {
@@ -190,7 +194,10 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
         onClose={() => {
           setShowReceipt(false);
           onOpenChange(false);
-          router.refresh();
+          // Refresh the page to show updated order status
+          setTimeout(() => {
+            router.refresh();
+          }, 100);
         }}
       />
     );
