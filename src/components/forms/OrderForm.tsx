@@ -316,8 +316,7 @@ export function OrderForm({
       return;
     }
 
-    try {
-      if (isEditMode && existingOrder) {
+    if (isEditMode && existingOrder) {
         // Edit mode: Update existing order
         // Track items by their order_item_id for proper updates
         const existingItemsById = new Map(
@@ -387,34 +386,38 @@ export function OrderForm({
           return;
         }
 
-        await updateOrderItemsMutation.mutateAsync({
-          orderId: existingOrder.id,
-          items_to_remove: payload.items_to_remove,
-          items_to_add: payload.items_to_add,
-          items_to_update: payload.items_to_update,
-        });
+        // Close immediately — optimistic update fires in background
         onSuccess();
         onOpenChange(false);
+        updateOrderItemsMutation.mutate(
+          {
+            orderId: existingOrder.id,
+            items_to_remove: payload.items_to_remove,
+            items_to_add: payload.items_to_add,
+            items_to_update: payload.items_to_update,
+          },
+          { onError: (err: any) => toast.error(err.message || 'Failed to update order') }
+        );
       } else {
-        // Create mode: Create new order
-        await createOrderMutation.mutateAsync({
-          outlet_id: outletId,
-          table_id: orderType === 'DINE_IN' ? tableId : undefined,
-          order_type: orderType,
-          items: items.map(item => ({
-            item_id: item.item_id,
-            quantity: item.quantity,
-            quantity_type: item.quantity_type,
-            notes: item.notes || undefined,
-          })),
-        });
+        // Create mode — close immediately, server syncs in background
         onSuccess();
         onOpenChange(false);
+        createOrderMutation.mutate(
+          {
+            outlet_id: outletId,
+            table_id: orderType === 'DINE_IN' ? tableId : undefined,
+            order_type: orderType,
+            items: items.map(item => ({
+              item_id: item.item_id,
+              quantity: item.quantity,
+              quantity_type: item.quantity_type,
+              notes: item.notes || undefined,
+            })),
+          },
+          { onError: (err: any) => toast.error(err.message || 'Failed to create order') }
+        );
       }
-    } catch (error: any) {
-      toast.error(error.message || `Failed to ${isEditMode ? 'update' : 'create'} order`);
-    }
-  };
+  };  
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

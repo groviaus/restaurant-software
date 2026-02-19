@@ -232,23 +232,6 @@
     font-size: 14px;
   }
 
-  /* Ensure touch targets are at least 44px */
-  button,
-  a,
-  input,
-  select,
-  textarea {
-    min-height: 44px;
-  }
-
-  /* Exclude checkboxes from min-height rule to maintain consistent sizing */
-  input[type="checkbox"],
-  input[role="checkbox"],
-  [data-slot="checkbox"] {
-    min-height: unset !important;
-    height: 1rem !important;
-    width: 1rem !important;
-  }
 }
 
 /* Dashboard-specific utilities */

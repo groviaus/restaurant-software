@@ -22,7 +22,7 @@ type OrderWithItemsAny = Record<string, unknown> & {
 
 export function useCreateOrderMutation() {
   const queryClient = useQueryClient();
-  const { addOrder, updateTableStatus } = useTableOrderStore();
+  const { addOrder, removeOrder, updateTableStatus } = useTableOrderStore();
 
   return useMutation({
     mutationFn: async (body: CreateOrderRequest) => {
@@ -69,15 +69,18 @@ export function useCreateOrderMutation() {
       if (variables.table_id && variables.order_type === 'DINE_IN') {
         updateTableStatus(variables.table_id, TableStatus.OCCUPIED);
       }
-      return { previousOrders, tempId };
+      return { previousOrders, tempId, tableId: variables.table_id, orderType: variables.order_type };
     },
-    onError: (err: Error, variables, context) => {
+    onError: (err: Error, _variables, context) => {
+      // Rollback TanStack Query cache
       if (context?.previousOrders) {
-        context.previousOrders.forEach(([key, data]) => {
-          queryClient.setQueryData(key, data);
-        });
+        context.previousOrders.forEach(([key, data]) => queryClient.setQueryData(key, data));
       }
-      toast.error(err.message || 'Failed to create order');
+      // Rollback Zustand store — remove ghost order + revert table status
+      if (context?.tempId) {
+        removeOrder(context.tempId);
+      }
+      toast.error(err.message || 'Failed to create order. Please try again.');
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -191,6 +194,90 @@ export function useCompleteOrderMutation() {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       toast.success('Order completed');
+    },
+  });
+}
+
+export interface GenerateBillPayload {
+  orderId: string;
+  paymentMethod: string;
+  optimisticBillData: {
+    order_id: string;
+    subtotal: number;
+    tax: number;
+    total: number;
+    payment_method: string;
+    items: unknown[];
+    created_at: string;
+  };
+}
+
+export function useGenerateBillMutation() {
+  const queryClient = useQueryClient();
+  const { markOrderBilled, updateOrder, updateTableStatus } = useTableOrderStore();
+
+  return useMutation({
+    mutationFn: async ({ orderId, paymentMethod }: GenerateBillPayload) => {
+      const res = await fetch('/api/billing/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, payment_method: paymentMethod }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to generate bill');
+      }
+      return res.json();
+    },
+    onMutate: async ({ orderId }) => {
+      await queryClient.cancelQueries({ queryKey: ['orders'] });
+      const previousOrders = queryClient.getQueriesData({ queryKey: ['orders'] });
+
+      // Capture the original order before changing it (needed for Zustand rollback)
+      let originalOrder: OrderWithItemsAny | undefined;
+      for (const [, data] of previousOrders) {
+        if (Array.isArray(data)) {
+          originalOrder = data.find((o: OrderWithItemsAny) => o.id === orderId);
+          if (originalOrder) break;
+        }
+      }
+
+      // Optimistically mark order as COMPLETED in cache
+      queryClient.setQueriesData<OrderWithItemsAny[]>(
+        { queryKey: ['orders'] },
+        (old) => {
+          if (!Array.isArray(old)) return old;
+          return old.map((o) =>
+            o.id === orderId ? { ...o, status: OrderStatus.COMPLETED } : o
+          );
+        }
+      );
+
+      // Update Zustand store immediately
+      markOrderBilled(orderId);
+
+      return { previousOrders, originalOrder };
+    },
+    onError: (err: Error, _variables, context) => {
+      // Rollback TanStack Query cache
+      if (context?.previousOrders) {
+        context.previousOrders.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      }
+      // Rollback Zustand store — restore original order status and table status
+      if (context?.originalOrder) {
+        updateOrder(context.originalOrder as any);
+        if (context.originalOrder.table_id && context.originalOrder.order_type === 'DINE_IN') {
+          updateTableStatus(context.originalOrder.table_id as string, TableStatus.OCCUPIED);
+        }
+      }
+      toast.error(err.message || 'Failed to generate bill. Please try again.');
+    },
+    onSuccess: (data) => {
+      // Sync server truth after success
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      if (data) updateOrder(data as any);
     },
   });
 }

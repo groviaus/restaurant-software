@@ -8,6 +8,7 @@ interface TableOrderStore {
   setOrders: (orders: Order[]) => void;
   updateTableStatus: (tableId: string, status: TableStatus) => void;
   addOrder: (order: Order | OrderWithItems) => void;
+  removeOrder: (orderId: string) => void;
   updateOrder: (order: Order | OrderWithItems) => void;
   markOrderBilled: (orderId: string) => void;
   getTableById: (tableId: string) => Table | undefined;
@@ -27,6 +28,30 @@ export const useTableOrderStore = create<TableOrderStore>((set, get) => ({
         table.id === tableId ? { ...table, status } : table
       ),
     })),
+
+  removeOrder: (orderId) => {
+    set((state) => {
+      const order = state.orders.find((o) => o.id === orderId);
+      const newOrders = state.orders.filter((o) => o.id !== orderId);
+      const newTables = [...state.tables];
+
+      // If it was a DINE_IN order, revert table to EMPTY only if no other active order holds it
+      if (order && order.table_id && order.order_type === 'DINE_IN') {
+        const otherActiveOrder = newOrders.find(
+          (o) => o.table_id === order.table_id && o.order_type === 'DINE_IN' &&
+            o.status !== OrderStatus.COMPLETED && o.status !== OrderStatus.CANCELLED
+        );
+        if (!otherActiveOrder) {
+          const tableIndex = newTables.findIndex((t) => t.id === order.table_id);
+          if (tableIndex !== -1) {
+            newTables[tableIndex] = { ...newTables[tableIndex], status: TableStatus.EMPTY };
+          }
+        }
+      }
+
+      return { orders: newOrders, tables: newTables };
+    });
+  },
 
   addOrder: (order) => {
     set((state) => {

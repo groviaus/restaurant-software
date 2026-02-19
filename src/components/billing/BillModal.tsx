@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -20,10 +19,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PaymentMethod } from '@/lib/types';
-import { toast } from 'sonner';
 import { Receipt } from './Receipt';
-import { useTableOrderStore } from '@/store/tableOrderStore';
 import { useSettings } from '@/hooks/useSettings';
+import { useGenerateBillMutation } from '@/hooks/mutations/useOrderMutations';
 
 interface BillModalProps {
   open: boolean;
@@ -33,157 +31,83 @@ interface BillModalProps {
 }
 
 export function BillModal({ open, onOpenChange, order, readOnly = false }: BillModalProps) {
-  const router = useRouter();
-  const { markOrderBilled, updateOrder } = useTableOrderStore();
   const { settings } = useSettings();
+  const generateBillMutation = useGenerateBillMutation();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
-  const [loading, setLoading] = useState(false);
   const [billData, setBillData] = useState<any>(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
-  // Calculate subtotal from order items if not present
   const calculateSubtotal = (): number => {
     if (order?.subtotal != null && !isNaN(Number(order.subtotal))) {
       return Number(order.subtotal);
     }
-    // Calculate from order items
     const orderItems = order?.order_items || order?.items || [];
     return orderItems.reduce((sum: number, item: any) => {
-      const price = Number(item.price) || 0;
-      const quantity = Number(item.quantity) || 0;
-      return sum + (price * quantity);
+      return sum + (Number(item.price) || 0) * (Number(item.quantity) || 0);
     }, 0);
   };
 
-  // Calculate tax from subtotal using GST settings
   const calculateTax = (subtotal: number): number => {
     if (order?.tax != null && !isNaN(Number(order.tax))) {
       return Number(order.tax);
     }
-    // Use GST settings from API
-    if (!settings.gst_enabled) {
-      return 0;
-    }
-    // Use gst_percentage from settings, or calculate from CGST + SGST
-    const taxRate = settings.gst_percentage 
-      ? settings.gst_percentage / 100 
+    if (!settings.gst_enabled) return 0;
+    const taxRate = settings.gst_percentage
+      ? settings.gst_percentage / 100
       : ((settings.cgst_percentage || 0) + (settings.sgst_percentage || 0)) / 100;
     return subtotal * taxRate;
   };
 
-  // Calculate totals
   const subtotal = calculateSubtotal();
   const tax = calculateTax(subtotal);
-  const total = order?.total != null && !isNaN(Number(order.total)) 
-    ? Number(order.total) 
+  const total = order?.total != null && !isNaN(Number(order.total))
+    ? Number(order.total)
     : subtotal + tax;
 
-  // Get tax label based on settings
   const getTaxLabel = (): string => {
-    if (!settings.gst_enabled) {
-      return 'Tax:';
-    }
-    if (settings.gst_percentage) {
-      return `Tax (${settings.gst_percentage}%):`;
-    }
+    if (!settings.gst_enabled) return 'Tax:';
+    if (settings.gst_percentage) return `Tax (${settings.gst_percentage}%):`;
     const totalTax = (settings.cgst_percentage || 0) + (settings.sgst_percentage || 0);
     return totalTax > 0 ? `Tax (${totalTax}%):` : 'Tax:';
   };
 
-  const handleGenerateBill = async () => {
-    if (order.status === 'COMPLETED') {
-      // Just show the receipt - ensure no NaN values
-      const orderSubtotal = calculateSubtotal();
-      const orderTax = calculateTax(orderSubtotal);
-      const orderTotal = order?.total != null && !isNaN(Number(order.total)) 
-        ? Number(order.total) 
-        : orderSubtotal + orderTax;
+  const buildBillData = (method: string) => ({
+    order_id: order.id,
+    subtotal,
+    tax,
+    total,
+    payment_method: method,
+    items: order.order_items,
+    created_at: order.created_at,
+  });
 
-      setBillData({
-        order_id: order.id,
-        subtotal: orderSubtotal,
-        tax: orderTax,
-        total: orderTotal,
-        payment_method: order.payment_method || PaymentMethod.CASH,
-        items: order.order_items,
-        created_at: order.created_at,
-      });
+  const handleGenerateBill = () => {
+    if (order.status === 'COMPLETED') {
+      setBillData(buildBillData(order.payment_method || PaymentMethod.CASH));
       setShowReceipt(true);
       return;
     }
 
-    setLoading(true);
-    try {
-      const response = await fetch('/api/billing/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: order.id,
-          payment_method: paymentMethod,
-          // tax_rate is now optional - backend will use outlet settings
-        }),
-      });
+    // Build receipt data from what we already have — show instantly
+    const optimisticBillData = buildBillData(paymentMethod);
+    setBillData(optimisticBillData);
+    setShowReceipt(true);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate bill');
-      }
-
-      const data = await response.json();
-      
-      // Update store - mark order as billed and set table to EMPTY
-      markOrderBilled(order.id);
-      
-      // Also update the order in store with the complete order data if available
-      if (data.order_id) {
-        // Fetch the updated order to get complete data
-        try {
-          const orderResponse = await fetch(`/api/orders/${order.id}`);
-          if (orderResponse.ok) {
-            const updatedOrder = await orderResponse.json();
-            updateOrder(updatedOrder);
-          }
-        } catch (error) {
-          // If fetch fails, markOrderBilled already handled the table status
-          console.error('Failed to fetch updated order:', error);
-        }
-      }
-      
-      setBillData(data);
-      setShowReceipt(true);
-      
-      // Show success message
-      toast.success('Bill generated successfully', {
-        description: `Order #${order.id.slice(0, 8)} has been completed`,
-      });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to generate bill');
-    } finally {
-      setLoading(false);
-    }
+    // Fire billing API in background — onMutate already updates the orders cache
+    generateBillMutation.mutate({
+      orderId: order.id,
+      paymentMethod,
+      optimisticBillData,
+    });
   };
 
-  // If readOnly, show receipt directly
+  // readOnly: show receipt directly (e.g. re-printing a completed order)
   useEffect(() => {
     if (readOnly && order) {
-      // Ensure no NaN values
-      const orderSubtotal = calculateSubtotal();
-      const orderTax = calculateTax(orderSubtotal);
-      const orderTotal = order?.total != null && !isNaN(Number(order.total)) 
-        ? Number(order.total) 
-        : orderSubtotal + orderTax;
-
-      setBillData({
-        order_id: order.id,
-        subtotal: orderSubtotal,
-        tax: orderTax,
-        total: orderTotal,
-        payment_method: order.payment_method || PaymentMethod.CASH,
-        items: order.order_items,
-        created_at: order.created_at,
-      });
+      setBillData(buildBillData(order.payment_method || PaymentMethod.CASH));
       setShowReceipt(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, order]);
 
   if (showReceipt && billData) {
@@ -194,18 +118,12 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
         onClose={() => {
           setShowReceipt(false);
           onOpenChange(false);
-          // Refresh the page to show updated order status
-          setTimeout(() => {
-            router.refresh();
-          }, 100);
         }}
       />
     );
   }
 
-  if (readOnly) {
-    return null; // Will show receipt via useEffect
-  }
+  if (readOnly) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -249,15 +167,14 @@ export function BillModal({ open, onOpenChange, order, readOnly = false }: BillM
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleGenerateBill} disabled={loading}>
-            {loading ? 'Generating...' : order.status === 'COMPLETED' ? 'View Receipt' : 'Generate Bill'}
+          <Button onClick={handleGenerateBill}>
+            {order.status === 'COMPLETED' ? 'View Receipt' : 'Generate Bill'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-

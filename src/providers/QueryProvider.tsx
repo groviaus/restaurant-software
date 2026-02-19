@@ -13,7 +13,13 @@ function makeQueryClient() {
         staleTime: 1000,
         gcTime: FIVE_MINUTES,
         refetchOnWindowFocus: true,
+        refetchOnReconnect: true,  // re-sync stale data when network comes back
         retry: 3,
+        networkMode: 'online',     // pause queries while offline, resume on reconnect
+      },
+      mutations: {
+        networkMode: 'online',     // pause mutations while offline, fire when back online
+        retry: 2,                  // retry failed mutations up to 2 times
       },
     },
   });
