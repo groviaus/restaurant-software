@@ -54,22 +54,18 @@ export async function POST(request: NextRequest) {
     const profile = await getUserProfile();
     const effectiveOutletId = getEffectiveOutletId(profile);
     
+    // Global GST: when admin disables GST, tax is never added for any role or outlet
     let gstEnabled = true;
-    let gstPercentage = 18; // Default 18%
-    
-    // Get global GST settings (not per-outlet)
+    let gstPercentage = 18;
     const { data: globalSettings } = await supabase
       .from('global_settings')
       .select('gst_enabled, gst_percentage')
       .eq('id', 'global')
       .single();
-    
     if (globalSettings) {
-      const settingsData = globalSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
-      if (settingsData) {
-        gstEnabled = settingsData.gst_enabled ?? true;
-        gstPercentage = settingsData.gst_percentage ?? 18;
-      }
+      const s = globalSettings as { gst_enabled?: boolean; gst_percentage?: number };
+      gstEnabled = s.gst_enabled === true; // only true when explicitly true
+      gstPercentage = s.gst_percentage ?? 18;
     }
 
     // Calculate totals based on outlet settings
@@ -87,10 +83,8 @@ export async function POST(request: NextRequest) {
       }, 0);
     }
     
-    // Use tax_rate from request if provided (for backward compatibility), otherwise use settings
-    const taxRate = validatedData.tax_rate !== undefined 
-      ? validatedData.tax_rate 
-      : (gstEnabled ? gstPercentage / 100 : 0);
+    // When GST is disabled by admin, never add tax (ignore any client-provided tax_rate)
+    const taxRate = !gstEnabled ? 0 : (validatedData.tax_rate !== undefined ? validatedData.tax_rate : gstPercentage / 100);
     const tax = subtotal * taxRate;
     const total = subtotal + tax;
 

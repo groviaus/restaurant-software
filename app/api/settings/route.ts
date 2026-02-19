@@ -110,11 +110,12 @@ export async function GET(request: NextRequest) {
         // Type assertion for outlet settings
         const typedOutletData = outletData as OutletSettings;
 
-        // Merge global GST settings with outlet-specific settings
+        // Merge global GST settings with outlet-specific settings.
+        // GST is global: when admin disables gst_enabled, it applies to all roles and outlets.
         const mergedSettings = {
             outlet_id: outletId,
-            // GST from global settings
-            gst_enabled: typedGlobalSettings?.gst_enabled ?? true,
+            // GST from global settings (same for all roles/outlets)
+            gst_enabled: typedGlobalSettings?.gst_enabled === false ? false : (typedGlobalSettings?.gst_enabled ?? true),
             gst_percentage: typedGlobalSettings?.gst_percentage ?? 18,
             cgst_percentage: typedGlobalSettings?.cgst_percentage ?? 9,
             sgst_percentage: typedGlobalSettings?.sgst_percentage ?? 9,

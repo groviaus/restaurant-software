@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
     const query = tablesQuerySchema.parse({
-      outlet_id: outletIdParam,
-      status: searchParams.get('status'),
+      outlet_id: outletIdParam || undefined,
+      status: searchParams.get('status') ?? undefined,
     });
 
     let queryBuilder = supabase

@@ -42,8 +42,8 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
     if (billData.tax != null && !isNaN(Number(billData.tax))) {
       return Number(billData.tax);
     }
-    // Default to 18% if no tax specified
-    return subtotal * 0.18;
+    // Never assume tax when missing (admin may have GST disabled)
+    return 0;
   };
 
   const subtotal = calculateSubtotal();
@@ -165,7 +165,7 @@ export function Receipt({ billData, order, onClose }: ReceiptProps) {
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Tax (18%):</span>
+                <span>{tax === 0 ? 'Tax:' : 'Tax (18%):'}</span>
                 <span>₹{tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold border-t pt-2">

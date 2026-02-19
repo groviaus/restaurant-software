@@ -74,6 +74,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     
     // Use transition for smooth navigation
     if (href !== pathname) {
+      console.log('[Nav] Click:', href, 'at', performance.now().toFixed(0), 'ms');
       setNavigatingTo(href);
       startTransition(() => {
         router.push(href);

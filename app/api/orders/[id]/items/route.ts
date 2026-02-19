@@ -205,21 +205,18 @@ export async function PATCH(
       subtotal += Number(item.price) * Number(item.quantity);
     });
 
-    // Get global GST settings
-    let taxRate = 0.18; // Default 18% GST
+    // Global GST: when admin disables GST, tax is never added for any role or outlet
+    let taxRate = 0.18;
     const { data: globalSettings } = await supabase
       .from('global_settings')
       .select('gst_enabled, gst_percentage')
       .eq('id', 'global')
       .single();
-
-    const settings = globalSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
-    if (settings) {
-      if (!settings.gst_enabled) {
-        taxRate = 0;
-      } else if (settings.gst_percentage) {
-        taxRate = settings.gst_percentage / 100;
-      }
+    const gst = globalSettings as { gst_enabled?: boolean; gst_percentage?: number } | null;
+    if (gst?.gst_enabled === false) {
+      taxRate = 0;
+    } else if (gst?.gst_enabled === true && gst?.gst_percentage != null) {
+      taxRate = gst.gst_percentage / 100;
     }
 
     const tax = subtotal * taxRate;
