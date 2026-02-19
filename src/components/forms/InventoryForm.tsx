@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Inventory } from '@/lib/types';
 import { toast } from 'sonner';
+import { useUpdateInventoryMutation } from '@/hooks/mutations/useInventoryMutations';
 
 interface InventoryFormProps {
   open: boolean;
@@ -37,11 +38,13 @@ export function InventoryForm({
   outletId,
   onSuccess,
 }: InventoryFormProps) {
+  const updateInventoryMutation = useUpdateInventoryMutation(outletId);
   const [itemId, setItemId] = useState('');
   const [stock, setStock] = useState('');
   const [threshold, setThreshold] = useState('10');
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Array<{ id: string; name: string }>>([]);
+  const loadingState = loading || updateInventoryMutation.isPending;
 
   useEffect(() => {
     if (open) {
@@ -73,24 +76,12 @@ export function InventoryForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      const response = await fetch('/api/inventory', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          item_id: itemId,
-          stock: parseFloat(stock),
-          low_stock_threshold: parseFloat(threshold),
-        }),
+      await updateInventoryMutation.mutateAsync({
+        item_id: itemId,
+        stock: parseFloat(stock),
+        low_stock_threshold: parseFloat(threshold),
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update inventory');
-      }
-
-      toast.success('Inventory updated successfully');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -167,13 +158,13 @@ export function InventoryForm({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={loadingState}
               className="h-11 sm:h-10 mt-2 sm:mt-0"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="h-11 sm:h-10">
-              {loading ? 'Saving...' : 'Save Changes'}
+            <Button type="submit" disabled={loadingState} className="h-11 sm:h-10">
+              {loadingState ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>

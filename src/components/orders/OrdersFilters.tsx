@@ -60,6 +60,10 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
   }, []);
 
   const updateFilter = (key: keyof OrdersFilters, value: any) => {
+    const prev = localFilters[key as keyof OrdersFilters];
+    if (prev === value || (Array.isArray(prev) && Array.isArray(value) && prev.length === value.length && prev.every((v, i) => v === value[i]))) {
+      return;
+    }
     const updated = { ...localFilters, [key]: value };
     setLocalFilters(updated);
     onFiltersChange(updated);

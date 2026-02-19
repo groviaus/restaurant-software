@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useIsFetching } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
@@ -10,6 +11,7 @@ import { initializeStatusBar } from '@/lib/capacitor/status-bar';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isFetching = useIsFetching() > 0;
 
   useEffect(() => {
     initializeStatusBar();
@@ -27,6 +29,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
+          {isFetching && (
+            <div className="h-0.5 w-full bg-primary/20 overflow-hidden">
+              <div className="h-full w-1/3 min-w-[120px] animate-pulse bg-primary rounded-r-full" />
+            </div>
+          )}
           <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
           <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 lg:p-6 pb-30 sm:pb-4 lg:pb-6">
             {children}

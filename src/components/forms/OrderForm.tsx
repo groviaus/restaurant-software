@@ -26,6 +26,7 @@ import { Plus, Minus, X, Flame, TrendingUp, ChefHat } from 'lucide-react';
 import { useTableOrderStore } from '@/store/tableOrderStore';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useSettings } from '@/hooks/useSettings';
+import { useCreateOrderMutation, useUpdateOrderItemsMutation } from '@/hooks/mutations/useOrderMutations';
 
 interface OrderFormProps {
   open: boolean;
@@ -58,8 +59,10 @@ export function OrderForm({
   onSuccess,
   order: existingOrder,
 }: OrderFormProps) {
-  const { addOrder, tables: storeTables, updateOrder } = useTableOrderStore();
+  const { tables: storeTables } = useTableOrderStore();
   const { settings, calculateTax } = useSettings();
+  const createOrderMutation = useCreateOrderMutation();
+  const updateOrderItemsMutation = useUpdateOrderItemsMutation();
   const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY'>('DINE_IN');
   const [tableId, setTableId] = useState<string>('');
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -67,9 +70,9 @@ export function OrderForm({
   const [categories, setCategories] = useState<Category[]>([]);
   const [topSellers, setTopSellers] = useState<TopSellingItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [loadingOrder, setLoadingOrder] = useState(false); // Loading state for fetching order data
   const [existingOrderItems, setExistingOrderItems] = useState<any[]>([]); // Track original order items for edit mode
+  const loading = createOrderMutation.isPending || updateOrderItemsMutation.isPending;
 
   const availableTables = storeTables.length > 0 ? storeTables : tables;
   const isEditMode = !!existingOrder;
@@ -313,7 +316,6 @@ export function OrderForm({
       return;
     }
 
-    setLoading(true);
     try {
       if (isEditMode && existingOrder) {
         // Edit mode: Update existing order
@@ -382,68 +384,35 @@ export function OrderForm({
         // Check if there are any changes
         if (itemsToRemove.length === 0 && itemsToAdd.length === 0 && itemsToUpdate.length === 0) {
           toast.info('No changes to save');
-          setLoading(false);
           return;
         }
 
-        const response = await fetch(`/api/orders/${existingOrder.id}/items`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+        await updateOrderItemsMutation.mutateAsync({
+          orderId: existingOrder.id,
+          items_to_remove: payload.items_to_remove,
+          items_to_add: payload.items_to_add,
+          items_to_update: payload.items_to_update,
         });
-
-        if (!response.ok) {
-          const error = await response.json();
-          // Show detailed validation errors if available
-          if (error.details && Array.isArray(error.details)) {
-            const errorMessages = error.details.map((detail: any) => 
-              `${detail.path?.join('.') || 'Field'}: ${detail.message || 'Invalid value'}`
-            ).join(', ');
-            throw new Error(`Validation error: ${errorMessages}`);
-          }
-          throw new Error(error.error || 'Failed to update order');
-        }
-
-        const updatedOrder = await response.json();
-        updateOrder(updatedOrder);
-
-        toast.success('Order updated successfully');
         onSuccess();
         onOpenChange(false);
       } else {
         // Create mode: Create new order
-        const response = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            outlet_id: outletId,
-            table_id: orderType === 'DINE_IN' ? tableId : undefined,
-            order_type: orderType,
-            items: items.map(item => ({
-              item_id: item.item_id,
-              quantity: item.quantity,
-              quantity_type: item.quantity_type,
-              notes: item.notes || undefined,
-            })),
-          }),
+        await createOrderMutation.mutateAsync({
+          outlet_id: outletId,
+          table_id: orderType === 'DINE_IN' ? tableId : undefined,
+          order_type: orderType,
+          items: items.map(item => ({
+            item_id: item.item_id,
+            quantity: item.quantity,
+            quantity_type: item.quantity_type,
+            notes: item.notes || undefined,
+          })),
         });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create order');
-        }
-
-        const orderData = await response.json();
-        addOrder(orderData);
-
-        toast.success('Order created successfully');
         onSuccess();
         onOpenChange(false);
       }
     } catch (error: any) {
       toast.error(error.message || `Failed to ${isEditMode ? 'update' : 'create'} order`);
-    } finally {
-      setLoading(false);
     }
   };
 

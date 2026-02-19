@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTransition } from 'react';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -58,7 +57,6 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const { signOut } = useAuth();
   const router = useRouter();
   const { checkPermission, isAdmin, loading } = usePermissions();
-  const [isPending, startTransition] = useTransition();
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
   const handleSignOut = async () => {
@@ -67,20 +65,13 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   };
 
   const handleLinkClick = (href: string) => {
-    // Close mobile menu when a link is clicked
     if (onClose) {
       onClose();
     }
-    
-    // Use transition for smooth navigation
     if (href !== pathname) {
-      console.log('[Nav] Click:', href, 'at', performance.now().toFixed(0), 'ms');
       setNavigatingTo(href);
-      startTransition(() => {
-        router.push(href);
-        // Clear navigating state after a short delay
-        setTimeout(() => setNavigatingTo(null), 300);
-      });
+      router.push(href);
+      setTimeout(() => setNavigatingTo(null), 1000);
     }
   };
 
@@ -139,7 +130,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 sm:px-3 py-3 sm:py-4">
           {fullNavigation.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
-            const isNavigating = navigatingTo === item.href && isPending;
+            const isNavigating = navigatingTo === item.href;
             return (
               <Link
                 key={item.name}

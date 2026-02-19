@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { Table } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -14,6 +13,8 @@ import { useTableOrderStore } from '@/store/tableOrderStore';
 import { cn } from '@/lib/utils';
 import { useRealtimeTables, useRealtimeOrders } from '@/hooks/useRealtime';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useQueryClient } from '@tanstack/react-query';
+import { useDeleteTableMutation } from '@/hooks/mutations/useTableMutations';
 
 interface TableGridProps {
   tables: Table[];
@@ -23,7 +24,8 @@ interface TableGridProps {
 }
 
 export function TableGrid({ tables: initialTables, outletId, onRefresh, activeOrders: initialActiveOrders = [] }: TableGridProps) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const deleteTableMutation = useDeleteTableMutation();
   const { tables: storeTables, setTables } = useTableOrderStore();
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -88,26 +90,9 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh, activeOr
     return activeOrders.filter((order: any) => order.table_id === tableId);
   };
 
-  // Function to refetch tables from API
   const refetchTables = useCallback(async () => {
-    try {
-      console.log('[TableGrid] Refetching tables...');
-      const response = await fetch(`/api/tables?outlet_id=${outletId}`);
-      if (response.ok) {
-        const data = await response.json();
-        // API returns { tables: [...] } or just array
-        const tablesData = data.tables || data || [];
-        console.log('[TableGrid] Refetched tables:', tablesData.length, 'tables');
-        setTables(Array.isArray(tablesData) ? tablesData : []);
-        router.refresh();
-      } else {
-        const errorText = await response.text();
-        console.error('[TableGrid] Failed to refetch tables:', response.status, response.statusText, errorText);
-      }
-    } catch (error) {
-      console.error('[TableGrid] Failed to refetch tables:', error);
-    }
-  }, [outletId, setTables, router]);
+    await queryClient.invalidateQueries({ queryKey: ['tables'] });
+  }, [queryClient]);
 
   // Subscribe to real-time table changes
   useRealtimeTables({
@@ -161,25 +146,12 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh, activeOr
     if (!confirm('Are you sure you want to delete this table?')) {
       return;
     }
-
     try {
-      const response = await fetch(`/api/tables/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete table');
-      }
-
-      toast.success('Table deleted');
-      // Update store by removing the deleted table
-      const updatedTables = tables.filter(t => t.id !== id);
-      setTables(updatedTables);
-      router.refresh();
+      await deleteTableMutation.mutateAsync({ id, outletId });
+      setTables(tables.filter(t => t.id !== id));
       onRefresh?.();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete table');
+    } catch (_error) {
+      // Toast handled in mutation
     }
   };
 
@@ -365,8 +337,6 @@ export function TableGrid({ tables: initialTables, outletId, onRefresh, activeOr
         table={editingTable}
         outletId={outletId}
         onSuccess={async () => {
-          // Refresh tables from server to get latest data
-          router.refresh();
           onRefresh?.();
         }}
       />

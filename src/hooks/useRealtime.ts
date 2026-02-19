@@ -18,17 +18,9 @@ interface UseRealtimeOrdersOptions {
 
 /**
  * Hook to subscribe to real-time order changes via Supabase Realtime.
- * 
- * Usage:
- * ```tsx
- * useRealtimeOrders({
- *   outletId: currentOutlet?.id,
- *   onChange: () => {
- *     // Refetch orders or update state
- *     fetchOrders();
- *   },
- * });
- * ```
+ * When using TanStack Query, pass onChange that invalidates orders (and tables) cache:
+ *   queryClient.invalidateQueries({ queryKey: ['orders'] });
+ *   queryClient.invalidateQueries({ queryKey: ['tables'] });
  */
 export function useRealtimeOrders({
     outletId,

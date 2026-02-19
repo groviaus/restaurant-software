@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +19,7 @@ import { MenuItem, PricingMode, QuantityType } from '@/lib/types';
 import { MenuItemForm } from '@/components/forms/MenuItemForm';
 import { Pencil, Trash2, Plus, AlertTriangle, Tag, IndianRupee, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { useDeleteMenuItemMutation, useUpdateMenuItemMutation } from '@/hooks/mutations/useMenuMutations';
 
 interface MenuTableProps {
   items: MenuItem[];
@@ -28,7 +28,8 @@ interface MenuTableProps {
 }
 
 export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
-  const router = useRouter();
+  const deleteMenuItemMutation = useDeleteMenuItemMutation();
+  const updateMenuItemMutation = useUpdateMenuItemMutation();
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -49,40 +50,11 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
 
   const confirmDelete = async () => {
     if (!itemToDelete) return;
-
     try {
-      const response = await fetch(`/api/menu/${itemToDelete}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-
-        if (error.error?.includes('foreign key constraint') || error.error?.includes('order_items')) {
-          const updateResponse = await fetch(`/api/menu/${itemToDelete}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ available: false }),
-          });
-
-          if (updateResponse.ok) {
-            toast.warning('Item has existing orders and was marked as unavailable instead of deleted');
-            router.refresh();
-            onRefresh?.();
-            setDeleteDialogOpen(false);
-            setItemToDelete(null);
-            return;
-          }
-        }
-
-        throw new Error(error.error || 'Failed to delete menu item');
-      }
-
-      toast.success('Menu item deleted');
-      router.refresh();
+      await deleteMenuItemMutation.mutateAsync({ id: itemToDelete, outletId });
       onRefresh?.();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete menu item');
+    } catch (_error) {
+      // Toast handled in mutation
     } finally {
       setDeleteDialogOpen(false);
       setItemToDelete(null);
@@ -100,57 +72,26 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
   const confirmBulkDelete = async () => {
     setDeleting(true);
     setBulkDeleteDialogOpen(false);
-
     let deletedCount = 0;
     let softDeletedCount = 0;
     let failedCount = 0;
-
     try {
       for (const itemId of selectedItems) {
         try {
-          const response = await fetch(`/api/menu/${itemId}`, {
-            method: 'DELETE',
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-
-            if (error.error?.includes('foreign key constraint') || error.error?.includes('order_items')) {
-              const updateResponse = await fetch(`/api/menu/${itemId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ available: false }),
-              });
-
-              if (updateResponse.ok) {
-                softDeletedCount++;
-              } else {
-                failedCount++;
-              }
-            } else {
-              failedCount++;
-            }
-          } else {
-            deletedCount++;
-          }
-        } catch {
-          failedCount++;
+          await deleteMenuItemMutation.mutateAsync({ id: itemId, outletId, silent: true });
+          deletedCount++;
+        } catch (err: any) {
+          if (err?.message?.includes?.('unavailable')) softDeletedCount++;
+          else failedCount++;
         }
       }
-
       const messages = [];
       if (deletedCount > 0) messages.push(`${deletedCount} deleted`);
       if (softDeletedCount > 0) messages.push(`${softDeletedCount} marked unavailable (had orders)`);
       if (failedCount > 0) messages.push(`${failedCount} failed`);
-
-      if (deletedCount > 0 || softDeletedCount > 0) {
-        toast.success(messages.join(', '));
-      } else {
-        toast.error('Failed to delete items');
-      }
-
+      if (deletedCount > 0 || softDeletedCount > 0) toast.success(messages.join(', '));
+      else toast.error('Failed to delete items');
       setSelectedItems(new Set());
-      router.refresh();
       onRefresh?.();
     } finally {
       setDeleting(false);
@@ -353,7 +294,6 @@ export function MenuTable({ items, outletId, onRefresh }: MenuTableProps) {
         menuItem={editingItem}
         outletId={outletId}
         onSuccess={() => {
-          router.refresh();
           onRefresh?.();
         }}
       />

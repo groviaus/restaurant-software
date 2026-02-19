@@ -23,41 +23,37 @@ interface InventoryTableProps {
   inventory: Inventory[];
   logs: InventoryLog[];
   outletId: string;
+  onRefetchInventory?: () => void | Promise<unknown>;
 }
 
-export function InventoryTable({ inventory: initialInventory, logs: initialLogs, outletId }: InventoryTableProps) {
+export function InventoryTable({ inventory: initialInventory, logs: initialLogs, outletId, onRefetchInventory }: InventoryTableProps) {
   const router = useRouter();
   const [editingItem, setEditingItem] = useState<Inventory | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [inventory, setInventory] = useState<Inventory[]>(initialInventory);
   const [logs, setLogs] = useState<InventoryLog[]>(initialLogs);
 
-  // Update state when props change (e.g., from server refresh)
   useEffect(() => {
     setInventory(initialInventory);
     setLogs(initialLogs);
   }, [initialInventory, initialLogs]);
 
-  // Function to refetch inventory from API
   const refetchInventory = useCallback(async () => {
-    try {
-      console.log('[InventoryTable] Refetching inventory...');
-      const response = await fetch(`/api/inventory?outlet_id=${outletId}`);
-      if (response.ok) {
-        const data = await response.json();
-        const inventoryData = data.inventory || data || [];
-        console.log('[InventoryTable] Refetched inventory:', inventoryData.length, 'items');
-        if (Array.isArray(inventoryData)) {
-          setInventory(inventoryData);
+    if (onRefetchInventory) {
+      await onRefetchInventory();
+    } else {
+      try {
+        const response = await fetch(`/api/inventory?outlet_id=${outletId}`);
+        if (response.ok) {
+          const data = await response.json();
+          const inventoryData = data.inventory || data || [];
+          if (Array.isArray(inventoryData)) setInventory(inventoryData);
         }
-      } else {
-        const errorText = await response.text();
-        console.error('[InventoryTable] Failed to refetch inventory:', response.status, response.statusText, errorText);
+      } catch (error) {
+        console.error('[InventoryTable] Failed to refetch inventory:', error);
       }
-    } catch (error) {
-      console.error('[InventoryTable] Failed to refetch inventory:', error);
     }
-  }, [outletId]);
+  }, [outletId, onRefetchInventory]);
 
   // Function to refetch inventory logs from API
   const refetchLogs = useCallback(async () => {

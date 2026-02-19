@@ -96,44 +96,58 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createOrderSchema.parse(body);
 
-    // Get menu items to calculate prices
+    // Get menu items to calculate prices (fetch all pricing fields to respect pricing_mode)
     const { data: items, error: itemsError } = await supabase
       .from('items')
-      .select('id, price')
+      .select('id, price, base_price, pricing_mode, quarter_price, half_price, three_quarter_price, full_price')
       .in('id', validatedData.items.map((item) => item.item_id));
 
     if (itemsError) throw itemsError;
 
-    const itemPriceMap = new Map((items || []).map((item: any) => [item.id, Number(item.price)]));
+    const itemPriceMap = new Map(
+      (items || []).map((item: any) => [item.id, {
+        price: Number(item.price || 0),
+        base_price: Number(item.base_price || item.price || 0),
+        pricing_mode: item.pricing_mode || 'fixed',
+        quarter_price: Number(item.quarter_price || 0),
+        half_price: Number(item.half_price || 0),
+        three_quarter_price: Number(item.three_quarter_price || 0),
+        full_price: Number(item.full_price || item.price || 0),
+      }])
+    );
 
-    // Calculate totals with quantity type multipliers
-    // For quantity types, quantity is always 1, and we multiply price by the type multiplier
-    let subtotal = 0;
-    const getQuantityMultiplier = (quantityType?: string) => {
-      switch (quantityType) {
-        case 'QUARTER': return 0.25; // 250gm
-        case 'HALF': return 0.5; // 500gm
-        case 'THREE_QUARTER': return 0.75; // 750gm
-        case 'FULL': return 1.0; // 1kg
-        default: return 1.0; // Default to full for CUSTOM or undefined
+    const calculateItemPrice = (itemId: string, quantity: number, quantityType?: string): number => {
+      const itemData = itemPriceMap.get(itemId);
+      if (!itemData) return 0;
+      let unitPrice = 0;
+      if (itemData.pricing_mode === 'fixed') {
+        unitPrice = itemData.price;
+      } else if (itemData.pricing_mode === 'quantity_auto' && quantityType && quantityType !== 'CUSTOM') {
+        const multipliers: Record<string, number> = { QUARTER: 0.25, HALF: 0.5, THREE_QUARTER: 0.75, FULL: 1.0 };
+        unitPrice = itemData.base_price * (multipliers[quantityType] ?? 1.0);
+      } else if (itemData.pricing_mode === 'quantity_manual' && quantityType && quantityType !== 'CUSTOM') {
+        switch (quantityType) {
+          case 'QUARTER': unitPrice = itemData.quarter_price || 0; break;
+          case 'HALF': unitPrice = itemData.half_price || 0; break;
+          case 'THREE_QUARTER': unitPrice = itemData.three_quarter_price || 0; break;
+          case 'FULL': default: unitPrice = itemData.full_price || itemData.price; break;
+        }
+      } else {
+        unitPrice = itemData.price;
       }
+      return unitPrice * quantity;
     };
 
+    let subtotal = 0;
     const orderItems = validatedData.items.map((item) => {
-      const basePrice = itemPriceMap.get(item.item_id) || 0;
-      const multiplier = getQuantityMultiplier(item.quantity_type);
-      // For quantity types, quantity is always 1, effective price is base_price * multiplier
-      // This means: 250gm = base_price * 0.25, 500gm = base_price * 0.5, etc.
-      const effectivePrice = item.quantity_type && item.quantity_type !== 'CUSTOM'
-        ? basePrice * multiplier
-        : basePrice;
+      const effectivePrice = calculateItemPrice(item.item_id, item.quantity, item.quantity_type) / item.quantity;
       const itemTotal = effectivePrice * item.quantity;
       subtotal += itemTotal;
       return {
         item_id: item.item_id,
-        quantity: item.quantity, // Store as-is (will be 1 for quantity types)
+        quantity: item.quantity,
         quantity_type: item.quantity_type || null,
-        price: effectivePrice, // Store effective price (base_price * multiplier for quantity types)
+        price: effectivePrice,
         notes: item.notes || null,
       };
     });

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, CreateTableRequest, TableStatus } from '@/lib/types';
 import { toast } from 'sonner';
+import { useCreateTableMutation, useUpdateTableMutation } from '@/hooks/mutations/useTableMutations';
 
 interface TableFormProps {
   open: boolean;
@@ -30,7 +31,9 @@ export function TableForm({
   outletId,
   onSuccess,
 }: TableFormProps) {
-  const [loading, setLoading] = useState(false);
+  const createTableMutation = useCreateTableMutation();
+  const updateTableMutation = useUpdateTableMutation();
+  const loading = createTableMutation.isPending || updateTableMutation.isPending;
   const [formData, setFormData] = useState<CreateTableRequest>({
     outlet_id: outletId,
     name: '',
@@ -58,30 +61,16 @@ export function TableForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
     try {
-      const url = table ? `/api/tables/${table.id}` : '/api/tables';
-      const method = table ? 'PATCH' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save table');
+      if (table) {
+        await updateTableMutation.mutateAsync({ id: table.id, ...formData });
+      } else {
+        await createTableMutation.mutateAsync(formData);
       }
-
-      toast.success(table ? 'Table updated' : 'Table created');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error.message || 'Failed to save table');
-    } finally {
-      setLoading(false);
     }
   };
 

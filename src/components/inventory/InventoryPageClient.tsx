@@ -1,70 +1,41 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 import { InventoryTable } from '@/components/tables/InventoryTable';
-import { Inventory, InventoryLog } from '@/lib/types';
 import { useRealtimeInventory } from '@/hooks/useRealtime';
+import { useInventoryItemsQuery, useInventoryLogsQuery } from '@/hooks/queries/useInventoryQuery';
 
 interface InventoryPageClientProps {
-  initialInventory: Inventory[];
-  initialLogs: InventoryLog[];
-  initialLowStockAlerts: Inventory[];
   outletId: string;
 }
 
-export function InventoryPageClient({
-  initialInventory,
-  initialLogs,
-  initialLowStockAlerts,
-  outletId,
-}: InventoryPageClientProps) {
-  const router = useRouter();
-  const [inventory, setInventory] = useState<Inventory[]>(initialInventory);
-  const [logs, setLogs] = useState<InventoryLog[]>(initialLogs);
-  const [lowStockAlerts, setLowStockAlerts] = useState<Inventory[]>(initialLowStockAlerts);
+export function InventoryPageClient({ outletId }: InventoryPageClientProps) {
+  const inventoryQuery = useInventoryItemsQuery(outletId);
+  const logsQuery = useInventoryLogsQuery(outletId);
 
-  // Update state when props change (e.g., from server refresh)
-  useEffect(() => {
-    setInventory(initialInventory);
-    setLogs(initialLogs);
-    setLowStockAlerts(initialLowStockAlerts);
-  }, [initialInventory, initialLogs, initialLowStockAlerts]);
+  const inventory = inventoryQuery.data ?? [];
+  const logs = logsQuery.data ?? [];
 
-  // Function to refetch inventory data
-  const refetchInventory = useCallback(async () => {
-    try {
-      console.log('[InventoryPageClient] Refetching inventory data...');
-      router.refresh();
-    } catch (error) {
-      console.error('[InventoryPageClient] Failed to refetch inventory:', error);
-    }
-  }, [router]);
+  const lowStockAlerts = useMemo(
+    () => inventory.filter((inv) => inv.stock <= inv.low_stock_threshold),
+    [inventory]
+  );
 
-  // Subscribe to real-time inventory changes
   useRealtimeInventory({
     outletId,
-    onChange: (payload) => {
-      console.log('[InventoryPageClient] Realtime inventory change received:', payload.eventType);
-      refetchInventory();
+    onChange: () => {
+      inventoryQuery.refetch();
+      logsQuery.refetch();
     },
-    onInsert: (payload) => {
-      console.log('[InventoryPageClient] New inventory item inserted');
-      refetchInventory();
+    onInsert: () => {
+      inventoryQuery.refetch();
+      logsQuery.refetch();
     },
-    onUpdate: (payload) => {
-      console.log('[InventoryPageClient] Inventory item updated');
-      refetchInventory();
+    onUpdate: () => {
+      inventoryQuery.refetch();
+      logsQuery.refetch();
     },
   });
-
-  // Recalculate low stock alerts when inventory changes
-  useEffect(() => {
-    const alerts = inventory.filter(
-      (inv) => inv.stock <= inv.low_stock_threshold
-    );
-    setLowStockAlerts(alerts);
-  }, [inventory]);
 
   return (
     <div className="space-y-6">
@@ -93,8 +64,8 @@ export function InventoryPageClient({
         inventory={inventory}
         logs={logs}
         outletId={outletId}
+        onRefetchInventory={inventoryQuery.refetch}
       />
     </div>
   );
 }
-

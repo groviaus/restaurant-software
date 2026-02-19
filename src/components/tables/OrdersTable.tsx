@@ -26,6 +26,8 @@ import { useTableOrderStore } from '@/store/tableOrderStore';
 import { OrdersFilters, OrdersFilters as FiltersType } from '@/components/orders/OrdersFilters';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useRealtimeOrders } from '@/hooks/useRealtime';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUpdateOrderStatusMutation } from '@/hooks/mutations/useOrderMutations';
 
 interface OrdersTableProps {
   orders: any[];
@@ -35,12 +37,13 @@ interface OrdersTableProps {
 
 export function OrdersTable({ orders: initialOrders, outletId, tables: initialTables }: OrdersTableProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const updateOrderStatusMutation = useUpdateOrderStatusMutation();
   const {
     orders: storeOrders,
     tables: storeTables,
     setOrders,
     setTables,
-    updateOrder
   } = useTableOrderStore();
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [billModalOpen, setBillModalOpen] = useState(false);
@@ -79,35 +82,9 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
   const allOrders = storeOrders.length > 0 ? storeOrders : initialOrders;
   const tables = storeTables.length > 0 ? storeTables : initialTables;
 
-  // Function to refetch orders from API
   const refetchOrders = useCallback(async () => {
-    try {
-      console.log('[OrdersTable] Refetching orders...');
-      // Calculate today's date range to match server-side filtering
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStart = today.toISOString();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const todayEnd = tomorrow.toISOString();
-      
-      const response = await fetch(
-        `/api/orders?outlet_id=${outletId}&start_date=${encodeURIComponent(todayStart)}&end_date=${encodeURIComponent(todayEnd)}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[OrdersTable] Refetched orders:', data?.length || 0, 'orders');
-        if (data && Array.isArray(data)) {
-          setOrders(data);
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('[OrdersTable] Failed to refetch orders:', response.status, response.statusText, errorText);
-      }
-    } catch (error) {
-      console.error('[OrdersTable] Failed to refetch orders:', error);
-    }
-  }, [outletId, setOrders]);
+    await queryClient.invalidateQueries({ queryKey: ['orders'] });
+  }, [queryClient]);
 
   // Subscribe to real-time order changes
   useRealtimeOrders({
@@ -225,26 +202,10 @@ export function OrdersTable({ orders: initialOrders, outletId, tables: initialTa
 
   const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update order status');
-      }
-
-      const updatedOrder = await response.json();
-
-      // Update store with the updated order (this will handle table status changes)
-      updateOrder(updatedOrder);
-
-      toast.success('Order status updated');
+      await updateOrderStatusMutation.mutateAsync({ orderId, status: newStatus });
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update order status');
+    } catch (_error) {
+      // Toast handled in mutation
     }
   };
 

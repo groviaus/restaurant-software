@@ -1,87 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { OrdersTable } from '@/components/tables/OrdersTable';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table as TableType } from '@/lib/types';
+import { useOrdersQuery } from '@/hooks/queries/useOrdersQuery';
+import { useTablesQuery } from '@/hooks/queries/useTablesQuery';
 
 interface OrdersPageClientProps {
   outletId: string;
 }
 
 export function OrdersPageClient({ outletId }: OrdersPageClientProps) {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [tables, setTables] = useState<TableType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const todayRange = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStart = today.toISOString();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayEnd = tomorrow.toISOString();
+    return { start_date: todayStart, end_date: todayEnd };
+  }, []);
 
-  const mountTime = performance.now();
-  console.log('[Orders] Page shell visible at', mountTime.toFixed(0), 'ms (instant after click)');
+  const ordersQuery = useOrdersQuery(outletId, { ...todayRange, limit: 50 });
+  const tablesQuery = useTablesQuery(outletId);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchStart = performance.now();
-    console.log('[Orders] Data fetch started at', fetchStart.toFixed(0), 'ms');
-
-    async function fetchData() {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStart = today.toISOString();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const todayEnd = tomorrow.toISOString();
-
-      const ordersUrl = `/api/orders?outlet_id=${outletId}&limit=50&start_date=${encodeURIComponent(todayStart)}&end_date=${encodeURIComponent(todayEnd)}`;
-      const tablesUrl = `/api/tables?outlet_id=${outletId}`;
-
-      try {
-        const [ordersRes, tablesRes] = await Promise.all([
-          fetch(ordersUrl),
-          fetch(tablesUrl),
-        ]);
-
-        if (cancelled) return;
-
-        if (!ordersRes.ok) {
-          const errData = await ordersRes.json().catch(() => ({}));
-          setError(errData?.error || 'Failed to load orders');
-          setLoading(false);
-          return;
-        }
-
-        if (!tablesRes.ok) {
-          setError('Failed to load tables');
-          setLoading(false);
-          return;
-        }
-
-        const [ordersData, tablesPayload] = await Promise.all([
-          ordersRes.json(),
-          tablesRes.json(),
-        ]);
-
-        if (cancelled) return;
-
-        setOrders(Array.isArray(ordersData) ? ordersData : []);
-        setTables(Array.isArray(tablesPayload?.tables) ? tablesPayload.tables : []);
-      } catch (e) {
-        if (!cancelled) {
-          setError('Failed to load data');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-          const end = performance.now();
-          console.log('[Orders] Data fetch finished at', end.toFixed(0), 'ms (took', (end - fetchStart).toFixed(0), 'ms)');
-        }
-      }
-    }
-
-    fetchData();
-    return () => {
-      cancelled = true;
-    };
-  }, [outletId]);
+  const orders = ordersQuery.data ?? [];
+  const tables = tablesQuery.data ?? [];
+  const loading = ordersQuery.isLoading && tablesQuery.isLoading;
+  const error = ordersQuery.error ?? tablesQuery.error;
 
   if (error) {
     return (
@@ -90,12 +36,12 @@ export function OrdersPageClient({ outletId }: OrdersPageClientProps) {
           <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
           <p className="text-gray-600">Manage and track orders</p>
         </div>
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-600">{error instanceof Error ? error.message : 'Failed to load data'}</p>
       </div>
     );
   }
 
-  if (loading) {
+  if (loading && orders.length === 0 && tables.length === 0) {
     return (
       <div className="space-y-6">
         <div>

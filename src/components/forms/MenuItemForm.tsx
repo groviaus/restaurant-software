@@ -25,6 +25,8 @@ import { MenuItem, PricingMode, Category, QuantityType, Outlet } from '@/lib/typ
 import { toast } from 'sonner';
 import { Info, Store } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCreateMenuItemMutation, useUpdateMenuItemMutation } from '@/hooks/mutations/useMenuMutations';
+import { useCategoriesQuery } from '@/hooks/queries/useMenuQuery';
 
 interface MenuItemFormProps {
   open: boolean;
@@ -41,8 +43,11 @@ export function MenuItemForm({
   outletId,
   onSuccess,
 }: MenuItemFormProps) {
+  const createMenuItemMutation = useCreateMenuItemMutation();
+  const updateMenuItemMutation = useUpdateMenuItemMutation();
+  const { data: categoriesData } = useCategoriesQuery(outletId);
+  const categories = categoriesData ?? [];
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [selectedOutletIds, setSelectedOutletIds] = useState<string[]>([outletId]);
   const [formData, setFormData] = useState({
@@ -67,7 +72,6 @@ export function MenuItemForm({
 
   useEffect(() => {
     if (open && outletId) {
-      fetchCategories();
       fetchOutlets();
     }
   }, [open, outletId]);
@@ -120,18 +124,6 @@ export function MenuItemForm({
     }
   }, [menuItem, outletId, open]);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch(`/api/categories?outlet_id=${outletId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.categories || []);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
-
   const fetchOutlets = async () => {
     try {
       const response = await fetch('/api/outlets');
@@ -171,6 +163,9 @@ export function MenuItemForm({
       requires_quantity: mode !== PricingMode.FIXED,
     });
   };
+
+  const loadingMutation = createMenuItemMutation.isPending || updateMenuItemMutation.isPending;
+  const loadingState = loading || loadingMutation;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,39 +221,18 @@ export function MenuItemForm({
       }
 
       if (menuItem) {
-        // Editing existing item - update single outlet
-        const response = await fetch(`/api/menu/${menuItem.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...submitData, outlet_id: formData.outlet_id }),
+        await updateMenuItemMutation.mutateAsync({
+          id: menuItem.id,
+          ...submitData,
+          outlet_id: formData.outlet_id,
         });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to update menu item');
-        }
-        toast.success('Menu item updated');
       } else {
-        // Creating new item(s) - support multiple outlets
         submitData.outlet_ids = selectedOutletIds;
-
-        const response = await fetch('/api/menu', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(submitData),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create menu item');
-        }
-
+        await createMenuItemMutation.mutateAsync(submitData);
         const successCount = selectedOutletIds.length;
-        toast.success(
-          successCount > 1
-            ? `Menu item created in ${successCount} outlets`
-            : 'Menu item created'
-        );
+        if (successCount > 1) {
+          toast.success(`Menu item created in ${successCount} outlets`);
+        }
       }
 
       onSuccess();
@@ -593,12 +567,12 @@ export function MenuItemForm({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={loadingState}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : menuItem ? 'Update Item' : `Create Item${!menuItem && selectedOutletIds.length > 1 ? ` (${selectedOutletIds.length})` : ''}`}
+            <Button type="submit" disabled={loadingState}>
+              {loadingState ? 'Saving...' : menuItem ? 'Update Item' : `Create Item${!menuItem && selectedOutletIds.length > 1 ? ` (${selectedOutletIds.length})` : ''}`}
             </Button>
           </DialogFooter>
         </form>

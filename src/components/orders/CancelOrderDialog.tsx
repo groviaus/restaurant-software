@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { OrderStatus } from '@/lib/types';
+import { useUpdateOrderStatusMutation } from '@/hooks/mutations/useOrderMutations';
 
 interface CancelOrderDialogProps {
   open: boolean;
@@ -31,7 +32,8 @@ export function CancelOrderDialog({
 }: CancelOrderDialogProps) {
   const router = useRouter();
   const [reason, setReason] = useState('');
-  const [loading, setLoading] = useState(false);
+  const cancelOrderMutation = useUpdateOrderStatusMutation();
+  const loading = cancelOrderMutation.isPending;
 
   const handleCancel = async () => {
     if (!reason.trim()) {
@@ -39,33 +41,18 @@ export function CancelOrderDialog({
       return;
     }
 
-    setLoading(true);
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: OrderStatus.CANCELLED,
-          cancellation_reason: reason.trim(),
-        }),
+      await cancelOrderMutation.mutateAsync({
+        orderId,
+        status: OrderStatus.CANCELLED,
+        cancellation_reason: reason.trim(),
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to cancel order');
-      }
-
-      toast.success('Order cancelled successfully');
       setReason('');
       onOpenChange(false);
-      if (onSuccess) {
-        onSuccess();
-      }
+      onSuccess?.();
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel order');
-    } finally {
-      setLoading(false);
+    } catch (_error) {
+      // Toast handled in mutation
     }
   };
 
