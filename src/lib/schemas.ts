@@ -8,11 +8,21 @@ export const createMenuItemSchema = z.object({
   description: z.string().optional().nullable(),
   price: z.number().positive('Price must be positive'),
   category: z.string().optional().nullable(),
-  category_id: z.string().uuid().optional().nullable(),
+  category_id: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? null : val),
+    z.string().uuid().nullable().optional()
+  ),
   available: z.boolean().default(true),
   image_url: z.preprocess(
-    (val) => (val === '' || val === undefined || val === null ? null : val),
-    z.union([z.string().url('Image URL must be a valid URL'), z.null()]).optional()
+    (val) => {
+      if (!val || typeof val !== 'string' || val.trim() === '') return null;
+      const str = val.trim();
+      if (!str.startsWith('http://') && !str.startsWith('https://') && !str.startsWith('/')) {
+        return null;
+      }
+      return str;
+    },
+    z.string().nullable().optional()
   ),
   pricing_mode: z.nativeEnum(PricingMode).default(PricingMode.FIXED),
   requires_quantity: z.boolean().default(false),
@@ -30,11 +40,21 @@ export const updateMenuItemSchema = z.object({
   description: z.string().optional().nullable(),
   price: z.number().positive().optional(),
   category: z.string().optional().nullable(),
-  category_id: z.string().uuid().optional().nullable(),
+  category_id: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? null : val),
+    z.string().uuid().nullable().optional()
+  ),
   available: z.boolean().optional(),
   image_url: z.preprocess(
-    (val) => (val === '' || val === undefined || val === null ? null : val),
-    z.union([z.string().url('Image URL must be a valid URL'), z.null()]).optional()
+    (val) => {
+      if (!val || typeof val !== 'string' || val.trim() === '') return null;
+      const str = val.trim();
+      if (!str.startsWith('http://') && !str.startsWith('https://') && !str.startsWith('/')) {
+        return null;
+      }
+      return str;
+    },
+    z.string().nullable().optional()
   ),
   pricing_mode: z.nativeEnum(PricingMode).optional(),
   requires_quantity: z.boolean().optional(),

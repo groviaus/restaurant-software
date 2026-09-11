@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSession, requirePermission } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createMenuItemSchema, menuQuerySchema } from '@/lib/schemas';
+import { ZodError } from 'zod';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,14 +27,14 @@ export async function GET(request: NextRequest) {
     let query;
     try {
       query = menuQuerySchema.parse(rawQuery);
-    } catch (schemaError: any) {
+    } catch (schemaError: unknown) {
       console.error('Schema validation error:', schemaError);
-      // Provide more specific error message for UUID validation
-      const errorMessage = schemaError.errors?.find((e: any) => e.path.includes('outlet_id'))
+      const isZod = schemaError instanceof ZodError;
+      const errorMessage = isZod && schemaError.issues.some((e) => e.path.includes('outlet_id'))
         ? 'Invalid outlet_id format. Must be a valid UUID.'
         : 'Invalid query parameters';
       return NextResponse.json(
-        { error: errorMessage, details: schemaError.errors },
+        { error: errorMessage, details: isZod ? schemaError.issues : undefined },
         { status: 400 }
       );
     }
@@ -63,10 +64,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ items: data || [] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Menu API error:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to fetch menu items';
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch menu items' },
+      { error: msg },
       { status: 500 }
     );
   }
@@ -98,8 +100,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const createdItems: any[] = [];
-    const errors: any[] = [];
+    const createdItems: Record<string, unknown>[] = [];
+    const errors: { outlet_id: string; error: string; details?: unknown }[] = [];
 
     // Create item for each outlet
     for (const targetOutletId of targetOutletIds) {
@@ -109,39 +111,48 @@ export async function POST(request: NextRequest) {
         let validatedData;
         try {
           validatedData = createMenuItemSchema.parse(dataToValidate);
-        } catch (validationError: any) {
-          console.error('Validation error for outlet', targetOutletId, ':', validationError.errors);
-          errors.push({ outlet_id: targetOutletId, error: validationError.errors });
+        } catch (validationError: unknown) {
+          const isZod = validationError instanceof ZodError;
+          const issues = isZod ? validationError.issues : [];
+          const formattedMessage = issues.length > 0
+            ? issues.map((i) => `${i.path?.join('.') || 'field'}: ${i.message}`).join(', ')
+            : validationError instanceof Error
+              ? validationError.message
+              : 'Validation error';
+          console.error('Validation error for outlet', targetOutletId, ':', formattedMessage);
+          errors.push({ outlet_id: targetOutletId, error: formattedMessage, details: issues });
           continue;
         }
 
         // Ensure image_url is null if empty
-        const insertData: any = {
+        const insertData = {
           ...validatedData,
           image_url: validatedData.image_url || null,
         };
 
         const { data, error } = await supabase
           .from('items')
-          .insert(insertData)
+          .insert(insertData as never)
           .select()
           .single();
 
         if (error) {
           console.error('Database error for outlet', targetOutletId, ':', error);
           errors.push({ outlet_id: targetOutletId, error: error.message });
-        } else {
-          createdItems.push(data);
+        } else if (data) {
+          createdItems.push(data as Record<string, unknown>);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error creating item for outlet', targetOutletId, ':', err);
-        errors.push({ outlet_id: targetOutletId, error: err.message });
+        const msg = err instanceof Error ? err.message : 'Failed to create item';
+        errors.push({ outlet_id: targetOutletId, error: msg });
       }
     }
 
     if (createdItems.length === 0 && errors.length > 0) {
+      const firstError = errors[0]?.error || 'Failed to create menu items';
       return NextResponse.json(
-        { error: 'Failed to create menu items', details: errors },
+        { error: typeof firstError === 'string' ? firstError : 'Failed to create menu items', details: errors },
         { status: 400 }
       );
     }
@@ -153,21 +164,22 @@ export async function POST(request: NextRequest) {
         _meta: {
           created_count: createdItems.length,
           error_count: errors.length,
-          errors: errors.length > 0 ? errors : undefined
-        }
+          errors: errors.length > 0 ? errors : undefined,
+        },
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Menu POST error:', error);
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
+    const msg = error instanceof Error ? error.message : 'Failed to create menu item';
     return NextResponse.json(
-      { error: error.message || 'Failed to create menu item' },
+      { error: msg },
       { status: 500 }
     );
   }
