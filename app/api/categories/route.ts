@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSession, requirePermission } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { z } from 'zod';
 
 const createCategorySchema = z.object({
@@ -8,12 +8,6 @@ const createCategorySchema = z.object({
     name: z.string().min(1).max(255),
     description: z.string().optional(),
     display_order: z.number().int().default(0),
-});
-
-const updateCategorySchema = z.object({
-    name: z.string().min(1).max(255).optional(),
-    description: z.string().optional().nullable(),
-    display_order: z.number().int().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -26,7 +20,10 @@ export async function GET(request: NextRequest) {
 
         let query = supabase
             .from('categories')
-            .select('*')
+            .select(`
+                *,
+                items (id)
+            `)
             .order('display_order', { ascending: true })
             .order('name', { ascending: true });
 
@@ -41,11 +38,22 @@ export async function GET(request: NextRequest) {
             throw error;
         }
 
-        return NextResponse.json({ categories: data || [] });
-    } catch (error: any) {
+        const categoriesWithCount = (data || []).map((cat: Record<string, unknown>) => {
+            const items = cat.items;
+            const rest = { ...cat };
+            delete rest.items;
+            return {
+                ...rest,
+                items_count: Array.isArray(items) ? items.length : 0,
+            };
+        });
+
+        return NextResponse.json({ categories: categoriesWithCount });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to fetch categories';
         console.error('Categories API error:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch categories' },
+            { error: message },
             { status: 500 }
         );
     }
@@ -75,8 +83,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const createdCategories: any[] = [];
-        const errors: any[] = [];
+        const createdCategories: Record<string, unknown>[] = [];
+        const errors: { outlet_id: string; error: unknown }[] = [];
 
         // Create category for each outlet
         for (const targetOutletId of targetOutletIds) {
@@ -86,16 +94,18 @@ export async function POST(request: NextRequest) {
                 let validatedData;
                 try {
                     validatedData = createCategorySchema.parse(dataToValidate);
-                } catch (validationError: any) {
-                    console.error('Validation error for outlet', targetOutletId, ':', validationError.errors);
-                    errors.push({ outlet_id: targetOutletId, error: validationError.errors });
+                } catch (validationError: unknown) {
+                    const issues = validationError instanceof z.ZodError ? validationError.issues : [];
+                    console.error('Validation error for outlet', targetOutletId, ':', issues);
+                    errors.push({ outlet_id: targetOutletId, error: issues });
                     continue;
                 }
 
-                const insertData: any = { ...validatedData };
+                const insertData = { ...validatedData };
 
                 const { data, error } = await supabase
                     .from('categories')
+                    // @ts-expect-error - Supabase type inference issue
                     .insert(insertData)
                     .select()
                     .single();
@@ -103,12 +113,13 @@ export async function POST(request: NextRequest) {
                 if (error) {
                     console.error('Database error for outlet', targetOutletId, ':', error);
                     errors.push({ outlet_id: targetOutletId, error: error.message });
-                } else {
+                } else if (data) {
                     createdCategories.push(data);
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : 'Unknown error';
                 console.error('Error creating category for outlet', targetOutletId, ':', err);
-                errors.push({ outlet_id: targetOutletId, error: err.message });
+                errors.push({ outlet_id: targetOutletId, error: message });
             }
         }
 
@@ -131,15 +142,17 @@ export async function POST(request: NextRequest) {
             },
             { status: 201 }
         );
-    } catch (error: any) {
-        if (error.name === 'ZodError') {
+    } catch (error: unknown) {
+        if (error instanceof z.ZodError) {
             return NextResponse.json(
                 { error: 'Validation error', details: error.issues },
                 { status: 400 }
             );
         }
+        const message = error instanceof Error ? error.message : 'Internal server error';
+        console.error('Category creation error:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to create category' },
+            { error: message },
             { status: 500 }
         );
     }

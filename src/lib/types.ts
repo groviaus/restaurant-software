@@ -62,6 +62,7 @@ export interface Category {
   display_order: number;
   created_at: string;
   updated_at: string;
+  items_count?: number;
 }
 
 export interface MenuItem {
