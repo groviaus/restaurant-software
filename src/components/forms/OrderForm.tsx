@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MenuItem, Table, QuantityType, PricingMode, Category } from '@/lib/types';
+import { MenuItem, Table, QuantityType, PricingMode, Category, InventoryAvailability } from '@/lib/types';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -27,6 +27,8 @@ import {
   Trash2,
   ArrowRight,
   Sparkles,
+  AlertTriangle,
+  XCircle,
 } from 'lucide-react';
 import { useTableOrderStore } from '@/store/tableOrderStore';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -98,6 +100,9 @@ export function OrderForm({
 
   // Mobile-first Tab View: 'catalog' | 'ticket'
   const [mobileTab, setMobileTab] = useState<'catalog' | 'ticket'>('catalog');
+  // Inventory availability map: menuItemId → InventoryAvailability
+  const [availability, setAvailability] = useState<Record<string, InventoryAvailability>>({});
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   const loading = createOrderMutation.isPending || updateOrderItemsMutation.isPending;
   const availableTables = storeTables.length > 0 ? storeTables : tables;
@@ -189,12 +194,32 @@ export function OrderForm({
       const response = await fetch(`/api/menu?outlet_id=${outletId}`);
       if (response.ok) {
         const data = await response.json();
-        setMenuItems((data.items || []).filter((item: MenuItem) => item.available));
+        const active = (data.items || []).filter((item: MenuItem) => item.available);
+        setMenuItems(active);
+        // Fetch availability for all menu items
+        fetchAvailability(active.map((i: MenuItem) => i.id));
       }
     } catch {
       // ignore
     }
   };
+
+  const fetchAvailability = useCallback(async (menuItemIds: string[]) => {
+    if (!menuItemIds.length) return;
+    setAvailabilityLoading(true);
+    try {
+      const ids = menuItemIds.join(',');
+      const res = await fetch(`/api/inventory/availability?menu_item_ids=${ids}${outletId ? `&outlet_id=${outletId}` : ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvailability(data.availability ?? {});
+      }
+    } catch {
+      // Availability is best-effort — don't block the order form
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }, [outletId]);
 
   const fetchCategories = async () => {
     try {
@@ -246,7 +271,23 @@ export function OrderForm({
   };
 
   const quickAddItem = (menuItem: MenuItem) => {
+    // Check availability
+    const avail = availability[menuItem.id];
+    if (avail?.status === 'out_of_stock') {
+      toast.error(`${menuItem.name} is out of stock`);
+      return;
+    }
+
     const existingIndex = items.findIndex((i) => i.item_id === menuItem.id);
+    const newQty = existingIndex >= 0 ? items[existingIndex].quantity + 1 : 1;
+
+    // Quantity-aware check
+    if (avail && avail.portions_available !== null && newQty > avail.portions_available) {
+      toast.warning(
+        `Only ${avail.portions_available} portion${avail.portions_available === 1 ? '' : 's'} available for ${menuItem.name}`
+      );
+      return;
+    }
 
     if (existingIndex >= 0) {
       const updated = [...items];
@@ -277,7 +318,20 @@ export function OrderForm({
 
   const updateItem = (index: number, field: keyof OrderItem, value: unknown) => {
     const updated = [...items];
-    updated[index] = { ...updated[index], [field]: value };
+    let finalValue = value;
+
+    if (field === 'quantity' && typeof value === 'number') {
+      const itemToUpdate = updated[index];
+      const avail = itemToUpdate?.item_id ? availability[itemToUpdate.item_id] : null;
+      if (avail && avail.portions_available !== null && value > avail.portions_available) {
+        toast.warning(
+          `Only ${avail.portions_available} portion${avail.portions_available === 1 ? '' : 's'} available for ${getMenuItem(itemToUpdate.item_id)?.name || 'this item'}`
+        );
+        finalValue = Math.max(1, avail.portions_available);
+      }
+    }
+
+    updated[index] = { ...updated[index], [field]: finalValue };
     setItems(updated);
   };
 
@@ -353,6 +407,33 @@ export function OrderForm({
     if (invalidItems) {
       toast.error('Please ensure all items have a valid selection and quantity');
       return;
+    }
+
+    // Guard against out_of_stock or exceeding available inventory portions
+    for (const item of items) {
+      const avail = availability[item.item_id];
+      if (!avail) continue;
+      const itemName = getMenuItem(item.item_id)?.name || 'Item';
+
+      // For existing orders, determine net added quantity
+      let additionalQty = item.quantity;
+      if (isEditMode && item.order_item_id && existingOrder) {
+        const existingQty = existingOrderItems.find((oi) => oi.id === item.order_item_id)?.quantity || 0;
+        additionalQty = Math.max(0, item.quantity - existingQty);
+      }
+
+      if (additionalQty > 0) {
+        if (avail.status === 'out_of_stock') {
+          toast.error(`${itemName} is currently out of stock`);
+          return;
+        }
+        if (avail.portions_available !== null && additionalQty > avail.portions_available) {
+          toast.error(
+            `Cannot place order: ${itemName} only has ${avail.portions_available} portion${avail.portions_available === 1 ? '' : 's'} available (selected ${additionalQty} new)`
+          );
+          return;
+        }
+      }
     }
 
     if (isEditMode && existingOrder) {
@@ -698,15 +779,22 @@ export function OrderForm({
                     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3 pb-16 lg:pb-0">
                       {filteredMenuItems.map((menuItem) => {
                         const count = getItemCount(menuItem.id);
+                        const avail = availability[menuItem.id];
+                        const isOutOfStock = avail?.status === 'out_of_stock';
+                        const isLowStock = avail?.status === 'low_stock';
+                        const hasNoRecipe = !avail || avail.status === 'no_recipe';
+
                         return (
                           <div
                             key={menuItem.id}
-                            onClick={() => quickAddItem(menuItem)}
+                            onClick={() => !isOutOfStock && quickAddItem(menuItem)}
                             className={cn(
-                              'group relative flex flex-col justify-between p-3 rounded-xl border text-left cursor-pointer transition-all duration-150 min-h-[95px] active:scale-98',
-                              count > 0
-                                ? 'bg-primary/5 border-primary/50 ring-1 ring-primary/20 shadow-2xs'
-                                : 'bg-card hover:bg-muted/40 border-border/60 hover:border-border'
+                              'group relative flex flex-col justify-between p-3 rounded-xl border text-left transition-all duration-150 min-h-[95px] active:scale-98',
+                              isOutOfStock
+                                ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200'
+                                : count > 0
+                                ? 'bg-primary/5 border-primary/50 ring-1 ring-primary/20 shadow-2xs cursor-pointer'
+                                : 'bg-card hover:bg-muted/40 border-border/60 hover:border-border cursor-pointer'
                             )}
                           >
                             {/* In-cart count badge */}
@@ -716,19 +804,44 @@ export function OrderForm({
                               </span>
                             )}
 
+                            {/* Out of stock overlay */}
+                            {isOutOfStock && (
+                              <span className="absolute top-1.5 right-1.5">
+                                <XCircle className="w-3.5 h-3.5 text-gray-400" />
+                              </span>
+                            )}
+
                             <div>
                               <p className="font-bold text-xs text-foreground line-clamp-2 leading-snug">
                                 {menuItem.name}
                               </p>
                             </div>
 
-                            <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-border/50">
-                              <span className="font-mono text-xs font-black text-foreground">
-                                {settings.currency_symbol}{menuItem.price.toFixed(0)}
-                              </span>
-                              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-2xs">
-                                <Plus className="h-3 w-3" />
-                              </span>
+                            <div className="mt-1.5 space-y-1">
+                              {/* Availability badge */}
+                              {isOutOfStock && (
+                                <p className="text-[10px] font-medium text-gray-400 flex items-center gap-0.5">
+                                  <XCircle className="w-2.5 h-2.5" />
+                                  Out of stock
+                                </p>
+                              )}
+                              {isLowStock && avail?.portions_available !== null && (
+                                <p className="text-[10px] font-medium text-amber-600 flex items-center gap-0.5">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  {avail.portions_available} left
+                                </p>
+                              )}
+
+                              <div className="flex items-center justify-between pt-0.5 border-t border-border/50">
+                                <span className="font-mono text-xs font-black text-foreground">
+                                  {settings.currency_symbol}{menuItem.price.toFixed(0)}
+                                </span>
+                                {!isOutOfStock && (
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-2xs">
+                                    <Plus className="h-3 w-3" />
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );

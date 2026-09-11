@@ -3,6 +3,7 @@ import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { requireAuth, checkPermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { billRequestSchema } from '@/lib/schemas';
 import { OrderStatus, PaymentMethod } from '@/lib/types';
+import { consumeForOrder } from '@/lib/inventory/inventoryService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -133,69 +134,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Auto stock deduction when order is completed via bill generation
-    // Use order's outlet_id for inventory deduction (not user's effective outlet)
-    if (orderOutletId && updatedOrderData.order_items && updatedOrderData.order_items.length > 0) {
+    // ─── Ledger-based Inventory Consumption ──────────────────────────────────
+    // Uses the centralized inventoryService — idempotent, ledger-based.
+    // If movements already exist for this order, the service skips silently.
+    if (orderOutletId && updatedOrderData.order_items?.length > 0) {
       try {
         const serviceClient = createServiceRoleClient();
 
-        for (const orderItem of updatedOrderData.order_items) {
-          if (!orderItem.item_id) {
-            console.warn('[Billing] Order item missing item_id, skipping inventory deduction:', orderItem);
-            continue;
-          }
+        // Generate a human-readable order label (use order index if available)
+        const { data: orderIndexData } = await serviceClient
+          .from('orders')
+          .select('id')
+          .eq('outlet_id', orderOutletId)
+          .lte('created_at', updatedOrderData.created_at)
+          .order('created_at', { ascending: true });
 
-          // Get current inventory
-          const { data: inventory, error: inventoryError } = await serviceClient
-            .from('inventory')
-            .select('*')
-            .eq('outlet_id', orderOutletId)
-            .eq('item_id', orderItem.item_id)
-            .single();
+        const orderIndex = orderIndexData ? orderIndexData.findIndex((o: any) => o.id === validatedData.order_id) + 1 : null;
+        const orderLabel = orderIndex ? `Order #${orderIndex}` : `Order ${validatedData.order_id.slice(0, 8)}`;
 
-          if (inventoryError && inventoryError.code !== 'PGRST116') {
-            // PGRST116 is "not found" - that's okay, just log it
-            console.warn('[Billing] Inventory lookup error (non-critical):', inventoryError);
-            continue;
-          }
+        const result = await consumeForOrder({
+          orderId: validatedData.order_id,
+          orderLabel,
+          orderItems: updatedOrderData.order_items.map((oi: any) => ({
+            item_id: oi.item_id,
+            quantity: oi.quantity,
+            quantity_type: oi.quantity_type,
+          })),
+          outletId: orderOutletId,
+          userId: profile?.id,
+          supabase: serviceClient,
+        });
 
-          if (inventory) {
-            const inventoryData = inventory as any;
-            const newStock = Number(inventoryData.stock) - Number(orderItem.quantity);
-
-            // Update stock
-            const stockUpdateData: any = { stock: Math.max(0, newStock) };
-            const { error: updateError } = await serviceClient
-              .from('inventory')
-              // @ts-expect-error - Supabase type inference issue
-              .update(stockUpdateData)
-              .eq('id', inventoryData.id);
-
-            if (updateError) {
-              console.warn('[Billing] Inventory update error (non-critical):', updateError);
-              continue;
-            }
-
-            // Log the deduction
-            const logData: any = {
-              outlet_id: orderOutletId,
-              item_id: orderItem.item_id,
-              change: -Number(orderItem.quantity),
-              reason: `Order ${updatedOrderData.id} completed (bill generated)`,
-              created_by: profile?.id || null,
-            };
-            const { error: logError } = await serviceClient
-              .from('inventory_logs')
-              .insert(logData);
-
-            if (logError) {
-              console.warn('[Billing] Inventory log error (non-critical):', logError);
-            }
-          }
+        if (result.skipped) {
+          console.log(`[Billing] Inventory already consumed for order ${validatedData.order_id} — skipping`);
+        } else if (result.errors.length > 0) {
+          console.warn('[Billing] Some inventory items could not be consumed:', result.errors);
+        } else {
+          console.log(`[Billing] Consumed inventory for ${result.itemsConsumed} ingredient(s) — ${orderLabel}`);
         }
       } catch (inventoryError: any) {
-        console.error('[Billing] Inventory deduction failed (non-critical):', inventoryError);
-        // Don't fail the bill generation if inventory update fails
+        // Non-critical: bill is already generated. Log and continue.
+        console.error('[Billing] Inventory consumption failed (non-critical):', inventoryError);
       }
     }
 

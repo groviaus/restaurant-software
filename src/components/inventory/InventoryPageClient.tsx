@@ -1,71 +1,485 @@
 'use client';
 
-import { useMemo } from 'react';
-import { InventoryTable } from '@/components/tables/InventoryTable';
-import { useRealtimeInventory } from '@/hooks/useRealtime';
-import { useInventoryItemsQuery, useInventoryLogsQuery } from '@/hooks/queries/useInventoryQuery';
+import { useState, useEffect, useCallback } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InventoryItemsTable } from '@/components/inventory/InventoryItemsTable';
+import { InventoryMovementsLog } from '@/components/inventory/InventoryMovementsLog';
+import { RecipeBuilder } from '@/components/inventory/RecipeBuilder';
+import { RecordMovementForm } from '@/components/forms/RecordMovementForm';
+import { InventoryItemForm } from '@/components/forms/InventoryItemForm';
+import { RecordWastageModal } from '@/components/inventory/RecordWastageModal';
+import { StockCountWorkflow } from '@/components/inventory/StockCountWorkflow';
+import { PurchasesManager } from '@/components/inventory/PurchasesManager';
+import { InventoryDashboardView } from '@/components/inventory/InventoryDashboardView';
+import { InventoryItem, InventoryMovement, MenuItem, Recipe } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Package2, ClipboardList, ChefHat, AlertTriangle, RotateCcw,
+  TrendingDown, Boxes, LayoutDashboard, ShoppingCart,
+  Plus, ClipboardCheck, Trash2, Search, X
+} from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface InventoryPageClientProps {
   outletId: string;
 }
 
 export function InventoryPageClient({ outletId }: InventoryPageClientProps) {
-  const inventoryQuery = useInventoryItemsQuery(outletId);
-  const logsQuery = useInventoryLogsQuery(outletId);
+  const [activeTab, setActiveTab] = useState('items');
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const inventory = inventoryQuery.data ?? [];
-  const logs = logsQuery.data ?? [];
+  // Modals state
+  const [itemFormOpen, setItemFormOpen] = useState(false);
+  const [recordMovementOpen, setRecordMovementOpen] = useState(false);
+  const [wastageModalOpen, setWastageModalOpen] = useState(false);
+  const [stockCountOpen, setStockCountOpen] = useState(false);
 
-  const lowStockAlerts = useMemo(
-    () => inventory.filter((inv) => inv.stock <= inv.low_stock_threshold),
-    [inventory]
+  // Recipe builder state
+  const [recipeBuilderOpen, setRecipeBuilderOpen] = useState(false);
+  const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
+  const [recipeMenuFilter, setRecipeMenuFilter] = useState('all');
+  const [recipeSearch, setRecipeSearch] = useState('');
+
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+
+    try {
+      const [itemsRes, movRes, menuRes, recipesRes] = await Promise.all([
+        fetch(`/api/inventory/items`),
+        fetch(`/api/inventory/movements?limit=200`),
+        fetch(`/api/menu?outlet_id=${outletId}`),
+        fetch(`/api/inventory/recipes`),
+      ]);
+
+      const [itemsData, movData, menuData, recipesData] = await Promise.all([
+        itemsRes.json(),
+        movRes.json(),
+        menuRes.json(),
+        recipesRes.json(),
+      ]);
+
+      setInventoryItems(itemsData.items ?? []);
+      setMovements(movData.movements ?? []);
+      setMenuItems(menuData.items ?? []);
+      setRecipes(recipesData.recipes ?? []);
+    } catch (err) {
+      console.error('[InventoryPageClient] Fetch error:', err);
+      toast.error('Failed to sync inventory data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [outletId]);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Summary alerts
+  const lowStockItems = inventoryItems.filter(
+    (i) => i.current_stock <= i.min_stock && i.current_stock > 0
   );
+  const outOfStockItems = inventoryItems.filter((i) => i.current_stock <= 0);
+  const recipeCount = recipes.length;
 
-  useRealtimeInventory({
-    outletId,
-    onChange: () => {
-      inventoryQuery.refetch();
-      logsQuery.refetch();
-    },
-    onInsert: () => {
-      inventoryQuery.refetch();
-      logsQuery.refetch();
-    },
-    onUpdate: () => {
-      inventoryQuery.refetch();
-      logsQuery.refetch();
-    },
+  const getRecipeForMenuItem = (menuItemId: string) =>
+    recipes.find((r) => r.menu_item_id === menuItemId);
+
+  const filteredMenuItems = menuItems.filter((m) => {
+    const hasRecipe = !!getRecipeForMenuItem(m.id);
+    if (recipeMenuFilter === 'has_recipe' && !hasRecipe) return false;
+    if (recipeMenuFilter === 'no_recipe' && hasRecipe) return false;
+    if (recipeSearch.trim()) {
+      const q = recipeSearch.toLowerCase().trim();
+      return m.name.toLowerCase().includes(q) || (m.category || '').toLowerCase().includes(q);
+    }
+    return true;
   });
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Inventory Management</h1>
-        <p className="text-gray-600">Track stock levels and manage inventory</p>
+  if (loading && inventoryItems.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <div className="w-9 h-9 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-medium text-muted-foreground">Synchronizing live stock ledger...</p>
+        </div>
       </div>
-      {lowStockAlerts.length > 0 && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-          <h2 className="font-semibold text-yellow-800 mb-2">
-            Low Stock Alerts ({lowStockAlerts.length})
-          </h2>
-          <ul className="list-disc list-inside text-sm text-yellow-700">
-            {lowStockAlerts.slice(0, 5).map((alert) => (
-              <li key={alert.id}>
-                {alert.item?.name}: {alert.stock} units (threshold: {alert.low_stock_threshold})
-              </li>
-            ))}
-            {lowStockAlerts.length > 5 && (
-              <li className="font-medium">...and {lowStockAlerts.length - 5} more</li>
+    );
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      {/* 1. Page Header Command Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              Inventory & Stock
+            </h1>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shadow-2xs">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              <span>Ledger Active</span>
+            </div>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Single source of truth for stock availability, BOM recipes, and purchase receiving.
+          </p>
+        </div>
+
+        {/* Global Action Button Cluster */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setStockCountOpen(true)}
+            className="h-8.5 px-3 text-xs font-medium rounded-xl border-border/60 bg-card/60 hover:bg-muted/80 shadow-2xs gap-1.5 cursor-pointer"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Stock Count</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWastageModalOpen(true)}
+            className="h-8.5 px-3 text-xs font-medium rounded-xl border-border/60 bg-card/60 hover:bg-muted/80 shadow-2xs gap-1.5 cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+            <span>Wastage</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => setItemFormOpen(true)}
+            className="h-8.5 px-3.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Item</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchAll(true)}
+            disabled={refreshing}
+            className="h-8.5 w-8.5 p-0 rounded-xl border-border/60 bg-card/60 hover:bg-muted/80 shadow-2xs cursor-pointer"
+            title="Sync inventory"
+          >
+            <RotateCcw className={cn('w-3.5 h-3.5 text-muted-foreground', refreshing && 'animate-spin')} />
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. Critical Stock Alert Banner (Subtle & Sleek) */}
+      {(outOfStockItems.length > 0 || lowStockItems.length > 0) && (
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs font-medium text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+          <div className="flex-1 truncate">
+            {outOfStockItems.length > 0 && (
+              <span className="font-semibold text-rose-600 dark:text-rose-400 mr-2">
+                {outOfStockItems.length} item{outOfStockItems.length > 1 ? 's' : ''} depleted
+              </span>
             )}
-          </ul>
+            {lowStockItems.length > 0 && (
+              <span>
+                {lowStockItems.length} item{lowStockItems.length > 1 ? 's' : ''} running low on stock
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setActiveTab('items')}
+            className="text-[11px] font-semibold underline underline-offset-2 hover:opacity-80 shrink-0 cursor-pointer"
+          >
+            View Low Items →
+          </button>
         </div>
       )}
-      <InventoryTable
-        inventory={inventory}
-        logs={logs}
+
+      {/* 3. Segmented Navigation Ribbon */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <div className="flex items-center overflow-x-auto pb-1 no-scrollbar">
+          <TabsList className="bg-muted/60 p-1 rounded-2xl border border-border/60 backdrop-blur-md h-auto inline-flex gap-1">
+            <TabsTrigger
+              value="dashboard"
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>Overview</span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="items"
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>Items Master</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground">
+                {inventoryItems.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="movements"
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>Ledger Logs</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground">
+                {movements.length}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="recipes"
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ChefHat className="w-3.5 h-3.5" />
+              <span>Recipes / BOM</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground">
+                {recipeCount}
+              </span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="purchases"
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span>Purchases & POs</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Dashboard / Overview Tab */}
+        <TabsContent value="dashboard" className="mt-0 space-y-4">
+          <InventoryDashboardView
+            items={inventoryItems}
+            movements={movements}
+            onOpenRecordMovement={() => setRecordMovementOpen(true)}
+            onOpenWastage={() => setWastageModalOpen(true)}
+            onOpenStockCount={() => setStockCountOpen(true)}
+            onOpenNewItem={() => setItemFormOpen(true)}
+            onNavigateTab={setActiveTab}
+          />
+        </TabsContent>
+
+        {/* Items Master Tab */}
+        <TabsContent value="items" className="mt-0">
+          <InventoryItemsTable
+            items={inventoryItems}
+            outletId={outletId}
+            onRefetch={() => fetchAll(true)}
+          />
+        </TabsContent>
+
+        {/* Movements / Ledger Tab */}
+        <TabsContent value="movements" className="mt-0">
+          <InventoryMovementsLog
+            movements={movements}
+            inventoryItems={inventoryItems}
+            onRefetch={() => fetchAll(true)}
+          />
+        </TabsContent>
+
+        {/* Recipes / BOM Tab */}
+        <TabsContent value="recipes" className="mt-0 space-y-3">
+          {/* Recipe Filter Ribbon */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card/60 p-2.5 sm:p-3 rounded-2xl border border-border/60 backdrop-blur-md shadow-2xs">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={recipeSearch}
+                onChange={(e) => setRecipeSearch(e.target.value)}
+                placeholder="Search dish or category..."
+                className="w-full h-8.5 pl-8.5 pr-8 rounded-xl border border-border/60 bg-background/80 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all"
+              />
+              {recipeSearch && (
+                <button
+                  type="button"
+                  onClick={() => setRecipeSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/60">
+              {[
+                { id: 'all', label: 'All Dishes', count: menuItems.length },
+                { id: 'has_recipe', label: 'Recipe Set', count: recipeCount },
+                { id: 'no_recipe', label: 'Missing Recipe', count: menuItems.length - recipeCount },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setRecipeMenuFilter(tab.id)}
+                  className={cn(
+                    'h-7.5 px-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5',
+                    recipeMenuFilter === tab.id
+                      ? 'bg-card text-foreground shadow-xs font-semibold'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <span>{tab.label}</span>
+                  <span className="text-[10px] font-semibold opacity-70">({tab.count})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Recipes Table */}
+          <div className="rounded-2xl border border-border/70 overflow-hidden bg-card shadow-xs">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-muted/40 border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="px-4 py-3">Menu Item</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Dish Price</th>
+                  <th className="px-4 py-3">BOM Recipe Status</th>
+                  <th className="px-4 py-3">Ingredients Linked</th>
+                  <th className="text-right px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-border/40 text-xs">
+                {filteredMenuItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-16 text-muted-foreground">
+                      <ChefHat className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                      <p className="font-semibold text-foreground">No menu items match criteria</p>
+                      <p className="text-[11px] mt-0.5">Try clearing filters or search query.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMenuItems.map((menuItem) => {
+                    const recipe = getRecipeForMenuItem(menuItem.id);
+                    return (
+                      <tr
+                        key={menuItem.id}
+                        className="hover:bg-muted/40 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-foreground text-xs sm:text-sm">{menuItem.name}</p>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {menuItem.category || <span className="opacity-40">—</span>}
+                        </td>
+                        <td className="px-4 py-3 font-mono font-semibold text-foreground">
+                          ₹{menuItem.price}
+                        </td>
+                        <td className="px-4 py-3">
+                          {recipe ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                              ✓ Configured · Yield {recipe.yield_quantity} {recipe.yield_unit}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-border/60 bg-muted/60 text-muted-foreground">
+                              No recipe set
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-[11px]">
+                          {recipe?.ingredients?.length
+                            ? recipe.ingredients.map((ing) =>
+                                (ing.inventory_item as any)?.name ?? '?'
+                              ).slice(0, 3).join(', ') +
+                              (recipe.ingredients.length > 3
+                                ? ` +${recipe.ingredients.length - 3} more`
+                                : '')
+                            : <span className="opacity-40">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMenuItem(menuItem);
+                              setRecipeBuilderOpen(true);
+                            }}
+                            className="h-7 px-3 text-xs font-semibold rounded-lg border-border/60 hover:bg-muted/80 shadow-2xs gap-1.5 cursor-pointer"
+                          >
+                            <ChefHat className="w-3.5 h-3.5 text-primary" />
+                            <span>{recipe ? 'Edit Recipe' : 'Add Recipe'}</span>
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        {/* Purchases & Receiving Tab */}
+        <TabsContent value="purchases" className="mt-0">
+          <PurchasesManager
+            inventoryItems={inventoryItems}
+            outletId={outletId}
+            onStockUpdated={() => fetchAll(true)}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Global Modals */}
+      <InventoryItemForm
+        open={itemFormOpen}
+        onOpenChange={setItemFormOpen}
         outletId={outletId}
-        onRefetchInventory={inventoryQuery.refetch}
+        onSuccess={() => fetchAll(true)}
       />
+
+      <RecordMovementForm
+        open={recordMovementOpen}
+        onOpenChange={setRecordMovementOpen}
+        inventoryItems={inventoryItems}
+        outletId={outletId}
+        onSuccess={() => fetchAll(true)}
+      />
+
+      <RecordWastageModal
+        open={wastageModalOpen}
+        onOpenChange={setWastageModalOpen}
+        inventoryItems={inventoryItems}
+        onSuccess={() => fetchAll(true)}
+      />
+
+      <StockCountWorkflow
+        open={stockCountOpen}
+        onOpenChange={setStockCountOpen}
+        inventoryItems={inventoryItems}
+        outletId={outletId}
+        onSuccess={() => fetchAll(true)}
+      />
+
+      {selectedMenuItem && (
+        <RecipeBuilder
+          open={recipeBuilderOpen}
+          onOpenChange={setRecipeBuilderOpen}
+          menuItem={selectedMenuItem}
+          inventoryItems={inventoryItems}
+          existingRecipe={getRecipeForMenuItem(selectedMenuItem.id)}
+          outletId={outletId}
+          onSuccess={() => fetchAll(true)}
+        />
+      )}
     </div>
   );
 }

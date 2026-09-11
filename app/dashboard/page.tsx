@@ -128,17 +128,31 @@ export default async function DashboardPage() {
       }
     }
 
-    // Fetch inventory summary
-    const { data: inventoryData, error: inventoryError } = await serviceClient
-      .from('inventory')
-      .select('stock, low_stock_threshold')
-      .eq('outlet_id', effectiveOutletId);
+    // Fetch inventory summary (from new inventory_items engine, with fallback to legacy inventory)
+    const { data: newInventoryData, error: newInventoryError } = await serviceClient
+      .from('inventory_items')
+      .select('current_stock, min_stock')
+      .eq('outlet_id', effectiveOutletId)
+      .eq('is_active', true);
 
-    if (!inventoryError && inventoryData) {
-      totalInventoryItems = inventoryData.length;
-      lowStockAlertsCount = inventoryData.filter(
-        (inv: any) => inv.stock <= inv.low_stock_threshold
+    if (!newInventoryError && newInventoryData && newInventoryData.length > 0) {
+      totalInventoryItems = newInventoryData.length;
+      lowStockAlertsCount = newInventoryData.filter(
+        (item: any) => item.min_stock !== null && Number(item.current_stock) <= Number(item.min_stock)
       ).length;
+    } else {
+      // Fallback to legacy inventory table
+      const { data: legacyInventoryData } = await serviceClient
+        .from('inventory')
+        .select('stock, low_stock_threshold')
+        .eq('outlet_id', effectiveOutletId);
+
+      if (legacyInventoryData) {
+        totalInventoryItems = legacyInventoryData.length;
+        lowStockAlertsCount = legacyInventoryData.filter(
+          (inv: any) => inv.stock <= inv.low_stock_threshold
+        ).length;
+      }
     }
   } catch (error) {
     console.error('Error fetching dashboard data:', error);

@@ -3,6 +3,7 @@ import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
 import { orderIdSchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
+import { consumeForOrder } from '@/lib/inventory/inventoryService';
 
 export async function POST(
   request: NextRequest,
@@ -55,8 +56,9 @@ export async function POST(
       }
     }
 
-    // Auto stock deduction
-    // Use order's outlet_id for inventory deduction (not user's effective outlet)
+    // ─── Ledger-based Inventory Consumption ──────────────────────────────────
+    // Uses the centralized inventoryService — idempotent, ledger-based.
+    // If movements already exist for this order, the service skips silently.
     const orderOutletId = orderData.outlet_id;
     const profile = await getUserProfile();
     if (!profile) {
@@ -66,42 +68,24 @@ export async function POST(
         { status: 401 }
       );
     }
-    if (orderOutletId && orderData.order_items) {
-      const serviceClient = createServiceRoleClient();
-
-      for (const orderItem of orderData.order_items) {
-        // Get current inventory
-        const { data: inventory } = await serviceClient
-          .from('inventory')
-          .select('*')
-          .eq('outlet_id', orderOutletId)
-          .eq('item_id', orderItem.item_id)
-          .single();
-
-        if (inventory) {
-          const inventoryData = inventory as any;
-          const newStock = inventoryData.stock - orderItem.quantity;
-
-          // Update stock
-          const stockUpdateData: any = { stock: Math.max(0, newStock) };
-          await serviceClient
-            .from('inventory')
-            // @ts-expect-error - Supabase type inference issue
-            .update(stockUpdateData)
-            .eq('id', inventoryData.id);
-
-          // Log the deduction
-          const logData: any = {
-            outlet_id: orderOutletId,
-            item_id: orderItem.item_id,
-            change: -orderItem.quantity,
-            reason: `Order ${orderData.id} completed`,
-            created_by: profile.id,
-          };
-          await serviceClient
-            .from('inventory_logs')
-            .insert(logData);
-        }
+    if (orderOutletId && orderData.order_items && orderData.order_items.length > 0) {
+      try {
+        const serviceClient = createServiceRoleClient();
+        const orderLabel = orderData.order_number ? `Order #${orderData.order_number}` : `Order #${id.slice(0, 8)}`;
+        await consumeForOrder({
+          orderId: id,
+          orderLabel,
+          orderItems: orderData.order_items.map((oi: any) => ({
+            item_id: oi.item_id,
+            quantity: oi.quantity,
+            quantity_type: oi.quantity_type,
+          })),
+          outletId: orderOutletId,
+          userId: profile.id,
+          supabase: serviceClient,
+        });
+      } catch (inventoryError) {
+        console.error('[Complete Order] Inventory consumption failed:', inventoryError);
       }
     }
 

@@ -231,6 +231,16 @@ export function useRealtimeInventory({
                 {
                     event: '*',
                     schema: 'public',
+                    table: 'inventory_items',
+                    filter: `outlet_id=eq.${outletId}`,
+                },
+                handleChange
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
                     table: 'inventory',
                     filter: `outlet_id=eq.${outletId}`,
                 },

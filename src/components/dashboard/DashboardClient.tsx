@@ -136,17 +136,30 @@ export function DashboardClient({
         }
       }
 
-      // Fetch inventory summary
-      const { data: inventoryData } = await supabase
-        .from('inventory')
-        .select('stock, low_stock_threshold')
-        .eq('outlet_id', effectiveOutletId);
+      // Fetch inventory summary (new engine first, fallback to legacy)
+      const { data: newInvData, error: newInvErr } = await supabase
+        .from('inventory_items')
+        .select('current_stock, min_stock')
+        .eq('outlet_id', effectiveOutletId)
+        .eq('is_active', true);
 
-      if (inventoryData) {
-        setTotalInventoryItems(inventoryData.length);
+      if (!newInvErr && newInvData && newInvData.length > 0) {
+        setTotalInventoryItems(newInvData.length);
         setLowStockAlertsCount(
-          inventoryData.filter((inv: { stock: number; low_stock_threshold: number }) => inv.stock <= inv.low_stock_threshold).length
+          newInvData.filter((item: any) => item.min_stock !== null && Number(item.current_stock) <= Number(item.min_stock)).length
         );
+      } else {
+        const { data: inventoryData } = await supabase
+          .from('inventory')
+          .select('stock, low_stock_threshold')
+          .eq('outlet_id', effectiveOutletId);
+
+        if (inventoryData) {
+          setTotalInventoryItems(inventoryData.length);
+          setLowStockAlertsCount(
+            inventoryData.filter((inv: { stock: number; low_stock_threshold: number }) => inv.stock <= inv.low_stock_threshold).length
+          );
+        }
       }
     } catch (error) {
       console.error('[Dashboard] Error fetching dashboard data:', error);
