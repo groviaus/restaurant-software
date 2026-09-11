@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { OutletsTable } from '@/components/tables/OutletsTable';
+import { Store, ShieldCheck, MapPin, Building2, Sparkles } from 'lucide-react';
 
-// Route segment config for optimal performance
 export const dynamic = 'force-dynamic';
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 60;
 
 export default async function OutletsPage() {
   await requirePermission('outlets', 'view');
@@ -14,9 +14,14 @@ export default async function OutletsPage() {
 
   if (!profile) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Outlets</h1>
-        <p className="text-gray-600">Please log in to view outlets.</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6 space-y-3">
+        <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+          <Store className="w-6 h-6" />
+        </div>
+        <h1 className="text-xl font-bold text-foreground">Authentication Required</h1>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Please log in with appropriate credentials to access branch locations and outlet settings.
+        </p>
       </div>
     );
   }
@@ -32,25 +37,40 @@ export default async function OutletsPage() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Outlets</h1>
-        <p className="text-red-600">Error loading outlets: {error.message}</p>
+      <div className="p-6 rounded-2xl border border-destructive/20 bg-destructive/5 space-y-2">
+        <h2 className="text-base font-bold text-destructive">Error Loading Outlets</h2>
+        <p className="text-xs text-muted-foreground">{error.message}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Outlets Management</h1>
-        <p className="text-gray-600">
-          {profile.role === 'admin'
-            ? 'Manage all restaurant outlets'
-            : 'View your outlet information'}
-        </p>
+      {/* Premium Hero Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/50">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Outlets & Branches
+            </h1>
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+              Admin
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            {profile.role === 'admin'
+              ? 'Multi-outlet architecture: configure physical stores, table plans, and operational contexts'
+              : 'View your assigned restaurant outlet information and digital menu QR codes'}
+          </p>
+        </div>
       </div>
-      <OutletsTable outlets={outlets || []} userRole={profile.role as any} currentOutletId={effectiveOutletId} />
+
+      {/* Outlets List Component */}
+      <OutletsTable
+        outlets={outlets || []}
+        userRole={profile.role as any}
+        currentOutletId={effectiveOutletId}
+      />
     </div>
   );
 }
-

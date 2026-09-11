@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Role, RolePermission } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Shield, FileText, CheckCircle2, Save } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,138 +13,176 @@ import { PermissionMatrix } from '@/components/roles/PermissionMatrix';
 import { toast } from 'sonner';
 
 export default function EditRolePage() {
-    const router = useRouter();
-    const params = useParams();
-    const id = params.id as string;
-    const [role, setRole] = useState<Role | null>(null);
-    const [permissions, setPermissions] = useState<RolePermission[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-    });
+  const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
+  const [role, setRole] = useState<Role | null>(null);
+  const [permissions, setPermissions] = useState<RolePermission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+  });
 
-    useEffect(() => {
-        if (id) {
-            fetchRoleDetails();
-        }
-    }, [id]);
-
-    const fetchRoleDetails = async () => {
-        try {
-            const res = await fetch(`/api/roles/${id}`);
-            if (!res.ok) throw new Error('Failed to fetch role');
-
-            const data = await res.json();
-            setRole(data);
-            setPermissions(data.permissions || []);
-            setFormData({
-                name: data.name,
-                description: data.description || '',
-            });
-        } catch (error) {
-            toast.error('Failed to load role details');
-            router.push('/roles');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleUpdateRole = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSaving(true);
-        try {
-            const res = await fetch(`/api/roles/${id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            if (!res.ok) throw new Error('Failed to update role');
-            toast.success('Role details updated');
-        } catch (error) {
-            toast.error('Failed to update role');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex justify-center p-20">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        );
+  useEffect(() => {
+    if (id) {
+      fetchRoleDetails();
     }
+  }, [id]);
 
-    if (!role) return null;
+  const fetchRoleDetails = async () => {
+    try {
+      const res = await fetch(`/api/roles/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch role');
 
+      const data = await res.json();
+      setRole(data);
+      setPermissions(data.permissions || []);
+      setFormData({
+        name: data.name,
+        description: data.description || '',
+      });
+    } catch {
+      toast.error('Failed to load role details');
+      router.push('/roles');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error('Role name is required');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/roles/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) throw new Error('Failed to update role');
+      toast.success('Role details updated successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update role');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
     return (
-        <div className="flex-1 space-y-4 sm:space-y-6 p-3 sm:p-4 lg:p-8 pt-3 sm:pt-4 lg:pt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => router.push('/roles')}
-                    className="h-9 w-9 flex-shrink-0 self-start"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
-                        Edit Role: {role.name}
-                    </h2>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        Update role details and configure permissions.
-                    </p>
-                </div>
-            </div>
-
-            <div className="grid gap-4 lg:gap-6 lg:grid-cols-3">
-                {/* Role Details Form */}
-                <div className="lg:col-span-1">
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-lg">Role Details</CardTitle>
-                            <CardDescription className="text-sm">Basic information about this role.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleUpdateRole} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Role Name</Label>
-                                    <Input
-                                        id="name"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Textarea
-                                        id="description"
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        rows={4}
-                                    />
-                                </div>
-                                <Button type="submit" disabled={saving} className="w-full">
-                                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Update Details
-                                </Button>
-                            </form>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Permission Matrix - Takes up 2 columns on large screens */}
-                <div className="lg:col-span-2">
-                    <PermissionMatrix roleId={role.id} initialPermissions={permissions} />
-                </div>
-            </div>
-        </div>
+      <div className="flex flex-col items-center justify-center p-20 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-xs text-muted-foreground">Loading role profile...</p>
+      </div>
     );
+  }
+
+  if (!role) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.push('/roles')}
+            className="h-9 w-9 rounded-xl border-border/70 hover:bg-muted/80 cursor-pointer shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
+                Role: {role.name}
+              </h1>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                Security Profile
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground truncate">
+              Update role identification and configure permission capabilities
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* Role Details Form */}
+        <div className="lg:col-span-1">
+          <Card className="rounded-2xl border border-border/70 shadow-2xs overflow-hidden">
+            <CardHeader className="p-5 bg-muted/20 border-b border-border/60 space-y-1">
+              <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                Role Properties
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Base identity and description of responsibilities
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-5">
+              <form onSubmit={handleUpdateRole} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground/90">
+                    Role Name <span className="text-rose-500">*</span>
+                  </Label>
+                  <Input
+                    id="edit-name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    className="h-10 rounded-xl border-border/70 bg-background text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-desc" className="text-xs font-semibold text-foreground/90">
+                    Role Description
+                  </Label>
+                  <Textarea
+                    id="edit-desc"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={4}
+                    placeholder="Describe staff responsibilities..."
+                    className="rounded-xl border-border/70 bg-background text-xs resize-none leading-relaxed"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={saving || !formData.name.trim()}
+                  className="w-full h-9 rounded-xl text-xs font-semibold shadow-sm gap-1.5 cursor-pointer"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      Update Role Name
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Permission Matrix */}
+        <div className="lg:col-span-2">
+          <PermissionMatrix roleId={role.id} initialPermissions={permissions} />
+        </div>
+      </div>
+    </div>
+  );
 }

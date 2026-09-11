@@ -108,7 +108,9 @@ export async function GET(request: NextRequest) {
 
       formattedOrders.forEach((order) => {
         const date = new Date(order.createdAt);
-        const dateKey = date.toLocaleDateString('en-US', {
+        const istDate = new Date(date.getTime() + istOffsetMs);
+        const dateKey = istDate.toLocaleDateString('en-US', {
+          timeZone: 'UTC',
           year: 'numeric',
           month: 'long',
           day: 'numeric',

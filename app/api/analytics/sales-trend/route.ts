@@ -72,12 +72,14 @@ export async function GET(request: NextRequest) {
     let chartData: Array<{ date: string; time?: string; sales: number; orderCount: number }> = [];
     
     if (periodParam === 'today') {
-      // Group by hour for today (00:00 to 23:00)
+      // Group by hour for today (00:00 to 23:00) in IST
       const salesByHour = new Map<number, { sales: number; count: number }>();
       
       orders?.forEach((order: any) => {
         const orderDate = new Date(order.created_at);
-        const hour = orderDate.getHours();
+        // Convert order date to IST
+        const istDate = new Date(orderDate.getTime() + istOffsetMs);
+        const hour = istDate.getUTCHours();
         
         const existing = salesByHour.get(hour);
         if (existing) {
@@ -102,12 +104,16 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (periodParam === 'week') {
-      // Group by day for week (7 days)
+      // Group by day for week (7 days) in IST
       const salesByDate = new Map<string, { sales: number; count: number }>();
       
       orders?.forEach((order: any) => {
         const orderDate = new Date(order.created_at);
-        const dateKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const istDate = new Date(orderDate.getTime() + istOffsetMs);
+        const year = istDate.getUTCFullYear();
+        const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(istDate.getUTCDate()).padStart(2, '0');
+        const dateKey = `${year}-${month}-${day}`;
         
         const existing = salesByDate.get(dateKey);
         if (existing) {
@@ -122,9 +128,9 @@ export async function GET(request: NextRequest) {
       });
 
       // Fill in all 7 days with zero sales for missing dates
-      const currentDate = new Date(startDate);
       for (let i = 0; i < 7; i++) {
-        const dateKey = currentDate.toISOString().split('T')[0];
+        const dayIST = new Date(Date.UTC(startYear, startMonth - 1, startDay + i));
+        const dateKey = `${dayIST.getUTCFullYear()}-${String(dayIST.getUTCMonth() + 1).padStart(2, '0')}-${String(dayIST.getUTCDate()).padStart(2, '0')}`;
         const data = salesByDate.get(dateKey);
         
         chartData.push({
@@ -132,16 +138,18 @@ export async function GET(request: NextRequest) {
           sales: data ? Number(data.sales.toFixed(2)) : 0,
           orderCount: data ? data.count : 0,
         });
-        
-        currentDate.setDate(currentDate.getDate() + 1);
       }
     } else if (periodParam === 'month') {
-      // Group by date for month (30 days)
+      // Group by date for month (30 days) in IST
       const salesByDate = new Map<string, { sales: number; count: number }>();
       
       orders?.forEach((order: any) => {
         const orderDate = new Date(order.created_at);
-        const dateKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const istDate = new Date(orderDate.getTime() + istOffsetMs);
+        const year = istDate.getUTCFullYear();
+        const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(istDate.getUTCDate()).padStart(2, '0');
+        const dateKey = `${year}-${month}-${day}`;
         
         const existing = salesByDate.get(dateKey);
         if (existing) {
@@ -156,9 +164,9 @@ export async function GET(request: NextRequest) {
       });
 
       // Fill in all 30 days with zero sales for missing dates
-      const currentDate = new Date(startDate);
       for (let i = 0; i < 30; i++) {
-        const dateKey = currentDate.toISOString().split('T')[0];
+        const dayIST = new Date(Date.UTC(startYear, startMonth - 1, startDay + i));
+        const dateKey = `${dayIST.getUTCFullYear()}-${String(dayIST.getUTCMonth() + 1).padStart(2, '0')}-${String(dayIST.getUTCDate()).padStart(2, '0')}`;
         const data = salesByDate.get(dateKey);
         
         chartData.push({
@@ -166,8 +174,6 @@ export async function GET(request: NextRequest) {
           sales: data ? Number(data.sales.toFixed(2)) : 0,
           orderCount: data ? data.count : 0,
         });
-        
-        currentDate.setDate(currentDate.getDate() + 1);
       }
     } else if (periodParam === 'year') {
       // Group by month for year (Jan to Dec)
