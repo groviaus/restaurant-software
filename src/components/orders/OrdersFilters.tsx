@@ -12,12 +12,13 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { OrderStatus } from '@/lib/types';
-import { Table } from '@/lib/types';
-import { X, ChevronDown } from 'lucide-react';
+import { OrderStatus, Table } from '@/lib/types';
+import { X, ChevronDown, RotateCcw } from 'lucide-react';
+
+export type DatePreset = 'today' | 'yesterday' | 'last7days' | 'last30days' | 'custom';
 
 export interface OrdersFilters {
-  datePreset: 'today' | 'yesterday' | 'last7days' | 'last30days' | 'custom';
+  datePreset: DatePreset;
   customStartDate?: string;
   customEndDate?: string;
   statuses: OrderStatus[];
@@ -59,9 +60,15 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
     };
   }, []);
 
-  const updateFilter = (key: keyof OrdersFilters, value: any) => {
-    const prev = localFilters[key as keyof OrdersFilters];
-    if (prev === value || (Array.isArray(prev) && Array.isArray(value) && prev.length === value.length && prev.every((v, i) => v === value[i]))) {
+  const updateFilter = <K extends keyof OrdersFilters>(key: K, value: OrdersFilters[K]) => {
+    const prev = localFilters[key];
+    if (
+      prev === value ||
+      (Array.isArray(prev) &&
+        Array.isArray(value) &&
+        prev.length === value.length &&
+        prev.every((v, i) => v === value[i]))
+    ) {
       return;
     }
     const updated = { ...localFilters, [key]: value };
@@ -71,14 +78,14 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
 
   const toggleStatus = (status: OrderStatus) => {
     const statuses = localFilters.statuses.includes(status)
-      ? localFilters.statuses.filter(s => s !== status)
+      ? localFilters.statuses.filter((s) => s !== status)
       : [...localFilters.statuses, status];
     updateFilter('statuses', statuses);
   };
 
   const toggleOrderType = (type: 'DINE_IN' | 'TAKEAWAY') => {
     const orderTypes = localFilters.orderTypes.includes(type)
-      ? localFilters.orderTypes.filter(t => t !== type)
+      ? localFilters.orderTypes.filter((t) => t !== type)
       : [...localFilters.orderTypes, type];
     updateFilter('orderTypes', orderTypes);
   };
@@ -95,48 +102,53 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
     setOrderTypeSelectOpen(false);
   };
 
-  const activeFilterCount = 
+  const activeFilterCount =
     (localFilters.statuses.length > 0 ? 1 : 0) +
     (localFilters.orderTypes.length > 0 ? 1 : 0) +
     (localFilters.tableId ? 1 : 0) +
     (localFilters.datePreset !== 'today' ? 1 : 0);
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Filters</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Advanced Query Filters</h3>
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+              {activeFilterCount} active
+            </Badge>
+          )}
+        </div>
         {activeFilterCount > 0 && (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{activeFilterCount} active</Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="h-7 text-xs"
-            >
-              Clear All
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <RotateCcw className="h-3 w-3 mr-1" />
+            Reset
+          </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Date Filter */}
-        <div className="space-y-2">
-          <Label>Date</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Date Range</Label>
           <Select
             value={localFilters.datePreset}
-            onValueChange={(value) => updateFilter('datePreset', value)}
+            onValueChange={(value) => updateFilter('datePreset', value as DatePreset)}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full h-8.5 rounded-xl border-border/60 bg-background/80 text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="yesterday">Yesterday</SelectItem>
-              <SelectItem value="last7days">Last 7 days</SelectItem>
-              <SelectItem value="last30days">Last 30 days</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
+            <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-md">
+              <SelectItem value="today" className="text-xs">Today</SelectItem>
+              <SelectItem value="yesterday" className="text-xs">Yesterday</SelectItem>
+              <SelectItem value="last7days" className="text-xs">Last 7 days</SelectItem>
+              <SelectItem value="last30days" className="text-xs">Last 30 days</SelectItem>
+              <SelectItem value="custom" className="text-xs">Custom Range</SelectItem>
             </SelectContent>
           </Select>
           {localFilters.datePreset === 'custom' && (
@@ -145,60 +157,60 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
                 type="date"
                 value={localFilters.customStartDate || ''}
                 onChange={(e) => updateFilter('customStartDate', e.target.value)}
-                placeholder="Start Date"
+                className="h-8 text-xs rounded-lg"
               />
               <Input
                 type="date"
                 value={localFilters.customEndDate || ''}
                 onChange={(e) => updateFilter('customEndDate', e.target.value)}
-                placeholder="End Date"
+                className="h-8 text-xs rounded-lg"
               />
             </div>
           )}
         </div>
 
         {/* Status Filter */}
-        <div className="space-y-2">
-          <Label>Status</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Order Statuses</Label>
           <div className="relative" ref={statusRef}>
             <Button
               type="button"
               variant="outline"
-              className="w-full justify-between"
+              className="w-full h-8.5 justify-between rounded-xl border-border/60 bg-background/80 text-xs font-normal"
               onClick={() => setStatusSelectOpen(!statusSelectOpen)}
             >
-              {localFilters.statuses.length > 0
-                ? `${localFilters.statuses.length} selected`
-                : 'All Statuses'}
-              <ChevronDown className="h-4 w-4 opacity-50" />
+              <span className="truncate">
+                {localFilters.statuses.length > 0
+                  ? `${localFilters.statuses.length} selected`
+                  : 'All Statuses'}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-1 flex-shrink-0" />
             </Button>
             {statusSelectOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+              <div className="absolute z-50 mt-1 w-full rounded-xl border border-border/60 bg-popover/95 backdrop-blur-md p-1.5 shadow-lg space-y-0.5">
                 <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => {
-                    updateFilter('statuses', []);
-                  }}
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-muted/80 rounded-lg transition-colors"
+                  onClick={() => updateFilter('statuses', [])}
                 >
                   <input
                     type="checkbox"
                     checked={localFilters.statuses.length === 0}
                     readOnly
-                    className="rounded"
+                    className="rounded accent-primary"
                   />
-                  <span>All Statuses</span>
+                  <span className="font-medium">All Statuses</span>
                 </div>
                 {Object.values(OrderStatus).map((status) => (
                   <div
                     key={status}
-                    className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                    className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-muted/80 rounded-lg transition-colors"
                     onClick={() => toggleStatus(status)}
                   >
                     <input
                       type="checkbox"
                       checked={localFilters.statuses.includes(status)}
                       readOnly
-                      className="rounded"
+                      className="rounded accent-primary"
                     />
                     <span>{status}</span>
                   </div>
@@ -212,14 +224,15 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
                 <Badge
                   key={status}
                   variant="secondary"
-                  className="text-xs"
+                  className="text-[10px] px-1.5 py-0.2 rounded-md font-medium"
                 >
                   {status}
                   <button
+                    type="button"
                     onClick={() => toggleStatus(status)}
-                    className="ml-1 hover:text-red-600"
+                    className="ml-1 hover:text-rose-600 cursor-pointer"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-2.5 w-2.5" />
                   </button>
                 </Badge>
               ))}
@@ -228,57 +241,57 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
         </div>
 
         {/* Order Type Filter */}
-        <div className="space-y-2">
-          <Label>Order Type</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Dining Type</Label>
           <div className="relative" ref={orderTypeRef}>
             <Button
               type="button"
               variant="outline"
-              className="w-full justify-between"
+              className="w-full h-8.5 justify-between rounded-xl border-border/60 bg-background/80 text-xs font-normal"
               onClick={() => setOrderTypeSelectOpen(!orderTypeSelectOpen)}
             >
-              {localFilters.orderTypes.length > 0
-                ? `${localFilters.orderTypes.length} selected`
-                : 'All Types'}
-              <ChevronDown className="h-4 w-4 opacity-50" />
+              <span className="truncate">
+                {localFilters.orderTypes.length > 0
+                  ? `${localFilters.orderTypes.length} selected`
+                  : 'All Types'}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-1 flex-shrink-0" />
             </Button>
             {orderTypeSelectOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+              <div className="absolute z-50 mt-1 w-full rounded-xl border border-border/60 bg-popover/95 backdrop-blur-md p-1.5 shadow-lg space-y-0.5">
                 <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => {
-                    updateFilter('orderTypes', []);
-                  }}
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-muted/80 rounded-lg transition-colors"
+                  onClick={() => updateFilter('orderTypes', [])}
                 >
                   <input
                     type="checkbox"
                     checked={localFilters.orderTypes.length === 0}
                     readOnly
-                    className="rounded"
+                    className="rounded accent-primary"
                   />
-                  <span>All Types</span>
+                  <span className="font-medium">All Types</span>
                 </div>
                 <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-muted/80 rounded-lg transition-colors"
                   onClick={() => toggleOrderType('DINE_IN')}
                 >
                   <input
                     type="checkbox"
                     checked={localFilters.orderTypes.includes('DINE_IN')}
                     readOnly
-                    className="rounded"
+                    className="rounded accent-primary"
                   />
                   <span>Dine In</span>
                 </div>
                 <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-muted/80 rounded-lg transition-colors"
                   onClick={() => toggleOrderType('TAKEAWAY')}
                 >
                   <input
                     type="checkbox"
                     checked={localFilters.orderTypes.includes('TAKEAWAY')}
                     readOnly
-                    className="rounded"
+                    className="rounded accent-primary"
                   />
                   <span>Takeaway</span>
                 </div>
@@ -291,14 +304,15 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
                 <Badge
                   key={type}
                   variant="secondary"
-                  className="text-xs"
+                  className="text-[10px] px-1.5 py-0.2 rounded-md font-medium"
                 >
                   {type === 'DINE_IN' ? 'Dine In' : 'Takeaway'}
                   <button
+                    type="button"
                     onClick={() => toggleOrderType(type)}
-                    className="ml-1 hover:text-red-600"
+                    className="ml-1 hover:text-rose-600 cursor-pointer"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-2.5 w-2.5" />
                   </button>
                 </Badge>
               ))}
@@ -307,19 +321,19 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
         </div>
 
         {/* Table Filter */}
-        <div className="space-y-2">
-          <Label>Table</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Specific Table</Label>
           <Select
             value={localFilters.tableId || 'all'}
             onValueChange={(value) => updateFilter('tableId', value === 'all' ? undefined : value)}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full h-8.5 rounded-xl border-border/60 bg-background/80 text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Tables</SelectItem>
+            <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-md">
+              <SelectItem value="all" className="text-xs">All Tables</SelectItem>
               {tables.map((table) => (
-                <SelectItem key={table.id} value={table.id}>
+                <SelectItem key={table.id} value={table.id} className="text-xs">
                   {table.name}
                 </SelectItem>
               ))}
@@ -330,4 +344,3 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
     </div>
   );
 }
-

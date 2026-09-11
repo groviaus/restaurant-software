@@ -4,241 +4,309 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { OrderWithItems, OrderStatus, PaymentMethod } from '@/lib/types';
+import { OrderWithItems, OrderStatus, PaymentMethod, QuantityType } from '@/lib/types';
 import { format } from 'date-fns';
-import { getQuantityTypeLabel, getQuantityTypeMultiplier } from '@/lib/utils/quantity';
-import { QrCode } from 'lucide-react';
+import { getQuantityTypeLabel } from '@/lib/utils/quantity';
+import { QrCode, Clock, Utensils, ShoppingBag, User, CheckCircle2, Flame, Bell, Sparkles, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-interface OrderDetailsModalProps {
+interface OrderItemDetail {
+  id?: string;
+  item_id?: string;
+  quantity: number;
+  quantity_type?: string | null;
+  price: number;
+  notes?: string | null;
+  item?: { name: string };
+  items?: { name: string };
+  item_name?: string;
+}
+
+interface FullOrderRecord extends Omit<OrderWithItems, 'items' | 'table' | 'user'> {
+  tables?: { name: string } | null;
+  table?: { name: string } | null;
+  users?: { name: string; email: string } | null;
+  user?: { name: string; email: string } | null;
+  order_items?: OrderItemDetail[];
+  items?: OrderItemDetail[];
+}
+
+export interface OrderDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  order: OrderWithItems | null;
+  order: (OrderWithItems | { id: string }) | null;
 }
 
 export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsModalProps) {
-  const [fullOrder, setFullOrder] = useState<OrderWithItems | null>(order);
+  const [fetchedOrder, setFetchedOrder] = useState<FullOrderRecord | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Helper function to safely format dates
   const formatDate = (dateString: string | null | undefined): string => {
     if (!dateString) return '-';
     const date = new Date(dateString);
-    return isNaN(date.getTime()) ? '-' : format(date, 'dd MMM, HH:mm');
+    return isNaN(date.getTime()) ? '-' : format(date, 'dd MMM yyyy, HH:mm');
   };
 
-  // Always fetch full order details when modal opens to ensure we have all data
-  // This ensures user details and order items are always available
+  // Always fetch fresh order details when modal opens
   useEffect(() => {
+    let ignore = false;
+
     if (open && order?.id) {
-      // Always fetch fresh order details to ensure we have:
-      // - User details (order creator)
-      // - Order items with menu item details
-      // - Table information
-      setLoading(true);
       fetch(`/api/orders/${order.id}`)
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`Failed to fetch order: ${res.statusText}`);
-          }
+        .then((res) => {
+          if (!res.ok) throw new Error(`Failed to fetch order: ${res.statusText}`);
           return res.json();
         })
-        .then(data => {
-          if (data && !data.error) {
-            console.log('[OrderDetailsModal] Fetched full order:', {
-              id: data.id,
-              hasUser: !!(data.users || data.user),
-              hasItems: !!(data.order_items || data.items),
-              itemsCount: (data.order_items || data.items || []).length
-            });
-            setFullOrder(data);
-          } else {
-            console.warn('[OrderDetailsModal] No data returned, using passed order');
-            setFullOrder(order);
+        .then((data) => {
+          if (!ignore && data && !data.error) {
+            setFetchedOrder(data);
           }
         })
-        .catch(err => {
+        .catch((err) => {
           console.error('[OrderDetailsModal] Failed to fetch order details:', err);
-          // Fallback to passed order if fetch fails
-          setFullOrder(order);
         })
-        .finally(() => setLoading(false));
-    } else {
-      setFullOrder(order);
+        .finally(() => {
+          if (!ignore) {
+            setLoading(false);
+          }
+        });
     }
-  }, [open, order?.id]); // Only depend on order.id, not the whole order object
 
-  if (!fullOrder) return null;
+    return () => {
+      ignore = true;
+    };
+  }, [open, order?.id]);
 
-  // Use the full order data
-  const displayOrder = fullOrder;
+  const displayOrder = (fetchedOrder && fetchedOrder.id === order?.id ? fetchedOrder : order) as FullOrderRecord | null;
 
-  const getStatusColor = (status: OrderStatus) => {
+  if (!displayOrder) return null;
+
+  const getStatusBadgeStyle = (status: OrderStatus) => {
     switch (status) {
-      case 'NEW':
-        return 'bg-blue-100 text-blue-800';
-      case 'PREPARING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'READY':
-        return 'bg-green-100 text-green-800';
-      case 'SERVED':
-        return 'bg-purple-100 text-purple-800';
-      case 'COMPLETED':
-        return 'bg-gray-100 text-gray-800';
-      case 'CANCELLED':
-        return 'bg-red-100 text-red-800';
+      case OrderStatus.NEW:
+        return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20';
+      case OrderStatus.PREPARING:
+        return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
+      case OrderStatus.READY:
+        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+      case OrderStatus.SERVED:
+        return 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20';
+      case OrderStatus.COMPLETED:
+        return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
+      case OrderStatus.CANCELLED:
+        return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground border-border/60';
+    }
+  };
+
+  const getStatusIcon = (status: OrderStatus) => {
+    switch (status) {
+      case OrderStatus.NEW:
+        return <Sparkles className="h-3 w-3 text-sky-500" />;
+      case OrderStatus.PREPARING:
+        return <Flame className="h-3 w-3 text-amber-500" />;
+      case OrderStatus.READY:
+        return <Bell className="h-3 w-3 text-emerald-500" />;
+      case OrderStatus.SERVED:
+        return <CheckCircle2 className="h-3 w-3 text-violet-500" />;
+      default:
+        return null;
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[95vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b">
-          <DialogTitle>Order Details</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            Complete information about order {displayOrder.id.slice(0, 8)}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="fixed inset-0 top-0 left-0 translate-x-0 translate-y-0 w-full h-full max-w-none max-h-none rounded-none border-0 p-0 sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[92vw] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[840px] sm:h-auto sm:max-h-[88vh] sm:rounded-2xl sm:border border-border/60 bg-card shadow-2xl flex flex-col overflow-hidden"
+      >
+        <div className="px-3.5 py-2.5 sm:px-5 sm:py-3.5 border-b border-border/60 bg-muted/30 flex items-center justify-between gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <DialogTitle className="text-sm sm:text-base font-bold text-foreground">
+              Order #{displayOrder.id.slice(0, 8)}
+            </DialogTitle>
+            <Badge className={cn('flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 border shadow-2xs', getStatusBadgeStyle(displayOrder.status))}>
+              {getStatusIcon(displayOrder.status)}
+              <span>{displayOrder.status}</span>
+            </Badge>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-muted-foreground ml-1">
+              <Clock className="h-3 w-3" />
+              <span>{formatDate(displayOrder.created_at)}</span>
+            </span>
+          </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onOpenChange(false)}
+            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer flex-shrink-0"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5 custom-scrollbar">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">Loading order details...</p>
+            <div className="flex items-center justify-center py-12">
+              <p className="text-xs sm:text-sm text-muted-foreground animate-pulse">Loading live order details...</p>
             </div>
           ) : (
             <>
-              {/* Order Info */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Order ID</p>
-                  <p className="text-xs sm:text-sm font-mono truncate bg-muted/50 p-1.5 rounded" title={displayOrder.id}>{displayOrder.id.slice(0, 8)}...</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Status</p>
-                  <Badge className={getStatusColor(displayOrder.status)}>{displayOrder.status}</Badge>
-                </div>
-                <div className="space-y-1">
+              {/* Order Metadata Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="rounded-xl border border-border/50 bg-card/60 p-2.5 space-y-1">
                   <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Order Type</p>
-                  <p className="text-sm font-medium">{displayOrder.order_type === 'DINE_IN' ? 'Dine In' : 'Takeaway'}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Table</p>
-                  <p className="text-sm font-medium">
-                    {(displayOrder as any).tables?.name || 
-                     (displayOrder as any).table?.name || 
-                     (displayOrder.order_type === 'DINE_IN' ? '-' : 'N/A')}
+                  <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    {displayOrder.order_type === 'DINE_IN' ? (
+                      <>
+                        <Utensils className="h-3.5 w-3.5 text-primary" />
+                        <span>Dine-In</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="h-3.5 w-3.5 text-primary" />
+                        <span>Takeaway</span>
+                      </>
+                    )}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Created</p>
-                  <p className="text-sm font-medium">{formatDate(displayOrder.created_at)}</p>
+
+                <div className="rounded-xl border border-border/50 bg-card/60 p-2.5 space-y-1">
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Table</p>
+                  <p className="text-xs font-semibold text-foreground truncate">
+                    {displayOrder.tables?.name ||
+                      displayOrder.table?.name ||
+                      (displayOrder.order_type === 'DINE_IN' ? 'Unassigned' : 'N/A')}
+                  </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Updated</p>
-                  <p className="text-sm font-medium">{formatDate(displayOrder.updated_at)}</p>
+
+                <div className="rounded-xl border border-border/50 bg-card/60 p-2.5 space-y-1">
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Staff Member</p>
+                  <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                    <span>{displayOrder.users?.name || displayOrder.user?.name || 'Staff'}</span>
+                  </p>
                 </div>
-                {displayOrder.cancellation_reason && (
-                  <div className="col-span-2 lg:col-span-3 bg-red-50 p-3 rounded-lg border border-red-100">
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-red-600 mb-1">Cancellation Reason</p>
-                    <p className="text-sm text-red-700 font-medium">{displayOrder.cancellation_reason}</p>
+
+                <div className="rounded-xl border border-border/50 bg-card/60 p-2.5 space-y-1">
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Updated At</p>
+                  <p className="text-xs font-semibold text-foreground truncate">
+                    {format(new Date(displayOrder.updated_at || displayOrder.created_at), 'HH:mm:ss')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Cancellation Banner if applicable */}
+              {displayOrder.cancellation_reason && (
+                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 space-y-1 text-xs">
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-rose-600 dark:text-rose-400">
+                    Cancellation Reason
+                  </p>
+                  <p className="font-medium text-rose-700 dark:text-rose-300">
+                    {displayOrder.cancellation_reason}
+                  </p>
+                </div>
+              )}
+
+              {/* Itemized Order List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Itemized Receipt
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {(displayOrder.order_items || displayOrder.items || []).length} items
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-border/60 divide-y divide-border/50 bg-card/50 overflow-hidden shadow-2xs">
+                  {(() => {
+                    const orderItems = displayOrder.order_items || displayOrder.items || [];
+                    if (orderItems.length === 0) {
+                      return (
+                        <div className="p-6 text-center text-xs text-muted-foreground italic">
+                          No items found in this order.
+                        </div>
+                      );
+                    }
+
+                    return orderItems.map((item: OrderItemDetail, idx: number) => {
+                      const itemPrice = Number(item.price || 0);
+                      const quantity = Number(item.quantity || 0);
+                      const total = itemPrice * quantity;
+                      const itemName = item.item?.name || item.items?.name || item.item_name || 'Menu Item';
+
+                      return (
+                        <div key={item.id || idx} className="p-3 hover:bg-muted/40 transition-colors">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-xs sm:text-sm text-foreground truncate">
+                                {itemName}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                                <span className="font-bold text-primary font-mono">{quantity}x</span>
+                                <span>{item.quantity_type ? getQuantityTypeLabel(item.quantity_type as QuantityType) : 'unit'}</span>
+                                <span>@</span>
+                                <span className="font-mono">₹{itemPrice.toFixed(2)}</span>
+                              </div>
+                              {item.notes && (
+                                <div className="mt-1.5 inline-block text-[11px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 italic">
+                                  Note: {item.notes}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="font-mono text-xs sm:text-sm font-bold text-foreground">
+                                ₹{total.toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Order Financial Summary Box */}
+              <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 space-y-2.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium">Subtotal</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    ₹{(Number(displayOrder.subtotal) || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-medium">Tax & GST</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    ₹{(Number(displayOrder.tax) || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-base sm:text-lg font-bold border-t border-border/60 pt-2 text-foreground">
+                  <span>Grand Total</span>
+                  <span className="font-mono text-primary font-black">
+                    ₹{(Number(displayOrder.total) || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                {displayOrder.payment_method && (
+                  <div className="flex justify-between items-center text-xs pt-1 border-t border-border/40">
+                    <span className="text-muted-foreground font-medium">Payment Mode</span>
+                    <Badge variant="outline" className="font-bold flex items-center gap-1.5 bg-card text-foreground px-2 py-0.5">
+                      {displayOrder.payment_method === PaymentMethod.UPI && <QrCode className="h-3 w-3" />}
+                      <span>{displayOrder.payment_method}</span>
+                    </Badge>
                   </div>
                 )}
               </div>
-
-              {/* Staff Info */}
-              <div className="bg-muted/30 p-4 rounded-xl space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Staff Information</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Handled By</p>
-                    <p className="text-sm font-semibold">{(displayOrder as any).users?.name || (displayOrder as any).user?.name || 'Unknown Staff'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Email</p>
-                    <p className="text-sm truncate">{(displayOrder as any).users?.email || (displayOrder as any).user?.email || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-          {/* Order Items */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Items Ordered</h3>
-            <div className="border rounded-xl divide-y bg-white overflow-hidden shadow-sm">
-              {(() => {
-                // Handle both 'items' and 'order_items' from API response
-                const orderItems = (displayOrder as any).order_items || (displayOrder as any).items || [];
-                console.log('[OrderDetailsModal] Order items:', orderItems);
-                return orderItems.length > 0 ? (
-                  orderItems.map((item: any) => {
-                    const itemPrice = Number(item.price || 0);
-                    const quantity = Number(item.quantity || 0);
-                    const total = itemPrice * quantity;
-                    const itemName = item.item?.name || item.items?.name || item.item_name || 'Menu Item';
-                    return (
-                      <div key={item.id} className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm sm:text-base truncate">{itemName}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {item.quantity_type ? getQuantityTypeLabel(item.quantity_type) : `${quantity} unit(s)`} @ ₹{itemPrice.toFixed(2)}
-                            </p>
-                            {item.notes && (
-                              <div className="mt-2 bg-yellow-50 text-[10px] sm:text-xs p-1.5 px-2 rounded border border-yellow-100 inline-block text-yellow-700 italic">
-                                Note: {item.notes}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm sm:text-base font-bold text-primary">₹{total.toFixed(2)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="p-8 text-center text-muted-foreground text-sm italic">
-                    No items found in this order.
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-
-          {/* Order Summary */}
-          <div className="bg-primary/5 rounded-2xl p-4 sm:p-6 space-y-3 border border-primary/10">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-primary/60">Final Summary</h3>
-            <div className="space-y-2.5">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground font-medium">Subtotal</span>
-                <span className="font-semibold">₹{(Number(displayOrder.subtotal) || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground font-medium">Service Tax & GST</span>
-                <span className="font-semibold">₹{(Number(displayOrder.tax) || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-lg sm:text-xl font-black border-t border-primary/20 pt-3 mt-1">
-                <span className="text-primary">Amount to be Paid</span>
-                <span className="text-primary">₹{(Number(displayOrder.total) || 0).toFixed(2)}</span>
-              </div>
-              {displayOrder.payment_method && (
-                <div className="flex justify-between items-center text-xs pt-1">
-                  <span className="text-muted-foreground">Paid via</span>
-                  <Badge variant="outline" className="font-bold flex items-center gap-1.5 bg-white border-primary/20 text-primary px-2 py-0.5">
-                    {displayOrder.payment_method === PaymentMethod.UPI ? (
-                      <QrCode className="h-3 w-3" />
-                    ) : null}
-                    {displayOrder.payment_method}
-                  </Badge>
-                </div>
-              )}
-            </div>
-          </div>
             </>
           )}
         </div>
@@ -246,4 +314,3 @@ export function OrderDetailsModal({ open, onOpenChange, order }: OrderDetailsMod
     </Dialog>
   );
 }
-

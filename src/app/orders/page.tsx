@@ -41,7 +41,7 @@ export default async function OrdersPage() {
     .lt('created_at', todayEnd)
     .order('created_at', { ascending: false });
 
-  const { data: tables, error: tablesError } = await supabase
+  const { data: tables } = await supabase
     .from('tables')
     .select('*')
     .eq('outlet_id', profile.outlet_id)
@@ -57,10 +57,9 @@ export default async function OrdersPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="space-y-1 sm:space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Orders</h1>
-        <p className="text-sm sm:text-base text-gray-600">Manage and track orders</p>
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Orders</h1>
       </div>
       <OrdersTable
         orders={orders || []}
