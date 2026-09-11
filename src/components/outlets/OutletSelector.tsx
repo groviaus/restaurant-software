@@ -8,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
 import { Store, Loader2, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -66,36 +65,44 @@ export function OutletSelector() {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Store className="h-4 w-4 text-gray-600" />
+    <div className="flex items-center gap-1.5">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-        disabled={switching || outlets.length === 0}
-          className={cn(
-              'w-[180px] sm:w-[200px] h-9 justify-between',
-            switching && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-            <span className="truncate">
-            {currentOutlet ? (
-                currentOutlet.name
-            ) : (
-                <span className="text-gray-500">Select outlet</span>
+          <button
+            disabled={switching || outlets.length === 0}
+            className={cn(
+              'flex h-8 sm:h-9 w-[150px] sm:w-[190px] items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/60 px-2.5 text-xs font-medium text-foreground shadow-2xs transition-all hover:bg-muted/80 hover:border-border active:scale-95 focus-visible:ring-1 focus-visible:ring-ring cursor-pointer',
+              switching && 'opacity-50 cursor-not-allowed'
             )}
-            </span>
-            <ChevronDown className="h-4 w-4 opacity-50" />
-          </Button>
+            aria-label="Select outlet"
+          >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary flex-shrink-0">
+                <Store className="h-3 w-3" />
+              </div>
+              <span className="truncate text-left">
+                {currentOutlet ? (
+                  currentOutlet.name
+                ) : (
+                  <span className="text-muted-foreground">Select outlet</span>
+                )}
+              </span>
+            </div>
+            {switching ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground flex-shrink-0" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 flex-shrink-0" />
+            )}
+          </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          side="bottom" 
-          sideOffset={4}
+        <DropdownMenuContent
+          side="bottom"
+          sideOffset={6}
           align="end"
-          className="w-[180px] sm:w-[200px]"
+          className="w-[180px] sm:w-[200px] rounded-xl border border-border/60 bg-popover/95 p-1.5 shadow-lg backdrop-blur-md"
         >
           {outlets.length === 0 ? (
-            <DropdownMenuItem disabled>
+            <DropdownMenuItem disabled className="text-xs text-muted-foreground py-2">
               No outlets available
             </DropdownMenuItem>
           ) : (
@@ -103,21 +110,17 @@ export function OutletSelector() {
               <DropdownMenuItem
                 key={outlet.id}
                 onClick={() => handleSwitch(outlet.id)}
-                className="flex items-center justify-between"
+                className="flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium cursor-pointer"
               >
                 <span className="truncate">{outlet.name}</span>
-                  {outlet.id === currentOutletId && (
-                  <Check className="h-4 w-4 text-blue-600 ml-2" />
-                  )}
+                {outlet.id === currentOutletId && (
+                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 ml-2 flex-shrink-0" />
+                )}
               </DropdownMenuItem>
             ))
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {switching && (
-        <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-      )}
     </div>
   );
 }
-

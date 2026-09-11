@@ -2,6 +2,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { getUser, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 
+import { Store } from 'lucide-react';
+
 // Route segment config for optimal performance
 export const dynamic = 'force-dynamic';
 export const revalidate = 30; // Revalidate every 30 seconds
@@ -16,13 +18,20 @@ export default async function DashboardPage() {
 
   if (!user || !effectiveOutletId) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-        <p className="text-gray-600">
-          {!user
-            ? 'Please log in to view the dashboard.'
-            : 'Please contact an administrator to assign you to an outlet.'}
-        </p>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center p-4 text-center">
+        <div className="rounded-2xl border border-border/60 bg-card p-8 shadow-xs max-w-md w-full">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <Store className="h-6 w-6" />
+          </div>
+          <h2 className="text-lg font-semibold text-foreground tracking-tight">
+            {!user ? 'Authentication Required' : 'Outlet Not Assigned'}
+          </h2>
+          <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            {!user
+              ? 'Please log in with valid credentials to access the restaurant operations dashboard.'
+              : 'Please contact a system administrator to assign your account to an active restaurant outlet.'}
+          </p>
+        </div>
       </div>
     );
   }

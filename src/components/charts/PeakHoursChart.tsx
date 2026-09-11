@@ -8,13 +8,45 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
-  Tooltip
+  Tooltip,
 } from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Clock } from 'lucide-react';
 
 interface HourData {
   hour: string;
   orders: number;
+}
+
+interface PeakHourPayloadItem {
+  payload: {
+    hour: string;
+  };
+  value: number;
+}
+
+interface PeakHoursTooltipProps {
+  active?: boolean;
+  payload?: PeakHourPayloadItem[];
+}
+
+function PeakHoursTooltip({ active, payload }: PeakHoursTooltipProps) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-xl border border-border/80 bg-background/95 p-3 shadow-xl backdrop-blur-md">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+          <Clock className="h-3 w-3" />
+          <span>Time Window: {payload[0].payload.hour}</span>
+        </div>
+        <div className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400">
+          {payload[0].value} Orders
+        </div>
+        <div className="text-[10px] text-muted-foreground mt-0.5">
+          Total 30-day traffic
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
 export function PeakHoursChart() {
@@ -50,7 +82,7 @@ export function PeakHoursChart() {
             intervalStart: parseInt(hour.split('-')[0]),
           }))
           .sort((a, b) => a.intervalStart - b.intervalStart)
-          .map(({ intervalStart, ...rest }) => rest);
+          .map((item) => ({ hour: item.hour, orders: item.orders }));
 
         setData(chartData);
         setLoading(false);
@@ -63,113 +95,108 @@ export function PeakHoursChart() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Peak Hours</CardTitle>
-          <CardDescription>Order distribution by time (Last 30 days)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[200px] sm:h-[250px] lg:h-[300px] flex items-center gap-1 justify-center">
-            {[...Array(12)].map((_, i) => (
-              <div
-                key={i}
-                className="skeleton flex-1"
-                style={{ height: `${Math.random() * 70 + 30}%` }}
-              />
-            ))}
+      <div className="rounded-xl border border-border/60 bg-card p-5 shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <div className="space-y-1">
+            <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-36 bg-muted/60 rounded animate-pulse" />
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Peak Hours</CardTitle>
-          <CardDescription>Order distribution by time (Last 30 days)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-gray-500">
-            No data available
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Custom tooltip formatter
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-          <p className="text-sm font-medium text-gray-900">
-            {`Time: ${payload[0].payload.hour}`}
-          </p>
-          <p className="text-sm text-green-600">
-            {`Orders: ${payload[0].value}`}
-          </p>
+          <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
         </div>
-      );
-    }
-    return null;
-  };
+        <div className="h-[220px] sm:h-[260px] flex items-end gap-2 p-2">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="flex-1 bg-muted/50 rounded-t animate-pulse"
+              style={{ height: `${(i % 5 + 1) * 18}%` }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Peak Hours</CardTitle>
-        <CardDescription>Order distribution by time (Last 30 days)</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[200px] sm:h-[250px] lg:h-[300px] w-full">
+    <div className="rounded-xl border border-border/60 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-border hover:shadow-md">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
+              Peak Hours
+            </h3>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <Clock className="h-3 w-3" />
+              30 Days
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Hourly order concentration
+          </p>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="h-[210px] sm:h-[250px] w-full">
+        {data.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+            No order distribution data recorded
+          </div>
+        ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={data}
               margin={{
                 top: 10,
                 right: 10,
-                left: -10,
-                bottom: 10,
+                left: -15,
+                bottom: 0,
               }}
             >
+              <defs>
+                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#059669" stopOpacity={0.65} />
+                </linearGradient>
+              </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#e5e7eb"
+                stroke="currentColor"
+                className="text-border/40"
                 vertical={false}
               />
               <XAxis
                 dataKey="hour"
-                stroke="#6b7280"
+                stroke="currentColor"
+                className="text-muted-foreground"
                 fontSize={10}
                 tickLine={false}
-                axisLine={true}
-                tickMargin={8}
-                angle={-45}
-                textAnchor="end"
-                height={60}
+                axisLine={false}
+                tickMargin={6}
               />
               <YAxis
-                stroke="#6b7280"
+                stroke="currentColor"
+                className="text-muted-foreground"
                 fontSize={11}
                 tickLine={false}
-                axisLine={true}
-                tickMargin={8}
+                axisLine={false}
+                tickMargin={6}
                 allowDecimals={false}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<PeakHoursTooltip />} />
               <Bar
                 dataKey="orders"
-                fill="#10b981"
+                fill="url(#barGradient)"
                 radius={[4, 4, 0, 0]}
                 name="Orders"
+                maxBarSize={32}
               />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+    </div>
   );
 }
+
 

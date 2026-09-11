@@ -2,15 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useRealtimeOrders, useRealtimeInventory } from '@/hooks/useRealtime';
 import { SalesTrendChart } from '@/components/charts/SalesTrendChart';
 import { PaymentBreakdownChart } from '@/components/charts/PaymentBreakdownChart';
 import { PeakHoursChart } from '@/components/charts/PeakHoursChart';
 import { TopItemsList } from '@/components/charts/TopItemsList';
 import { StaffPerformanceList } from '@/components/charts/StaffPerformanceList';
-import { AlertTriangle, Package, DollarSign, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, Package, DollarSign, ShoppingCart, Calendar, RefreshCw, UtensilsCrossed } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
 import { useOutlet } from '@/hooks/useOutlet';
@@ -91,11 +89,11 @@ export function DashboardClient({
       if (ordersError) {
         console.error('[Dashboard] Error fetching orders:', ordersError);
       } else if (todayOrders) {
-        const sales = todayOrders.reduce((sum, order: any) => {
+        const sales = todayOrders.reduce((sum, order: { status: string; total: number | string }) => {
           return sum + (order.status === 'COMPLETED' ? (Number(order.total) || 0) : 0);
         }, 0);
         const orders = todayOrders.length;
-        const completed = todayOrders.filter((o: any) => o.status === 'COMPLETED').length;
+        const completed = todayOrders.filter((o: { status: string }) => o.status === 'COMPLETED').length;
 
         setTotalSales(sales);
         setTotalOrders(orders);
@@ -121,8 +119,8 @@ export function DashboardClient({
 
       if (topItemsData) {
         const itemCounts = new Map<string, { name: string; count: number }>();
-        topItemsData.forEach((order: any) => {
-          order.order_items?.forEach((oi: any) => {
+        topItemsData.forEach((order: { order_items?: Array<{ quantity: number; items?: { name: string } | null }> }) => {
+          order.order_items?.forEach((oi) => {
             if (oi.items) {
               const key = oi.items.name;
               const existing = itemCounts.get(key) || { name: key, count: 0 };
@@ -147,7 +145,7 @@ export function DashboardClient({
       if (inventoryData) {
         setTotalInventoryItems(inventoryData.length);
         setLowStockAlertsCount(
-          inventoryData.filter((inv: any) => inv.stock <= inv.low_stock_threshold).length
+          inventoryData.filter((inv: { stock: number; low_stock_threshold: number }) => inv.stock <= inv.low_stock_threshold).length
         );
       }
     } catch (error) {
@@ -178,11 +176,11 @@ export function DashboardClient({
       // Refresh dashboard when orders change (this will also update inventory if order was completed)
       refetchDashboard();
     },
-    onInsert: (payload) => {
+    onInsert: () => {
       console.log('[Dashboard] New order inserted');
       refetchDashboard();
     },
-    onUpdate: (payload) => {
+    onUpdate: () => {
       console.log('[Dashboard] Order updated');
       // When order is completed, inventory is updated, so refresh dashboard
       refetchDashboard();
@@ -197,11 +195,11 @@ export function DashboardClient({
       // Refresh dashboard when inventory changes
       refetchDashboard();
     },
-    onInsert: (payload) => {
+    onInsert: () => {
       console.log('[Dashboard] New inventory item inserted');
       refetchDashboard();
     },
-    onUpdate: (payload) => {
+    onUpdate: () => {
       console.log('[Dashboard] Inventory item updated');
       refetchDashboard();
     },
@@ -271,25 +269,65 @@ export function DashboardClient({
       <QuickActionsDesktop />
 
       {/* Header */}
-      <div className="px-4 sm:px-0">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Overview of your restaurant operations</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1 sm:px-0">
+        <div>
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
+              Dashboard
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live Ops</span>
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Overview of today&apos;s orders, sales revenue, and inventory status
+          </p>
+        </div>
+
+        {/* Header Actions */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/50 bg-card/60 text-xs font-medium text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+          </div>
+
+          <button
+            onClick={refetchDashboard}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-card text-xs font-medium text-foreground shadow-xs transition-all hover:bg-muted/80 active:scale-95 disabled:opacity-50"
+            aria-label="Refresh dashboard data"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-primary' : 'text-muted-foreground'}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Alert Banner */}
       {alerts.length > 0 && (
-        <div className="px-4 sm:px-0">
+        <div className="px-1 sm:px-0">
           <AlertBanner alerts={alerts} />
         </div>
       )}
 
       {/* Metric Cards */}
-      <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 px-4 sm:px-0">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 px-1 sm:px-0">
         <MetricCard
           title="Today's Sales"
-          value={`₹${totalSales.toFixed(2)}`}
+          value={`₹${totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           subtitle={`${completedOrders} completed orders`}
           icon={<DollarSign className="h-4 w-4" />}
+          accentColor="emerald"
           href="/orders"
           loading={loading}
         />
@@ -297,8 +335,9 @@ export function DashboardClient({
         <MetricCard
           title="Today's Orders"
           value={totalOrders}
-          subtitle="Total orders today"
+          subtitle="Total orders placed"
           icon={<ShoppingCart className="h-4 w-4" />}
+          accentColor="blue"
           href="/orders"
           loading={loading}
         />
@@ -306,7 +345,9 @@ export function DashboardClient({
         <MetricCard
           title="Top Item"
           value={topItem}
-          subtitle="Best selling item today"
+          subtitle="Best seller today"
+          icon={<UtensilsCrossed className="h-4 w-4" />}
+          accentColor="amber"
           href="/menu"
           loading={loading}
           className="col-span-2 sm:col-span-1"
@@ -315,8 +356,9 @@ export function DashboardClient({
         <MetricCard
           title="Inventory Items"
           value={totalInventoryItems}
-          subtitle="Total tracked items"
+          subtitle="Total tracked SKUs"
           icon={<Package className="h-4 w-4" />}
+          accentColor="violet"
           href="/inventory"
           loading={loading}
         />
@@ -324,26 +366,27 @@ export function DashboardClient({
         <MetricCard
           title="Low Stock Alerts"
           value={lowStockAlertsCount}
-          subtitle={lowStockAlertsCount > 0 ? 'Items need restocking' : 'All items in stock'}
+          subtitle={lowStockAlertsCount > 0 ? 'Restock required' : 'Optimal levels'}
           icon={<AlertTriangle className="h-4 w-4" />}
+          accentColor="rose"
           href="/inventory"
           loading={loading}
-          className={lowStockAlertsCount > 0 ? 'ring-2 ring-orange-500 ring-offset-2' : ''}
+          className={lowStockAlertsCount > 0 ? 'ring-1 ring-rose-500/50' : ''}
         />
       </div>
 
       {/* Active Orders Widget - Full Width on Mobile, Part of Grid on Desktop */}
-      <div className="px-4 sm:px-0">
+      <div className="px-1 sm:px-0">
         <ActiveOrdersWidget outletId={outletId} />
       </div>
 
       {/* Charts Section */}
-      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 px-4 sm:px-0">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 px-1 sm:px-0">
         <SalesTrendChart />
         <PaymentBreakdownChart />
       </div>
 
-      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 px-4 sm:px-0">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 px-1 sm:px-0">
         <PeakHoursChart />
         <div className="space-y-4 sm:space-y-6">
           <TopItemsList />
@@ -353,4 +396,3 @@ export function DashboardClient({
     </div>
   );
 }
-

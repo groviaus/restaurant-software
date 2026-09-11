@@ -1,38 +1,60 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Pie, PieChart, Label } from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Pie, PieChart, Label, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { Wallet } from 'lucide-react';
 
-const chartConfig = {
-  Cash: {
-    label: 'Cash',
-    color: 'hsl(var(--chart-1))',
-  },
-  UPI: {
-    label: 'UPI',
-    color: 'hsl(var(--chart-2))',
-  },
-  Card: {
-    label: 'Card',
-    color: 'hsl(var(--chart-3))',
-  },
-} satisfies ChartConfig;
+interface PaymentItem {
+  method: string;
+  amount: number;
+}
+
+const colorMap: Record<string, string> = {
+  upi: '#6366f1',   // Indigo
+  cash: '#10b981',  // Emerald
+  card: '#f59e0b',  // Amber
+};
+
+interface PaymentPayloadItem {
+  payload: PaymentItem;
+}
+
+interface PaymentTooltipProps {
+  active?: boolean;
+  payload?: PaymentPayloadItem[];
+}
+
+function PaymentBreakdownTooltip({ active, payload }: PaymentTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload;
+    return (
+      <div className="rounded-xl border border-border/80 bg-background/95 p-3 shadow-xl backdrop-blur-md">
+        <div className="flex items-center gap-2 mb-1">
+          <div
+            className="h-2.5 w-2.5 rounded-full"
+            style={{ backgroundColor: colorMap[item.method.toLowerCase()] || '#6366f1' }}
+          />
+          <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            {item.method}
+          </span>
+        </div>
+        <div className="text-sm font-bold font-mono text-foreground">
+          ₹{item.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          Settlement Method
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
 
 export function PaymentBreakdownChart() {
-  const [data, setData] = useState<Array<{ method: string; amount: number; fill: string }>>([]);
+  const [data, setData] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     fetch('/api/analytics/payment-breakdown?days=30')
       .then((res) => res.json())
       .then((result) => {
@@ -42,14 +64,8 @@ export function PaymentBreakdownChart() {
       .catch(() => setLoading(false));
   }, []); // Empty deps - will refetch on page reload after outlet switch
 
-  // Helper function to get chart colors
   const getChartColor = (method: string): string => {
-    const colorMap: Record<string, string> = {
-      'cash': '#ea580c',    // Orange (chart-1)
-      'upi': '#0891b2',     // Cyan (chart-2)
-      'card': '#0f766e',    // Teal (chart-3)
-    };
-    return colorMap[method.toLowerCase()] || '#ea580c';
+    return colorMap[method.toLowerCase()] || '#6366f1';
   };
 
   const formatCurrency = (amount: number) => {
@@ -64,128 +80,129 @@ export function PaymentBreakdownChart() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment Methods</CardTitle>
-          <CardDescription>Last 30 days</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[200px] sm:h-[220px] lg:h-[250px] flex items-center justify-center">
-            <div className="skeleton rounded-full aspect-square max-h-[150px] sm:max-h-[180px] lg:max-h-[200px] w-full max-w-[150px] sm:max-w-[180px] lg:max-w-[200px]" />
+      <div className="rounded-xl border border-border/60 bg-card p-5 shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <div className="space-y-1">
+            <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-20 bg-muted/60 rounded animate-pulse" />
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment Methods</CardTitle>
-          <CardDescription>Last 30 days</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px] flex items-center justify-center text-gray-500">
-            No data available
-          </div>
-        </CardContent>
-      </Card>
+          <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+        </div>
+        <div className="h-[220px] sm:h-[250px] flex items-center justify-center">
+          <div className="h-36 w-36 rounded-full border-8 border-muted/50 animate-pulse" />
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
-        <CardTitle>Payment Methods</CardTitle>
-        <CardDescription>Last 30 days</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <ChartContainer
-            config={data.reduce((acc, item) => {
-              const colorMap: Record<string, string> = {
-                'cash': 'var(--chart-1)',  // Orange/Red
-                'upi': 'var(--chart-2)',   // Blue
-                'card': 'var(--chart-3)',  // Green
-              };
-              const key = item.method.toLowerCase();
-              acc[key] = {
-                label: item.method,
-                color: colorMap[key] || 'var(--chart-1)',
-              };
-              return acc;
-            }, {} as ChartConfig)}
-            className="mx-auto aspect-square max-h-[150px] sm:max-h-[180px] lg:max-h-[200px]"
-          >
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    formatter={(value) => formatCurrency(value as number)}
-                    hideLabel
-                  />
-                }
-              />
-              <Pie
-                data={data}
-                dataKey="amount"
-                nameKey="method"
-                innerRadius={50}
-                strokeWidth={5}
-              >
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                        >
-                          <tspan
+    <div className="rounded-xl border border-border/60 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-border hover:shadow-md flex flex-col justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
+              Payment Methods
+            </h3>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <Wallet className="h-3 w-3" />
+              30 Days
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Settlement distribution
+          </p>
+        </div>
+      </div>
+
+      {data.length === 0 ? (
+        <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">
+          No payment data recorded in the last 30 days
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+          {/* Donut Chart */}
+          <div className="sm:col-span-6 h-[170px] w-full flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Tooltip content={<PaymentBreakdownTooltip />} />
+                <Pie
+                  data={data}
+                  dataKey="amount"
+                  nameKey="method"
+                  innerRadius={48}
+                  outerRadius={70}
+                  paddingAngle={3}
+                  cornerRadius={4}
+                  stroke="none"
+                >
+                  {data.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={getChartColor(entry.method)}
+                    />
+                  ))}
+                  <Label
+                    content={({ viewBox }) => {
+                      if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
+                        return (
+                          <text
                             x={viewBox.cx}
                             y={viewBox.cy}
-                            className="fill-foreground text-xl font-bold"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
                           >
-                            {formatCurrency(totalPaymentAmount)}
-                          </tspan>
-                          <tspan
-                            x={viewBox.cx}
-                            y={(viewBox.cy || 0) + 18}
-                            className="fill-muted-foreground text-xs"
-                          >
-                            Total
-                          </tspan>
-                        </text>
-                      );
-                    }
-                  }}
-                />
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+                            <tspan
+                              x={viewBox.cx}
+                              y={(viewBox.cy || 0) - 4}
+                              className="fill-foreground text-sm font-bold font-mono"
+                            >
+                              {formatCurrency(totalPaymentAmount)}
+                            </tspan>
+                            <tspan
+                              x={viewBox.cx}
+                              y={(viewBox.cy || 0) + 14}
+                              className="fill-muted-foreground text-[10px] uppercase font-semibold tracking-wider"
+                            >
+                              Total
+                            </tspan>
+                          </text>
+                        );
+                      }
+                    }}
+                  />
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
-          {/* Legend */}
-          <div className="space-y-2">
+          {/* Legend Items */}
+          <div className="sm:col-span-6 space-y-2">
             {data.map((item, index) => {
-              const percentage = ((item.amount / totalPaymentAmount) * 100).toFixed(1);
+              const percentage = totalPaymentAmount > 0
+                ? ((item.amount / totalPaymentAmount) * 100).toFixed(0)
+                : '0';
               const color = getChartColor(item.method);
 
               return (
-                <div key={index} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-2 flex-1">
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5 transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
-                      className="w-4 h-4 rounded-sm flex-shrink-0 border border-border/50"
+                      className="h-2.5 w-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="text-sm font-medium capitalize">{item.method}</span>
+                    <span className="text-xs font-medium uppercase tracking-wider text-foreground truncate">
+                      {item.method}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground">{percentage}%</span>
-                    <span className="text-sm font-semibold min-w-[80px] text-right">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      {percentage}%
+                    </span>
+                    <span className="text-xs font-bold font-mono text-foreground">
                       {formatCurrency(item.amount)}
                     </span>
                   </div>
@@ -194,8 +211,9 @@ export function PaymentBreakdownChart() {
             })}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
+
 

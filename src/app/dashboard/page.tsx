@@ -1,84 +1,142 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { createServiceRoleClient } from '@/lib/supabase/server';
+import { getUser, getUserProfile, getEffectiveOutletId, requirePermission } from '@/lib/auth';
+import { DashboardClient } from '@/components/dashboard/DashboardClient';
+import { Store } from 'lucide-react';
+
+// Route segment config for optimal performance
+export const dynamic = 'force-dynamic';
+export const revalidate = 30; // Revalidate every 30 seconds
 
 export default async function DashboardPage() {
-  await requireAuth();
-  const supabase = await createClient();
+  // Enforce permission check for dashboard
+  await requirePermission('dashboard', 'view');
 
-  // Get today's date range
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const user = await getUser();
+  const profile = await getUserProfile();
+  const effectiveOutletId = getEffectiveOutletId(profile);
 
-  // Fetch today's sales
-  const { data: todayOrders } = await supabase
-    .from('orders')
-    .select('total, status')
-    .gte('created_at', today.toISOString())
-    .lt('created_at', tomorrow.toISOString());
+  if (!user || !effectiveOutletId) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center p-4 text-center">
+        <div className="rounded-2xl border border-border/60 bg-card p-8 shadow-xs max-w-md w-full">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <Store className="h-6 w-6" />
+          </div>
+          <h2 className="text-lg font-semibold text-foreground tracking-tight">
+            {!user ? 'Authentication Required' : 'Outlet Not Assigned'}
+          </h2>
+          <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            {!user
+              ? 'Please log in with valid credentials to access the restaurant operations dashboard.'
+              : 'Please contact a system administrator to assign your account to an active restaurant outlet.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  const totalSales = todayOrders?.reduce((sum, order: any) => {
-    return sum + (order.status === 'COMPLETED' ? Number(order.total) : 0);
-  }, 0) || 0;
+  // Get today's date range - use IST timezone (Asia/Kolkata) to match orders page behavior
+  const now = new Date();
+  const istOffsetMs = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  const nowIST = new Date(now.getTime() + istOffsetMs);
+  
+  const istYear = nowIST.getUTCFullYear();
+  const istMonth = nowIST.getUTCMonth();
+  const istDate = nowIST.getUTCDate();
 
-  const totalOrders = todayOrders?.length || 0;
-  const completedOrders = todayOrders?.filter((o: any) => o.status === 'COMPLETED').length || 0;
+  const todayStartIST = Date.UTC(istYear, istMonth, istDate, 0, 0, 0, 0);
+  const todayStart = new Date(todayStartIST - istOffsetMs);
+  
+  const todayEndIST = Date.UTC(istYear, istMonth, istDate + 1, 0, 0, 0, 0);
+  const todayEnd = new Date(todayEndIST - istOffsetMs);
 
-  // Get top selling item (placeholder for now)
-  const topItem = 'N/A';
+  const serviceClient = createServiceRoleClient();
+  let totalSales = 0;
+  let totalOrders = 0;
+  let completedOrders = 0;
+  let topItem = 'N/A';
+  let lowStockAlertsCount = 0;
+  let totalInventoryItems = 0;
+
+  try {
+    const { data: todayOrders, error: ordersError } = await serviceClient
+      .from('orders')
+      .select('total, status, created_at')
+      .eq('outlet_id', effectiveOutletId)
+      .gte('created_at', todayStart.toISOString())
+      .lt('created_at', todayEnd.toISOString());
+
+    if (ordersError) {
+      console.error('Error fetching today\'s orders:', ordersError);
+    } else {
+      totalSales = todayOrders?.reduce((sum, order: any) => {
+        return sum + (order.status === 'COMPLETED' ? (Number(order.total) || 0) : 0);
+      }, 0) || 0;
+
+      totalOrders = todayOrders?.length || 0;
+      completedOrders = todayOrders?.filter((o: any) => o.status === 'COMPLETED').length || 0;
+    }
+
+    const { data: topItemsData, error: topItemsError } = await serviceClient
+      .from('orders')
+      .select(`
+        order_items (
+          quantity,
+          items (
+            name
+          )
+        )
+      `)
+      .eq('outlet_id', effectiveOutletId)
+      .eq('status', 'COMPLETED')
+      .gte('created_at', todayStart.toISOString())
+      .lt('created_at', todayEnd.toISOString())
+      .limit(100);
+
+    if (topItemsError) {
+      console.error('Error fetching top items:', topItemsError);
+    } else {
+      const itemCounts = new Map<string, { name: string; count: number }>();
+      topItemsData?.forEach((order: any) => {
+        order.order_items?.forEach((oi: any) => {
+          if (oi.items) {
+            const key = oi.items.name;
+            const existing = itemCounts.get(key) || { name: key, count: 0 };
+            existing.count += oi.quantity;
+            itemCounts.set(key, existing);
+          }
+        });
+      });
+
+      if (itemCounts.size > 0) {
+        topItem = Array.from(itemCounts.values()).sort((a, b) => b.count - a.count)[0].name;
+      }
+    }
+
+    const { data: inventoryData, error: inventoryError } = await serviceClient
+      .from('inventory')
+      .select('stock, low_stock_threshold')
+      .eq('outlet_id', effectiveOutletId);
+
+    if (!inventoryError && inventoryData) {
+      totalInventoryItems = inventoryData.length;
+      lowStockAlertsCount = inventoryData.filter(
+        (inv: any) => inv.stock <= inv.low_stock_threshold
+      ).length;
+    }
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+  }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="space-y-1 sm:space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm sm:text-base text-gray-600">Overview of your restaurant operations</p>
-      </div>
-
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-base sm:text-lg">Today&apos;s Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">₹{totalSales.toFixed(2)}</div>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1">
-              {completedOrders} completed orders
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-base sm:text-lg">Today&apos;s Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{totalOrders}</div>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1">Total orders today</p>
-          </CardContent>
-        </Card>
-
-        <Card className="sm:col-span-2 lg:col-span-1">
-          <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-base sm:text-lg">Top Item</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-bold">{topItem}</div>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1">Best selling item</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Sales Trend</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm sm:text-base text-gray-600">Chart placeholder - to be implemented in Phase 3</p>
-        </CardContent>
-      </Card>
-    </div>
+    <DashboardClient
+      initialTotalSales={totalSales}
+      initialTotalOrders={totalOrders}
+      initialCompletedOrders={completedOrders}
+      initialTopItem={topItem}
+      initialLowStockAlertsCount={lowStockAlertsCount}
+      initialTotalInventoryItems={totalInventoryItems}
+      outletId={effectiveOutletId}
+    />
   );
 }
-

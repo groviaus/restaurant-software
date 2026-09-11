@@ -1,8 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Plus, LayoutGrid, Package, Menu, Receipt } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Plus, LayoutGrid, Package, UtensilsCrossed, Receipt, Sparkles } from 'lucide-react';
 import {
     Tooltip,
     TooltipContent,
@@ -14,7 +13,6 @@ interface QuickAction {
     icon: React.ReactNode;
     label: string;
     href: string;
-    variant?: 'default' | 'outline' | 'secondary';
     primary?: boolean;
 }
 
@@ -23,35 +21,30 @@ export function QuickActionsDesktop() {
 
     const actions: QuickAction[] = [
         {
-            icon: <Plus className="h-5 w-5" />,
+            icon: <Plus className="h-4 w-4" />,
             label: 'New Order',
             href: '/orders',
-            variant: 'default',
             primary: true,
         },
         {
-            icon: <LayoutGrid className="h-5 w-5" />,
+            icon: <LayoutGrid className="h-4 w-4 text-muted-foreground" />,
             label: 'Tables',
             href: '/tables',
-            variant: 'outline',
         },
         {
-            icon: <Package className="h-5 w-5" />,
+            icon: <Package className="h-4 w-4 text-muted-foreground" />,
             label: 'Inventory',
             href: '/inventory',
-            variant: 'outline',
         },
         {
-            icon: <Menu className="h-5 w-5" />,
+            icon: <UtensilsCrossed className="h-4 w-4 text-muted-foreground" />,
             label: 'Menu',
             href: '/menu',
-            variant: 'outline',
         },
         {
-            icon: <Receipt className="h-5 w-5" />,
+            icon: <Receipt className="h-4 w-4 text-muted-foreground" />,
             label: 'Bills',
             href: '/bills',
-            variant: 'outline',
         },
     ];
 
@@ -60,25 +53,45 @@ export function QuickActionsDesktop() {
     };
 
     return (
-        <div className="hidden rounded-md sm:block w-full bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10 shadow-sm">
-            <div className="flex items-center gap-2 p-3 sm:p-4 overflow-x-auto scrollbar-hide">
-                <TooltipProvider delayDuration={300}>
+        <div className="hidden sm:flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/60 backdrop-blur-md px-3 py-2 shadow-xs">
+            {/* Left: Quick Actions Tag */}
+            <div className="flex items-center gap-2 pl-1">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Quick Navigation
+                </span>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+                <TooltipProvider delayDuration={200}>
                     {actions.map((action, index) => (
                         <Tooltip key={index}>
                             <TooltipTrigger asChild>
-                                <Button
-                                    variant={action.variant}
-                                    size="default"
-                                    onClick={() => handleAction(action.href)}
-                                    className="min-h-[44px] min-w-fit touch-feedback flex-shrink-0"
-                                    aria-label={action.label}
-                                >
-                                    {action.icon}
-                                    <span className="ml-2">{action.label}</span>
-                                </Button>
+                                {action.primary ? (
+                                    <button
+                                        onClick={() => handleAction(action.href)}
+                                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white shadow-xs transition-all hover:bg-gray-800 hover:shadow active:scale-95 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+                                        aria-label={action.label}
+                                    >
+                                        {action.icon}
+                                        <span>{action.label}</span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => handleAction(action.href)}
+                                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-background/50 px-2.5 text-xs font-medium text-foreground/80 transition-all hover:border-border hover:bg-muted/80 hover:text-foreground active:scale-95"
+                                        aria-label={action.label}
+                                    >
+                                        {action.icon}
+                                        <span>{action.label}</span>
+                                    </button>
+                                )}
                             </TooltipTrigger>
-                            <TooltipContent side="bottom">
-                                <p>{action.label}</p>
+                            <TooltipContent side="bottom" className="text-xs">
+                                <p>Navigate to {action.label}</p>
                             </TooltipContent>
                         </Tooltip>
                     ))}
@@ -87,3 +100,4 @@ export function QuickActionsDesktop() {
         </div>
     );
 }
+

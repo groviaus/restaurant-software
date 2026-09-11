@@ -28,7 +28,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         />
 
         {/* Main content area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden min-w-0 transition-all duration-300">
           {isFetching && (
             <div className="h-0.5 w-full bg-primary/20 overflow-hidden">
               <div className="h-full w-1/3 min-w-[120px] animate-pulse bg-primary rounded-r-full" />
