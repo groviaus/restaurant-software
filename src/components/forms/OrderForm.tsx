@@ -507,7 +507,7 @@ export function OrderForm({
                 <SelectTrigger className="h-8 text-xs min-w-[90px] sm:min-w-[120px] rounded-lg border-border/60 bg-background/90 font-medium shadow-2xs">
                   <SelectValue placeholder="Table" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-md max-h-56">
+                <SelectContent className="rounded-2xl border-0 bg-popover/95 backdrop-blur-md max-h-56 shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
                   {availableTables
                     .filter((t) => isEditMode || t.status === 'EMPTY' || t.status === 'BILLED')
                     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))

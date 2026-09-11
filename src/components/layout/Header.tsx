@@ -310,7 +310,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               side="bottom"
               align="end"
               sideOffset={8}
-              className="w-60 rounded-xl border border-border/60 bg-popover/95 p-1.5 shadow-xl backdrop-blur-md"
+              className="w-60 rounded-2xl border-0 bg-popover/95 p-1.5 shadow-2xl backdrop-blur-md ring-1 ring-black/5 dark:ring-white/10"
             >
               <DropdownMenuLabel className="p-2.5 font-normal">
                 <div className="flex items-center gap-2.5">

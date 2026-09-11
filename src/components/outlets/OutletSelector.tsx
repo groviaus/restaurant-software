@@ -99,7 +99,7 @@ export function OutletSelector() {
           side="bottom"
           sideOffset={6}
           align="end"
-          className="w-[180px] sm:w-[200px] rounded-xl border border-border/60 bg-popover/95 p-1.5 shadow-lg backdrop-blur-md"
+          className="w-[180px] sm:w-[200px] rounded-2xl border-0 bg-popover/95 p-1.5 shadow-2xl backdrop-blur-md ring-1 ring-black/5 dark:ring-white/10"
         >
           {outlets.length === 0 ? (
             <DropdownMenuItem disabled className="text-xs text-muted-foreground py-2">

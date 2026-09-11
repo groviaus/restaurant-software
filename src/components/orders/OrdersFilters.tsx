@@ -143,7 +143,7 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
             <SelectTrigger className="w-full h-8.5 rounded-xl border-border/60 bg-background/80 text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-md">
+            <SelectContent className="rounded-2xl border-0 bg-popover/95 backdrop-blur-md shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
               <SelectItem value="today" className="text-xs">Today</SelectItem>
               <SelectItem value="yesterday" className="text-xs">Yesterday</SelectItem>
               <SelectItem value="last7days" className="text-xs">Last 7 days</SelectItem>
@@ -331,7 +331,7 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
             <SelectTrigger className="w-full h-8.5 rounded-xl border-border/60 bg-background/80 text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-md">
+            <SelectContent className="rounded-2xl border-0 bg-popover/95 backdrop-blur-md shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
               <SelectItem value="all" className="text-xs">All Tables</SelectItem>
               {tables.map((table) => (
                 <SelectItem key={table.id} value={table.id} className="text-xs">
