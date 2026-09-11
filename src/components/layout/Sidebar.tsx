@@ -201,91 +201,72 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         )}
       >
         {/* Top Brand Header */}
-        <div
-          className={cn(
-            'flex h-14 sm:h-16 items-center border-b border-slate-800/80 bg-slate-950/90 px-3.5 transition-all duration-300 flex-shrink-0',
-            isCollapsed ? 'lg:justify-center' : 'justify-between'
-          )}
-        >
-          {/* Logo & Brand Name */}
-          <Link
-            href="/dashboard"
-            className={cn(
-              'flex items-center gap-2.5 min-w-0 group cursor-pointer focus:outline-none',
-              isCollapsed && 'lg:justify-center'
-            )}
-          >
-            <div className="flex h-8.5 w-8.5 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white shadow-md shadow-indigo-500/20 ring-1 ring-white/20 group-hover:scale-105 transition-transform flex-shrink-0">
-              <UtensilsCrossed className="h-4.5 w-4.5" />
-            </div>
-
-            {/* Brand text (hidden when collapsed on desktop) */}
-            <div
-              className={cn(
-                'flex flex-col min-w-0 transition-opacity duration-200',
-                isCollapsed ? 'lg:hidden' : 'flex'
-              )}
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold tracking-tight text-white group-hover:text-indigo-300 transition-colors truncate">
-                  Restaurant POS
-                </span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  PRO
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-medium truncate">
-                Multi-Outlet Suite
-              </span>
-            </div>
-          </Link>
-
-          {/* Desktop Collapse Toggle Button (Inside header) */}
-          <button
-            type="button"
-            onClick={toggleCollapse}
-            className={cn(
-              'hidden lg:flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer',
-              isCollapsed && 'hidden'
-            )}
-            aria-label="Collapse sidebar (Cmd+B)"
-            title="Collapse sidebar (Cmd+B)"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
-
-          {/* Mobile Close Button */}
-          {onClose && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="lg:hidden text-slate-400 hover:text-white hover:bg-slate-800 min-h-[40px] min-w-[40px]"
-              aria-label="Close menu"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          )}
-        </div>
-
-        {/* Collapsed Expand Trigger Strip (visible on desktop only when collapsed) */}
-        {isCollapsed && (
-          <div className="hidden lg:flex justify-center py-2 border-b border-slate-800/60 bg-slate-900/30">
+        {isCollapsed ? (
+          <div className="flex h-14 sm:h-16 items-center justify-center border-b border-slate-800/80 bg-slate-950/90 px-2 transition-all duration-300 flex-shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={toggleCollapse}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                  aria-label="Expand sidebar (Cmd+B)"
+                <Link
+                  href="/dashboard"
+                  className="flex h-8.5 w-8.5 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white shadow-md shadow-indigo-500/20 ring-1 ring-white/20 hover:scale-105 transition-transform"
+                  aria-label="Restaurant POS Dashboard"
                 >
-                  <PanelLeftOpen className="h-4 w-4" />
-                </button>
+                  <UtensilsCrossed className="h-4.5 w-4.5" />
+                </Link>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={12} className="bg-slate-900 text-slate-100 border border-slate-700">
-                <span>Expand sidebar (⌘B)</span>
+                <span>Restaurant POS</span>
               </TooltipContent>
             </Tooltip>
+          </div>
+        ) : (
+          <div className="flex h-14 sm:h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/90 px-3.5 transition-all duration-300 flex-shrink-0">
+            {/* Logo & Brand Name */}
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2.5 min-w-0 group cursor-pointer focus:outline-none"
+            >
+              <div className="flex h-8.5 w-8.5 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white shadow-md shadow-indigo-500/20 ring-1 ring-white/20 group-hover:scale-105 transition-transform flex-shrink-0">
+                <UtensilsCrossed className="h-4.5 w-4.5" />
+              </div>
+
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold tracking-tight text-white group-hover:text-indigo-300 transition-colors truncate">
+                    Restaurant POS
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    PRO
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium truncate">
+                  Multi-Outlet Suite
+                </span>
+              </div>
+            </Link>
+
+            {/* Desktop Collapse Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="hidden lg:flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer flex-shrink-0"
+              aria-label="Collapse sidebar (Cmd+B)"
+              title="Collapse sidebar (Cmd+B)"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+
+            {/* Mobile Close Button */}
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="lg:hidden text-slate-400 hover:text-white hover:bg-slate-800 min-h-[40px] min-w-[40px]"
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         )}
 
@@ -402,67 +383,83 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
         {/* Bottom Sidebar Footer */}
         <div className="border-t border-slate-800/80 p-2 sm:p-2.5 bg-slate-950/60 flex-shrink-0 space-y-1">
-          {/* User Quick Info Pill (Expanded Mode) */}
-          <div
-            className={cn(
-              'flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800/60 transition-all',
-              isCollapsed ? 'lg:hidden' : 'flex'
-            )}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="relative flex-shrink-0">
-                <div className="flex h-6.5 w-6.5 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-bold text-[10px]">
-                  {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1 ring-slate-950" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold text-slate-200 truncate">
-                  {profile?.name?.split(' ')[0] || 'Staff'}
-                </span>
-                <span className="text-[10px] text-slate-400 truncate uppercase font-medium">
-                  {profile?.role || 'User'}
-                </span>
-              </div>
-            </div>
-
-            {/* Collapse button shortcut label */}
-            <button
-              type="button"
-              onClick={toggleCollapse}
-              className="hidden lg:flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 px-1.5 py-1 rounded hover:bg-slate-800 transition-colors"
-              title="Collapse sidebar (Cmd+B)"
-            >
-              <PanelLeftClose className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Sign Out Button */}
           {isCollapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <>
+              {/* Expand Toggle Button in Collapsed Mode */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={toggleCollapse}
+                    className="w-full flex h-9 items-center justify-center rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition-colors cursor-pointer"
+                    aria-label="Expand sidebar (Cmd+B)"
+                  >
+                    <PanelLeftOpen className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={12} className="bg-slate-900 text-slate-100 border border-slate-700">
+                  <span>Expand sidebar (⌘B)</span>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Sign Out Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="w-full flex h-9 items-center justify-center rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    aria-label="Sign Out"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={12} className="bg-slate-900 text-rose-400 border border-slate-700">
+                  <span>Sign Out</span>
+                </TooltipContent>
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              {/* User Quick Info Pill (Expanded Mode) */}
+              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-900/50 border border-slate-800/60 transition-all">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="relative flex-shrink-0">
+                    <div className="flex h-6.5 w-6.5 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-bold text-[10px]">
+                      {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1 ring-slate-950" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-semibold text-slate-200 truncate">
+                      {profile?.name?.split(' ')[0] || 'Staff'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 truncate uppercase font-medium">
+                      {profile?.role || 'User'}
+                    </span>
+                  </div>
+                </div>
+
                 <button
                   type="button"
-                  onClick={handleSignOut}
-                  className="w-full flex h-10 items-center justify-center rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                  aria-label="Sign Out"
+                  onClick={toggleCollapse}
+                  className="hidden lg:flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 px-1.5 py-1 rounded hover:bg-slate-800 transition-colors"
+                  title="Collapse sidebar (Cmd+B)"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <PanelLeftClose className="h-3.5 w-3.5" />
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={12} className="bg-slate-900 text-rose-400 border border-slate-700">
-                <span>Sign Out</span>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={handleSignOut}
-              className="flex w-full items-center justify-start gap-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 min-h-[38px] px-2.5 transition-colors cursor-pointer"
-            >
-              <LogOut className="h-4 w-4 flex-shrink-0 text-rose-400" />
-              <span className="truncate">Sign Out</span>
-            </Button>
+              </div>
+
+              {/* Sign Out Button */}
+              <Button
+                variant="ghost"
+                onClick={handleSignOut}
+                className="flex w-full items-center justify-start gap-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 min-h-[38px] px-2.5 transition-colors cursor-pointer"
+              >
+                <LogOut className="h-4 w-4 flex-shrink-0 text-rose-400" />
+                <span className="truncate">Sign Out</span>
+              </Button>
+            </>
           )}
         </div>
       </aside>
