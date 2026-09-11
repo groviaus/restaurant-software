@@ -281,11 +281,17 @@ export function OrdersTable({
       }
 
       // 4. Drawer Filters: Date Range
-      const dateRange = getDateRange(filters.datePreset, filters.customStartDate, filters.customEndDate);
-      if (dateRange) {
-        const orderDate = new Date(order.created_at);
-        if (orderDate < new Date(dateRange.start) || orderDate >= new Date(dateRange.end)) {
-          return false;
+      // Live active orders in service should remain visible in the queue under default 'today' preset
+      const isActiveOrder = order.status !== OrderStatus.COMPLETED && order.status !== OrderStatus.CANCELLED;
+      const shouldApplyDateFilter = !isActiveOrder || (filters.datePreset !== 'today' && filters.datePreset !== 'all');
+
+      if (shouldApplyDateFilter) {
+        const dateRange = getDateRange(filters.datePreset, filters.customStartDate, filters.customEndDate);
+        if (dateRange) {
+          const orderDate = new Date(order.created_at);
+          if (orderDate < new Date(dateRange.start) || orderDate >= new Date(dateRange.end)) {
+            return false;
+          }
         }
       }
 
@@ -315,8 +321,16 @@ export function OrdersTable({
     if (mins < 1) return 'Just now';
     if (mins < 60) return `${mins}m ago`;
     const hours = Math.floor(mins / 60);
-    const rem = mins % 60;
-    return `${hours}h ${rem}m ago`;
+    const remMins = mins % 60;
+    if (hours < 24) {
+      return `${hours}h ${remMins}m ago`;
+    }
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    if (remHours === 0) {
+      return `${days}d ago`;
+    }
+    return `${days}d ${remHours}h ago`;
   };
 
   const getUrgency = (dateString: string, status: OrderStatus) => {
@@ -604,12 +618,12 @@ export function OrdersTable({
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {[
             { id: 'ACTIVE', label: 'Active', count: tabCounts.ACTIVE },
+            { id: 'ALL', label: 'All', count: tabCounts.ALL },
             { id: 'NEW', label: 'New', count: tabCounts.NEW, alert: tabCounts.NEW > 0 },
             { id: 'PREPARING', label: 'Preparing', count: tabCounts.PREPARING },
             { id: 'READY', label: 'Ready', count: tabCounts.READY },
             { id: 'SERVED', label: 'Served', count: tabCounts.SERVED },
             { id: 'COMPLETED', label: 'Completed', count: tabCounts.COMPLETED },
-            { id: 'ALL', label: 'All', count: tabCounts.ALL },
           ].map((tab) => {
             const isSelected = statusTab === tab.id;
             return (
@@ -730,7 +744,7 @@ export function OrdersTable({
                         </div>
                         <span className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {format(new Date(order.created_at), 'HH:mm')} • {getElapsedMinutes(order.created_at)}
+                          {format(new Date(order.created_at), currentTime - new Date(order.created_at).getTime() >= 24 * 60 * 60 * 1000 ? 'dd MMM, HH:mm' : 'HH:mm')} • {getElapsedMinutes(order.created_at)}
                         </span>
                       </div>
 

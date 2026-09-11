@@ -33,13 +33,36 @@ export function OrdersPageClient({ outletId }: OrdersPageClientProps) {
     return { start_date: todayStart, end_date: todayEnd };
   }, []);
 
-  const ordersQuery = useOrdersQuery(outletId, { ...todayRange, limit: 100 });
+  // 1. Fetch ALL unresolved active orders (NEW, PREPARING, READY, SERVED) regardless of creation date
+  const activeOrdersQuery = useOrdersQuery(outletId, {
+    status: 'NEW,PREPARING,READY,SERVED',
+    limit: 200,
+  });
+
+  // 2. Fetch today's completed/cancelled orders
+  const todayClosedQuery = useOrdersQuery(outletId, {
+    status: 'COMPLETED,CANCELLED',
+    ...todayRange,
+    limit: 200,
+  });
+
   const tablesQuery = useTablesQuery(outletId);
 
-  const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
+  const orders = useMemo(() => {
+    const active = activeOrdersQuery.data ?? [];
+    const closed = todayClosedQuery.data ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map = new Map<string, any>();
+    for (const o of active) map.set(o.id, o);
+    for (const o of closed) map.set(o.id, o);
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [activeOrdersQuery.data, todayClosedQuery.data]);
+
   const tables = useMemo(() => tablesQuery.data ?? [], [tablesQuery.data]);
-  const loading = ordersQuery.isLoading && tablesQuery.isLoading;
-  const error = ordersQuery.error ?? tablesQuery.error;
+  const loading = (activeOrdersQuery.isLoading && todayClosedQuery.isLoading) && tablesQuery.isLoading;
+  const error = activeOrdersQuery.error ?? todayClosedQuery.error ?? tablesQuery.error;
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

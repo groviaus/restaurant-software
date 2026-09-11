@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { OrderStatus, Table } from '@/lib/types';
 import { X, ChevronDown, RotateCcw } from 'lucide-react';
 
-export type DatePreset = 'today' | 'yesterday' | 'last7days' | 'last30days' | 'custom';
+export type DatePreset = 'today' | 'yesterday' | 'last7days' | 'last30days' | 'custom' | 'all';
 
 export interface OrdersFilters {
   datePreset: DatePreset;
@@ -149,6 +149,7 @@ export function OrdersFilters({ tables, filters, onFiltersChange }: OrdersFilter
               <SelectItem value="last7days" className="text-xs">Last 7 days</SelectItem>
               <SelectItem value="last30days" className="text-xs">Last 30 days</SelectItem>
               <SelectItem value="custom" className="text-xs">Custom Range</SelectItem>
+              <SelectItem value="all" className="text-xs">All Time</SelectItem>
             </SelectContent>
           </Select>
           {localFilters.datePreset === 'custom' && (

@@ -42,6 +42,7 @@ interface OrderFormProps {
   onSuccess: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   order?: any;
+  initialTableId?: string;
 }
 
 interface OrderItem {
@@ -61,6 +62,9 @@ interface TopSellingItem {
 interface ExistingOrderItemRecord {
   id: string;
   item_id: string;
+  item?: { name: string; price?: number };
+  items?: { name: string; price?: number };
+  item_name?: string;
   quantity: number;
   quantity_type?: QuantityType;
   notes?: string | null;
@@ -74,6 +78,7 @@ export function OrderForm({
   tables,
   onSuccess,
   order: existingOrder,
+  initialTableId,
 }: OrderFormProps) {
   const { tables: storeTables } = useTableOrderStore();
   const { settings, calculateTax } = useSettings();
@@ -160,7 +165,7 @@ export function OrderForm({
         setMobileTab('ticket');
       } else {
         setItems([]);
-        setTableId('');
+        setTableId(initialTableId || '');
         setOrderType('DINE_IN');
         setExistingOrderItems([]);
         setMobileTab('catalog');
