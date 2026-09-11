@@ -1,13 +1,26 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { OrderHistoryTable } from '@/components/tables/OrderHistoryTable';
-import { OrderHistoryFilters, OrderHistoryFilters as FiltersType } from '@/components/orders/OrderHistoryFilters';
-import { OrderWithItems } from '@/lib/types';
-import { Table } from '@/lib/types';
+import {
+  OrderHistoryFilters,
+  OrderHistoryFilters as FiltersType,
+  getDateRangeForPreset,
+} from '@/components/orders/OrderHistoryFilters';
+import { OrderWithItems, Table, OrderStatus } from '@/lib/types';
 import { useRealtimeOrders } from '@/hooks/useRealtime';
-import { Filter } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  IndianRupee,
+  CheckCircle2,
+  XCircle,
+  TrendingUp,
+  RefreshCw,
+  LayoutGrid,
+  List,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface OrderHistoryPageClientProps {
   initialOrders: OrderWithItems[];
@@ -15,120 +28,368 @@ interface OrderHistoryPageClientProps {
   outletId: string;
 }
 
-export function OrderHistoryPageClient({ initialOrders, tables, outletId }: OrderHistoryPageClientProps) {
-  const router = useRouter();
+export function OrderHistoryPageClient({
+  initialOrders,
+  tables,
+  outletId,
+}: OrderHistoryPageClientProps) {
   const [orders, setOrders] = useState<OrderWithItems[]>(initialOrders);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
-  // Update orders when initialOrders changes (e.g., from server refresh)
+  // Load preferred view mode from localStorage on client
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('resto_history_view_mode') as 'table' | 'card';
+      if (savedMode === 'table' || savedMode === 'card') {
+        setViewMode(savedMode);
+      }
+    } catch {
+      // Ignore localStorage read errors in SSR/sandboxed mode
+    }
+  }, []);
+
+  const handleToggleViewMode = (mode: 'table' | 'card') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('resto_history_view_mode', mode);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  // Sync initialOrders from server
   useEffect(() => {
     setOrders(initialOrders);
   }, [initialOrders]);
 
   // Function to refetch orders from API
-  const refetchOrders = useCallback(async () => {
+  const refetchOrders = useCallback(async (isManual = false) => {
+    if (isManual) setIsSyncing(true);
     try {
       const response = await fetch(`/api/orders?outlet_id=${outletId}&status=COMPLETED,CANCELLED`);
       if (response.ok) {
         const data = await response.json();
         setOrders(data || []);
+        if (isManual) {
+          toast.success('Order history synced');
+        }
       }
     } catch (error) {
       console.error('Failed to refetch order history:', error);
+      if (isManual) {
+        toast.error('Failed to sync order history');
+      }
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsSyncing(false), 400);
+      }
     }
   }, [outletId]);
 
-  // Subscribe to real-time order changes (for completed/cancelled orders)
+  // Subscribe to real-time changes
   useRealtimeOrders({
     outletId,
     onChange: (payload) => {
-      // Only refetch if the change involves a completed or cancelled order
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newRecord = payload.new as any;
-      if (newRecord?.status === 'COMPLETED' || newRecord?.status === 'CANCELLED' || payload.eventType === 'UPDATE') {
-        refetchOrders();
+      if (
+        newRecord?.status === 'COMPLETED' ||
+        newRecord?.status === 'CANCELLED' ||
+        payload.eventType === 'UPDATE'
+      ) {
+        refetchOrders(false);
       }
     },
   });
 
-  // Set default to last 30 days
+  // Default filter: Last 30 Days
   const getDefaultFilters = (): FiltersType => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 30);
+    const { startDate, endDate } = getDateRangeForPreset('30d');
     return {
-      startDate: start.toISOString().split('T')[0],
-      endDate: end.toISOString().split('T')[0],
+      datePreset: '30d',
+      startDate,
+      endDate,
       statuses: [],
       orderTypes: [],
       paymentMethods: [],
+      tableId: undefined,
     };
   };
 
-  const [filters, setFilters] = useState<FiltersType>(getDefaultFilters());
-  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FiltersType>(getDefaultFilters);
 
-  // Apply filters
-  const filteredOrders = orders.filter((order) => {
-    // Date range filter
-    if (filters.startDate && filters.endDate) {
-      const orderDate = new Date(order.created_at).toISOString().split('T')[0];
-      if (orderDate < filters.startDate || orderDate > filters.endDate) {
+  // Apply search query and filters
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // 1. Search Query filter (matches ID, Table, Staff, or Items)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const cleanId = order.id.replace(/-/g, '').toLowerCase();
+        const idMatch = order.id.toLowerCase().includes(q) || cleanId.includes(q.replace(/-/g, ''));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tableName = ((order as any).tables?.name || (order as any).table?.name || '').toLowerCase();
+        const tableMatch = tableName.includes(q);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const staffName = ((order as any).users?.name || (order as any).user?.name || '').toLowerCase();
+        const staffMatch = staffName.includes(q);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items = (order as any).order_items || order.items || [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const itemsMatch = items.some((oi: any) => {
+          const itemName = oi.items?.name || oi.item?.name || oi.item_name || '';
+          return itemName.toLowerCase().includes(q);
+        });
+
+        if (!idMatch && !tableMatch && !staffMatch && !itemsMatch) {
+          return false;
+        }
+      }
+
+      // 2. Date Range filter
+      if (filters.startDate && filters.endDate) {
+        const orderDate = new Date(order.created_at).toISOString().split('T')[0];
+        if (orderDate < filters.startDate || orderDate > filters.endDate) {
+          return false;
+        }
+      } else if (filters.startDate) {
+        const orderDate = new Date(order.created_at).toISOString().split('T')[0];
+        if (orderDate < filters.startDate) return false;
+      } else if (filters.endDate) {
+        const orderDate = new Date(order.created_at).toISOString().split('T')[0];
+        if (orderDate > filters.endDate) return false;
+      }
+
+      // 3. Status filter
+      if (filters.statuses.length > 0 && !filters.statuses.includes(order.status)) {
         return false;
+      }
+
+      // 4. Order Type filter
+      if (filters.orderTypes.length > 0 && !filters.orderTypes.includes(order.order_type)) {
+        return false;
+      }
+
+      // 5. Payment Method filter
+      if (
+        filters.paymentMethods.length > 0 &&
+        order.payment_method &&
+        !filters.paymentMethods.includes(order.payment_method)
+      ) {
+        return false;
+      }
+
+      // 6. Table filter
+      if (filters.tableId && order.table_id !== filters.tableId) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [orders, searchQuery, filters]);
+
+  // Compute key summary metrics from filtered set
+  const metrics = useMemo(() => {
+    let completedCount = 0;
+    let cancelledCount = 0;
+    let totalRevenue = 0;
+    let dineInCount = 0;
+    let takeawayCount = 0;
+
+    for (const order of filteredOrders) {
+      if (order.status === OrderStatus.COMPLETED) {
+        completedCount++;
+        totalRevenue += Number(order.total) || 0;
+      } else if (order.status === OrderStatus.CANCELLED) {
+        cancelledCount++;
+      }
+
+      if (order.order_type === 'DINE_IN') {
+        dineInCount++;
+      } else {
+        takeawayCount++;
       }
     }
 
-    // Status filter
-    if (filters.statuses.length > 0 && !filters.statuses.includes(order.status)) {
-      return false;
-    }
+    const avgOrderValue = completedCount > 0 ? totalRevenue / completedCount : 0;
 
-    // Order type filter
-    if (filters.orderTypes.length > 0 && !filters.orderTypes.includes(order.order_type)) {
-      return false;
-    }
+    return {
+      totalRevenue,
+      completedCount,
+      cancelledCount,
+      avgOrderValue,
+      dineInCount,
+      takeawayCount,
+    };
+  }, [filteredOrders]);
 
-    // Payment method filter
-    if (filters.paymentMethods.length > 0 && order.payment_method && !filters.paymentMethods.includes(order.payment_method)) {
-      return false;
-    }
-
-    // Table filter
-    if (filters.tableId && order.table_id !== filters.tableId) {
-      return false;
-    }
-
-    return true;
-  });
+  const handleClearFilters = () => {
+    setFilters(getDefaultFilters());
+    setSearchQuery('');
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Order History</h1>
-        <p className="text-gray-600">View completed and cancelled orders</p>
-      </div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
-        <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
-          <p className="text-xs sm:text-sm text-gray-600">
-            Showing {filteredOrders.length} of {orders.length} orders
-          </p>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="p-2 hover:bg-muted rounded-md transition-colors"
-            aria-label="Toggle filters"
+    <div className="space-y-4 sm:space-y-5">
+      {/* 1. Header & Live Sync Bar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+            Order History
+          </h1>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+            {filteredOrders.length}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Live Sync Beacon */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-medium border border-emerald-200/50 dark:border-emerald-800/40">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span>Live Sync</span>
+          </div>
+
+          {/* Sync Trigger */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => refetchOrders(true)}
+            disabled={isSyncing}
+            className="h-8 px-2.5 sm:px-3 text-xs font-semibold rounded-lg cursor-pointer flex items-center gap-1.5 border-border/70"
+            title="Refresh order history"
           >
-            <Filter className="h-4 w-4" />
-          </button>
+            <RefreshCw className={cn('h-3.5 w-3.5', isSyncing && 'animate-spin text-primary')} />
+            <span className="hidden sm:inline">Sync</span>
+          </Button>
+
+          {/* View Mode Toggle (Desktop/Tablet) */}
+          <div className="hidden md:flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/60">
+            <button
+              onClick={() => handleToggleViewMode('table')}
+              className={cn(
+                'h-7 px-2.5 rounded-md text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5',
+                viewMode === 'table'
+                  ? 'bg-card text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              title="Dense Table View"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">Table</span>
+            </button>
+            <button
+              onClick={() => handleToggleViewMode('card')}
+              className={cn(
+                'h-7 px-2.5 rounded-md text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5',
+                viewMode === 'card'
+                  ? 'bg-card text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              title="Card Grid View"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">Cards</span>
+            </button>
+          </div>
         </div>
       </div>
-      <div className={`${showFilters ? 'block' : 'hidden'} md:block`}>
-        <OrderHistoryFilters
-          tables={tables}
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
+
+      {/* 2. Executive KPI Metrics Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+        {/* Total Sales */}
+        <div className="bg-card border border-border/70 rounded-2xl p-3 sm:p-4 space-y-1 shadow-xs hover:border-emerald-500/30 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Total Sales
+            </span>
+            <div className="h-7 w-7 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <IndianRupee className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
+            ₹{metrics.totalRevenue.toFixed(2)}
+          </div>
+          <p className="text-[11px] text-muted-foreground truncate font-medium">
+            {metrics.completedCount} {metrics.completedCount === 1 ? 'bill settled' : 'bills settled'}
+          </p>
+        </div>
+
+        {/* Completed Orders */}
+        <div className="bg-card border border-border/70 rounded-2xl p-3 sm:p-4 space-y-1 shadow-xs hover:border-emerald-500/30 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Completed
+            </span>
+            <div className="h-7 w-7 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
+            {metrics.completedCount}
+          </div>
+          <p className="text-[11px] text-muted-foreground truncate font-medium">
+            {metrics.dineInCount} Dine-In • {metrics.takeawayCount} Takeaway
+          </p>
+        </div>
+
+        {/* Cancelled Orders */}
+        <div className="bg-card border border-border/70 rounded-2xl p-3 sm:p-4 space-y-1 shadow-xs hover:border-rose-500/30 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Cancelled
+            </span>
+            <div className="h-7 w-7 rounded-xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <XCircle className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
+            {metrics.cancelledCount}
+          </div>
+          <p className="text-[11px] text-muted-foreground truncate font-medium">
+            {metrics.cancelledCount === 0 ? 'Zero cancellations' : 'Voided or cancelled'}
+          </p>
+        </div>
+
+        {/* Average Ticket Size */}
+        <div className="bg-card border border-border/70 rounded-2xl p-3 sm:p-4 space-y-1 shadow-xs hover:border-violet-500/30 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Avg Ticket
+            </span>
+            <div className="h-7 w-7 rounded-xl bg-violet-50 dark:bg-violet-950/50 flex items-center justify-center text-violet-600 dark:text-violet-400">
+              <TrendingUp className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
+            ₹{metrics.avgOrderValue.toFixed(2)}
+          </div>
+          <p className="text-[11px] text-muted-foreground truncate font-medium">
+            Average spend per order
+          </p>
+        </div>
       </div>
-      <div className="mt-4" />
-      <OrderHistoryTable orders={filteredOrders} outletId={outletId} />
+
+      {/* 3. Search & Filter Bar */}
+      <OrderHistoryFilters
+        tables={tables}
+        filters={filters}
+        onFiltersChange={setFilters}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        totalFilteredCount={filteredOrders.length}
+        totalOrdersCount={orders.length}
+      />
+
+      {/* 4. Order History Table / Cards */}
+      <OrderHistoryTable
+        orders={filteredOrders}
+        outletId={outletId}
+        viewMode={viewMode}
+        onClearFilters={handleClearFilters}
+      />
     </div>
   );
 }
-

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -10,11 +11,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { OrderStatus, PaymentMethod } from '@/lib/types';
-import { Table } from '@/lib/types';
-import { X, ChevronDown } from 'lucide-react';
+import { OrderStatus, PaymentMethod, Table } from '@/lib/types';
+import {
+  Search,
+  X,
+  Filter,
+  Calendar,
+  ChevronDown,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  Utensils,
+  ShoppingBag,
+  CreditCard,
+  QrCode,
+  Banknote,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+export type DatePreset = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'all' | 'custom';
 
 export interface OrderHistoryFilters {
   startDate?: string;
@@ -23,387 +38,525 @@ export interface OrderHistoryFilters {
   orderTypes: ('DINE_IN' | 'TAKEAWAY')[];
   paymentMethods: PaymentMethod[];
   tableId?: string;
+  datePreset?: DatePreset;
+}
+
+export function getDateRangeForPreset(preset: DatePreset): { startDate?: string; endDate?: string } {
+  const today = new Date();
+  const formatYMD = (d: Date) => d.toISOString().split('T')[0];
+
+  switch (preset) {
+    case 'today': {
+      const d = formatYMD(today);
+      return { startDate: d, endDate: d };
+    }
+    case 'yesterday': {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      const d = formatYMD(y);
+      return { startDate: d, endDate: d };
+    }
+    case '7d': {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 7);
+      return { startDate: formatYMD(start), endDate: formatYMD(today) };
+    }
+    case '30d': {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 30);
+      return { startDate: formatYMD(start), endDate: formatYMD(today) };
+    }
+    case 'month': {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { startDate: formatYMD(start), endDate: formatYMD(today) };
+    }
+    case 'all': {
+      return { startDate: undefined, endDate: undefined };
+    }
+    case 'custom':
+    default:
+      return {};
+  }
 }
 
 interface OrderHistoryFiltersProps {
   tables: Table[];
   filters: OrderHistoryFilters;
   onFiltersChange: (filters: OrderHistoryFilters) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  totalFilteredCount: number;
+  totalOrdersCount: number;
 }
 
-export function OrderHistoryFilters({ tables, filters, onFiltersChange }: OrderHistoryFiltersProps) {
-  const [localFilters, setLocalFilters] = useState<OrderHistoryFilters>(filters);
-  const [statusSelectOpen, setStatusSelectOpen] = useState(false);
-  const [orderTypeSelectOpen, setOrderTypeSelectOpen] = useState(false);
-  const [paymentMethodSelectOpen, setPaymentMethodSelectOpen] = useState(false);
-  const statusRef = useRef<HTMLDivElement>(null);
-  const orderTypeRef = useRef<HTMLDivElement>(null);
-  const paymentMethodRef = useRef<HTMLDivElement>(null);
+export function OrderHistoryFilters({
+  tables,
+  filters,
+  onFiltersChange,
+  searchQuery,
+  onSearchChange,
+  totalFilteredCount,
+  totalOrdersCount,
+}: OrderHistoryFiltersProps) {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    setLocalFilters(filters);
-  }, [filters]);
+  const activePreset = filters.datePreset || '30d';
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (statusRef.current && !statusRef.current.contains(event.target as Node)) {
-        setStatusSelectOpen(false);
-      }
-      if (orderTypeRef.current && !orderTypeRef.current.contains(event.target as Node)) {
-        setOrderTypeSelectOpen(false);
-      }
-      if (paymentMethodRef.current && !paymentMethodRef.current.contains(event.target as Node)) {
-        setPaymentMethodSelectOpen(false);
-      }
-    };
+  const handleSelectPreset = (preset: DatePreset) => {
+    if (preset === 'custom') {
+      onFiltersChange({
+        ...filters,
+        datePreset: 'custom',
+      });
+      return;
+    }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const updateFilter = (key: keyof OrderHistoryFilters, value: any) => {
-    const updated = { ...localFilters, [key]: value };
-    setLocalFilters(updated);
-    onFiltersChange(updated);
+    const { startDate, endDate } = getDateRangeForPreset(preset);
+    onFiltersChange({
+      ...filters,
+      datePreset: preset,
+      startDate,
+      endDate,
+    });
   };
 
-  const toggleStatus = (status: OrderStatus) => {
-    const statuses = localFilters.statuses.includes(status)
-      ? localFilters.statuses.filter(s => s !== status)
-      : [...localFilters.statuses, status];
-    updateFilter('statuses', statuses);
+  const handleStatusToggle = (status: OrderStatus) => {
+    const isSelected = filters.statuses.includes(status);
+    const newStatuses = isSelected
+      ? filters.statuses.filter((s) => s !== status)
+      : [...filters.statuses, status];
+    onFiltersChange({ ...filters, statuses: newStatuses });
   };
 
-  const toggleOrderType = (type: 'DINE_IN' | 'TAKEAWAY') => {
-    const orderTypes = localFilters.orderTypes.includes(type)
-      ? localFilters.orderTypes.filter(t => t !== type)
-      : [...localFilters.orderTypes, type];
-    updateFilter('orderTypes', orderTypes);
+  const handleOrderTypeToggle = (type: 'DINE_IN' | 'TAKEAWAY') => {
+    const isSelected = filters.orderTypes.includes(type);
+    const newTypes = isSelected
+      ? filters.orderTypes.filter((t) => t !== type)
+      : [...filters.orderTypes, type];
+    onFiltersChange({ ...filters, orderTypes: newTypes });
   };
 
-  const togglePaymentMethod = (method: PaymentMethod) => {
-    const methods = localFilters.paymentMethods.includes(method)
-      ? localFilters.paymentMethods.filter(m => m !== method)
-      : [...localFilters.paymentMethods, method];
-    updateFilter('paymentMethods', methods);
+  const handlePaymentMethodToggle = (method: PaymentMethod) => {
+    const isSelected = filters.paymentMethods.includes(method);
+    const newMethods = isSelected
+      ? filters.paymentMethods.filter((m) => m !== method)
+      : [...filters.paymentMethods, method];
+    onFiltersChange({ ...filters, paymentMethods: newMethods });
   };
 
-  const clearFilters = () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 30);
-    const defaultFilters: OrderHistoryFilters = {
-      startDate: start.toISOString().split('T')[0],
-      endDate: end.toISOString().split('T')[0],
+  const handleTableChange = (tableId: string) => {
+    onFiltersChange({
+      ...filters,
+      tableId: tableId === 'all' ? undefined : tableId,
+    });
+  };
+
+  const handleClearAll = () => {
+    const { startDate, endDate } = getDateRangeForPreset('30d');
+    onFiltersChange({
+      datePreset: '30d',
+      startDate,
+      endDate,
       statuses: [],
       orderTypes: [],
       paymentMethods: [],
-    };
-    setLocalFilters(defaultFilters);
-    onFiltersChange(defaultFilters);
+      tableId: undefined,
+    });
+    onSearchChange('');
   };
 
-  const activeFilterCount = 
-    (localFilters.statuses.length > 0 ? 1 : 0) +
-    (localFilters.orderTypes.length > 0 ? 1 : 0) +
-    (localFilters.paymentMethods.length > 0 ? 1 : 0) +
-    (localFilters.tableId ? 1 : 0);
+  const activeFiltersCount =
+    (filters.statuses.length > 0 ? 1 : 0) +
+    (filters.orderTypes.length > 0 ? 1 : 0) +
+    (filters.paymentMethods.length > 0 ? 1 : 0) +
+    (filters.tableId ? 1 : 0) +
+    (filters.datePreset === 'custom' ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0);
+
+  const selectedTable = tables.find((t) => t.id === filters.tableId);
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Filters</h3>
-        {activeFilterCount > 0 && (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{activeFilterCount} active</Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="h-7 text-xs"
+    <div className="space-y-3">
+      {/* Search & Presets Ribbon */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+        {/* Omni-Search Box */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search by Order ID, dish, table, staff..."
+            className="pl-9 pr-9 h-9.5 text-xs sm:text-sm bg-card rounded-xl border-border/70 focus-visible:ring-primary/20 shadow-xs"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded-full hover:bg-muted"
             >
-              Clear All
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Date Range Filter */}
-        <div className="space-y-2">
-          <Label>Date Range</Label>
-          <div className="space-y-2">
-            <Input
-              type="date"
-              value={localFilters.startDate || ''}
-              onChange={(e) => updateFilter('startDate', e.target.value)}
-              placeholder="Start Date"
-            />
-            <Input
-              type="date"
-              value={localFilters.endDate || ''}
-              onChange={(e) => updateFilter('endDate', e.target.value)}
-              placeholder="End Date"
-            />
-          </div>
-        </div>
-
-        {/* Status Filter */}
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <div className="relative" ref={statusRef}>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-between"
-              onClick={() => setStatusSelectOpen(!statusSelectOpen)}
-            >
-              {localFilters.statuses.length > 0
-                ? `${localFilters.statuses.length} selected`
-                : 'All Statuses'}
-              <ChevronDown className="h-4 w-4 opacity-50" />
-            </Button>
-            {statusSelectOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => {
-                    updateFilter('statuses', []);
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={localFilters.statuses.length === 0}
-                    readOnly
-                    className="rounded"
-                  />
-                  <span>All Statuses</span>
-                </div>
-                <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => toggleStatus(OrderStatus.COMPLETED)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={localFilters.statuses.includes(OrderStatus.COMPLETED)}
-                    readOnly
-                    className="rounded"
-                  />
-                  <span>Completed</span>
-                </div>
-                <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => toggleStatus(OrderStatus.CANCELLED)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={localFilters.statuses.includes(OrderStatus.CANCELLED)}
-                    readOnly
-                    className="rounded"
-                  />
-                  <span>Cancelled</span>
-                </div>
-              </div>
-            )}
-          </div>
-          {localFilters.statuses.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {localFilters.statuses.map((status) => (
-                <Badge
-                  key={status}
-                  variant="secondary"
-                  className="text-xs"
-                >
-                  {status}
-                  <button
-                    onClick={() => toggleStatus(status)}
-                    className="ml-1 hover:text-red-600"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
+              <X className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
 
-        {/* Order Type Filter */}
-        <div className="space-y-2">
-          <Label>Order Type</Label>
-          <div className="relative" ref={orderTypeRef}>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-between"
-              onClick={() => setOrderTypeSelectOpen(!orderTypeSelectOpen)}
-            >
-              {localFilters.orderTypes.length > 0
-                ? `${localFilters.orderTypes.length} selected`
-                : 'All Types'}
-              <ChevronDown className="h-4 w-4 opacity-50" />
-            </Button>
-            {orderTypeSelectOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => {
-                    updateFilter('orderTypes', []);
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={localFilters.orderTypes.length === 0}
-                    readOnly
-                    className="rounded"
-                  />
-                  <span>All Types</span>
-                </div>
-                <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => toggleOrderType('DINE_IN')}
-                >
-                  <input
-                    type="checkbox"
-                    checked={localFilters.orderTypes.includes('DINE_IN')}
-                    readOnly
-                    className="rounded"
-                  />
-                  <span>Dine In</span>
-                </div>
-                <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => toggleOrderType('TAKEAWAY')}
-                >
-                  <input
-                    type="checkbox"
-                    checked={localFilters.orderTypes.includes('TAKEAWAY')}
-                    readOnly
-                    className="rounded"
-                  />
-                  <span>Takeaway</span>
-                </div>
-              </div>
-            )}
-          </div>
-          {localFilters.orderTypes.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {localFilters.orderTypes.map((type) => (
-                <Badge
-                  key={type}
-                  variant="secondary"
-                  className="text-xs"
-                >
-                  {type === 'DINE_IN' ? 'Dine In' : 'Takeaway'}
-                  <button
-                    onClick={() => toggleOrderType(type)}
-                    className="ml-1 hover:text-red-600"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Date Preset Pill Carousel */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+          {[
+            { id: 'today', label: 'Today' },
+            { id: 'yesterday', label: 'Yesterday' },
+            { id: '7d', label: 'Last 7D' },
+            { id: '30d', label: 'Last 30D' },
+            { id: 'month', label: 'This Month' },
+            { id: 'all', label: 'All Time' },
+            { id: 'custom', label: 'Custom' },
+          ].map((preset) => {
+            const isActive = activePreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                onClick={() => handleSelectPreset(preset.id as DatePreset)}
+                className={cn(
+                  'h-8 px-2.5 sm:px-3 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5',
+                  isActive
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+              >
+                {preset.id === 'custom' && <Calendar className="h-3 w-3" />}
+                <span>{preset.label}</span>
+              </button>
+            );
+          })}
 
-        {/* Payment Method Filter */}
-        <div className="space-y-2">
-          <Label>Payment Method</Label>
-          <div className="relative" ref={paymentMethodRef}>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-between"
-              onClick={() => setPaymentMethodSelectOpen(!paymentMethodSelectOpen)}
-            >
-              {localFilters.paymentMethods.length > 0
-                ? `${localFilters.paymentMethods.length} selected`
-                : 'All Methods'}
-              <ChevronDown className="h-4 w-4 opacity-50" />
-            </Button>
-            {paymentMethodSelectOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                <div
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                  onClick={() => {
-                    updateFilter('paymentMethods', []);
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={localFilters.paymentMethods.length === 0}
-                    readOnly
-                    className="rounded"
-                  />
-                  <span>All Methods</span>
-                </div>
-                {Object.values(PaymentMethod).map((method) => (
-                  <div
-                    key={method}
-                    className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                    onClick={() => togglePaymentMethod(method)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={localFilters.paymentMethods.includes(method)}
-                      readOnly
-                      className="rounded"
-                    />
-                    <span>{method}</span>
-                  </div>
-                ))}
-              </div>
+          {/* Filter Toggle Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+            className={cn(
+              'h-8 px-3 text-xs font-semibold rounded-lg ml-auto lg:ml-1 cursor-pointer flex items-center gap-1.5 transition-all',
+              isDrawerOpen || activeFiltersCount > 0
+                ? 'border-primary/50 text-foreground bg-primary/5'
+                : 'text-muted-foreground hover:text-foreground'
             )}
-          </div>
-          {localFilters.paymentMethods.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {localFilters.paymentMethods.map((method) => (
-                <Badge
-                  key={method}
-                  variant="secondary"
-                  className="text-xs"
-                >
-                  {method}
-                  <button
-                    onClick={() => togglePaymentMethod(method)}
-                    className="ml-1 hover:text-red-600"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Table Filter */}
-        <div className="space-y-2">
-          <Label>Table</Label>
-          <Select
-            value={localFilters.tableId || 'all'}
-            onValueChange={(value) => updateFilter('tableId', value === 'all' ? undefined : value)}
           >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Tables</SelectItem>
-              {tables.map((table) => (
-                <SelectItem key={table.id} value={table.id}>
-                  {table.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Filter className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="h-4.5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                {activeFiltersCount}
+              </span>
+            )}
+            <ChevronDown
+              className={cn('h-3.5 w-3.5 transition-transform duration-200', isDrawerOpen && 'rotate-180')}
+            />
+          </Button>
         </div>
       </div>
+
+      {/* Custom Date Range Inline Row (When 'custom' preset is selected) */}
+      {activePreset === 'custom' && (
+        <div className="p-3 bg-card border border-border/70 rounded-xl flex flex-col sm:flex-row items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-medium text-muted-foreground min-w-[36px]">From:</span>
+            <Input
+              type="date"
+              value={filters.startDate || ''}
+              onChange={(e) =>
+                onFiltersChange({
+                  ...filters,
+                  startDate: e.target.value,
+                  datePreset: 'custom',
+                })
+              }
+              className="h-8 text-xs w-full sm:w-38 bg-background"
+            />
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-medium text-muted-foreground min-w-[36px]">To:</span>
+            <Input
+              type="date"
+              value={filters.endDate || ''}
+              onChange={(e) =>
+                onFiltersChange({
+                  ...filters,
+                  endDate: e.target.value,
+                  datePreset: 'custom',
+                })
+              }
+              className="h-8 text-xs w-full sm:w-38 bg-background"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground italic sm:ml-auto">
+            Showing orders created within this custom date window.
+          </p>
+        </div>
+      )}
+
+      {/* Expandable Advanced Filters Ribbon */}
+      {isDrawerOpen && (
+        <div className="p-3.5 sm:p-4 bg-card border border-border/70 rounded-xl space-y-3.5 animate-in fade-in slide-in-from-top-2 duration-200 shadow-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs">
+            {/* Status Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Order Status
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => onFiltersChange({ ...filters, statuses: [] })}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer',
+                    filters.statuses.length === 0
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusToggle(OrderStatus.COMPLETED)}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5',
+                    filters.statuses.includes(OrderStatus.COMPLETED)
+                      ? 'bg-emerald-600 text-white font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Completed</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusToggle(OrderStatus.CANCELLED)}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5',
+                    filters.statuses.includes(OrderStatus.CANCELLED)
+                      ? 'bg-rose-600 text-white font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <XCircle className="h-3 w-3" />
+                  <span>Cancelled</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Order Type Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Order Type
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => onFiltersChange({ ...filters, orderTypes: [] })}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer',
+                    filters.orderTypes.length === 0
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOrderTypeToggle('DINE_IN')}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5',
+                    filters.orderTypes.includes('DINE_IN')
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <Utensils className="h-3 w-3" />
+                  <span>Dine-In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOrderTypeToggle('TAKEAWAY')}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5',
+                    filters.orderTypes.includes('TAKEAWAY')
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <ShoppingBag className="h-3 w-3" />
+                  <span>Takeaway</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Payment Method Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Payment Method
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => onFiltersChange({ ...filters, paymentMethods: [] })}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer',
+                    filters.paymentMethods.length === 0
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePaymentMethodToggle(PaymentMethod.UPI)}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5',
+                    filters.paymentMethods.includes(PaymentMethod.UPI)
+                      ? 'bg-violet-600 text-white font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <QrCode className="h-3 w-3" />
+                  <span>UPI</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePaymentMethodToggle(PaymentMethod.CASH)}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5',
+                    filters.paymentMethods.includes(PaymentMethod.CASH)
+                      ? 'bg-emerald-600 text-white font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <Banknote className="h-3 w-3" />
+                  <span>Cash</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePaymentMethodToggle(PaymentMethod.CARD)}
+                  className={cn(
+                    'h-7 px-2.5 rounded-md font-medium text-xs transition-all cursor-pointer flex items-center gap-1.5',
+                    filters.paymentMethods.includes(PaymentMethod.CARD)
+                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <CreditCard className="h-3 w-3" />
+                  <span>Card</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Table Filter */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Table Filter
+              </label>
+              <Select
+                value={filters.tableId || 'all'}
+                onValueChange={handleTableChange}
+              >
+                <SelectTrigger className="h-7 text-xs w-full bg-background border-border/70">
+                  <SelectValue placeholder="All Tables" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tables</SelectItem>
+                  {tables.map((tbl) => (
+                    <SelectItem key={tbl.id} value={tbl.id}>
+                      {tbl.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Drawer Actions */}
+          <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs">
+            <span className="text-muted-foreground text-[11px]">
+              Showing <span className="font-semibold text-foreground">{totalFilteredCount}</span> of {totalOrdersCount} orders
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleClearAll}
+              className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Reset Filters</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Active Filter Chips Bar */}
+      {activeFiltersCount > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          <span className="text-[11px] text-muted-foreground font-medium mr-1">Active:</span>
+
+          {searchQuery && (
+            <Badge variant="secondary" className="text-[11px] h-6 px-2 gap-1 rounded-md font-normal">
+              <span>&quot;{searchQuery}&quot;</span>
+              <button onClick={() => onSearchChange('')} className="hover:text-foreground">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+
+          {filters.statuses.map((st) => (
+            <Badge
+              key={st}
+              variant="secondary"
+              className={cn(
+                'text-[11px] h-6 px-2 gap-1 rounded-md font-normal',
+                st === OrderStatus.COMPLETED ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300' : 'text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300'
+              )}
+            >
+              <span>{st}</span>
+              <button onClick={() => handleStatusToggle(st)} className="hover:opacity-75">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+
+          {filters.orderTypes.map((ot) => (
+            <Badge key={ot} variant="secondary" className="text-[11px] h-6 px-2 gap-1 rounded-md font-normal">
+              <span>{ot === 'DINE_IN' ? 'Dine-In' : 'Takeaway'}</span>
+              <button onClick={() => handleOrderTypeToggle(ot)} className="hover:opacity-75">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+
+          {filters.paymentMethods.map((pm) => (
+            <Badge key={pm} variant="secondary" className="text-[11px] h-6 px-2 gap-1 rounded-md font-normal">
+              <span>{pm}</span>
+              <button onClick={() => handlePaymentMethodToggle(pm)} className="hover:opacity-75">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+
+          {selectedTable && (
+            <Badge key={selectedTable.id} variant="secondary" className="text-[11px] h-6 px-2 gap-1 rounded-md font-normal">
+              <span>Table: {selectedTable.name}</span>
+              <button onClick={() => handleTableChange('all')} className="hover:opacity-75">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+
+          <button
+            onClick={handleClearAll}
+            className="text-[11px] text-primary hover:underline ml-1 cursor-pointer font-medium"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
     </div>
   );
 }
-
-
-
-
