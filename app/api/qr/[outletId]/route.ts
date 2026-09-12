@@ -1,3 +1,4 @@
+import { handleApiError } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -48,9 +49,6 @@ export async function GET(
     });
   } catch (error: any) {
     console.error('QR code generation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate QR code' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to generate QR code');
   }
 }

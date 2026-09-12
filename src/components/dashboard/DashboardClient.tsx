@@ -48,7 +48,7 @@ export function DashboardClient({
   outletId,
 }: DashboardClientProps = {}) {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const { currentOutletId } = useOutlet();
   const effectiveOutletId = currentOutletId || outletId || profile?.outlet_id || '';
   const cached = effectiveOutletId ? dashboardSummaryCache[effectiveOutletId] : null;
@@ -63,9 +63,9 @@ export function DashboardClient({
 
   // Function to fetch dashboard data client-side (fallback for Capacitor)
   const fetchDashboardData = useCallback(async () => {
-    const effectiveOutletId = currentOutletId || outletId;
     if (!effectiveOutletId) {
       console.warn('[Dashboard] No outlet ID available for client-side fetch');
+      if (!authLoading) setLoading(false);
       return;
     }
 
@@ -160,7 +160,7 @@ export function DashboardClient({
         .from('inventory_items')
         .select('current_stock, min_stock')
         .eq('outlet_id', effectiveOutletId)
-        .eq('is_active', true);
+        .eq('active', true);
 
       let lowStockCount = 0;
       let totalInventory = 0;
@@ -198,14 +198,16 @@ export function DashboardClient({
     } finally {
       setLoading(false);
     }
-  }, [effectiveOutletId]);
+  }, [effectiveOutletId, authLoading]);
 
   // Initial fetch on mount or when outlet changes
   useEffect(() => {
     if (effectiveOutletId) {
       fetchDashboardData();
+    } else if (!authLoading) {
+      setLoading(false);
     }
-  }, [effectiveOutletId, fetchDashboardData]);
+  }, [effectiveOutletId, authLoading, fetchDashboardData]);
 
   // Function to refetch dashboard data
   const refetchDashboard = useCallback(async () => {

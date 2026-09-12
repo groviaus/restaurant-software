@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission , handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 const updateCategorySchema = z.object({
@@ -45,10 +45,7 @@ export async function PATCH(
                 { status: 400 }
             );
         }
-        return NextResponse.json(
-            { error: error.message || 'Failed to update category' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'Failed to update category');
     }
 }
 
@@ -74,9 +71,6 @@ export async function DELETE(
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message || 'Failed to delete category' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'Failed to delete category');
     }
 }

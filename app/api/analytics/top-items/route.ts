@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,10 +75,7 @@ export async function GET(request: NextRequest) {
       low: lowItems,
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch top items' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch top items');
   }
 }
 

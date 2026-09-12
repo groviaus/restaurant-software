@@ -436,14 +436,15 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
                           )}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-[11px]">
-                          {recipe?.ingredients?.length
-                            ? recipe.ingredients.map((ing) =>
-                                (ing.inventory_item as any)?.name ?? '?'
-                              ).slice(0, 3).join(', ') +
-                              (recipe.ingredients.length > 3
-                                ? ` +${recipe.ingredients.length - 3} more`
-                                : '')
-                            : <span className="opacity-40">—</span>}
+                          {(() => {
+                            const ings = recipe?.ingredients ?? (recipe as any)?.recipe_ingredients ?? [];
+                            if (!ings.length) return <span className="opacity-40">—</span>;
+                            const names = ings
+                              .map((ing: any) => ing.inventory_item?.name ?? 'Item')
+                              .slice(0, 3)
+                              .join(', ');
+                            return names + (ings.length > 3 ? ` +${ings.length - 3} more` : '');
+                          })()}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Button

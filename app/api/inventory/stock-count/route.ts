@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 import { recordMovement } from '@/lib/inventory/inventoryService';
 import { InventoryTransactionType, StockCountStatus } from '@/lib/types';

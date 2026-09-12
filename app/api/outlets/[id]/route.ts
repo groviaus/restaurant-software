@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission , handleApiError } from '@/lib/auth';
 
 export async function GET(
     request: Request,
@@ -27,10 +27,7 @@ export async function GET(
         return NextResponse.json(outlet);
     } catch (error: any) {
         console.error('Outlet fetch error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to fetch outlet' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'Failed to fetch outlet');
     }
 }
 
@@ -91,9 +88,6 @@ export async function DELETE(
         });
     } catch (error: any) {
         console.error('Outlet delete error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to delete outlet' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'Failed to delete outlet');
     }
 }

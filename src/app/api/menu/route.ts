@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth , handleApiError } from '@/lib/auth';
 import { createMenuItemSchema, updateMenuItemSchema, menuQuerySchema } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
@@ -38,10 +38,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch menu items' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch menu items');
   }
 }
 
@@ -70,10 +67,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to create menu item' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to create menu item');
   }
 }
 

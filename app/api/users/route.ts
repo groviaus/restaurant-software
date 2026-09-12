@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getSession } from '@/lib/auth';
+import { requirePermission, getSession , handleApiError } from '@/lib/auth';
 
 // GET all users with roles
 export async function GET(request: NextRequest) {

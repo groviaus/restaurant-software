@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSession, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { getSession, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 // Type for global settings
@@ -141,13 +141,17 @@ export async function GET(request: NextRequest) {
             currency_code: typedOutletData?.currency_code ?? 'INR',
         };
 
-        return NextResponse.json({ settings: mergedSettings });
+        return NextResponse.json(
+            { settings: mergedSettings },
+            {
+                headers: {
+                    'Cache-Control': 'private, max-age=30, stale-while-revalidate=120',
+                },
+            }
+        );
     } catch (error: any) {
         console.error('Settings GET error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to fetch settings' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'Failed to fetch settings');
     }
 }
 
@@ -263,9 +267,6 @@ export async function POST(request: NextRequest) {
             );
         }
         console.error('Settings POST error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to save settings' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'Failed to save settings');
     }
 }

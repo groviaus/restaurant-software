@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getEffectiveOutletId, getUserProfile } from '@/lib/auth';
+import { getEffectiveOutletId, getUserProfile , handleApiError } from '@/lib/auth';
 import { getMenuAvailability } from '@/lib/inventory/inventoryService';
 
 /**

@@ -30,6 +30,10 @@ interface OrderHistoryPageClientProps {
   outletId?: string;
 }
 
+// In-memory cache across navigations
+const historyOrdersCache: Record<string, OrderWithItems[]> = {};
+const historyTablesCache: Record<string, Table[]> = {};
+
 export function OrderHistoryPageClient({
   initialOrders = [],
   tables: initialTables = [],
@@ -37,10 +41,13 @@ export function OrderHistoryPageClient({
 }: OrderHistoryPageClientProps) {
   const { currentOutletId } = useOutlet();
   const outletId = propOutletId || currentOutletId || '';
-  const [orders, setOrders] = useState<OrderWithItems[]>(initialOrders);
-  const [tables, setTables] = useState<Table[]>(initialTables);
+  const cachedOrders = outletId ? historyOrdersCache[outletId] : undefined;
+  const cachedTables = outletId ? historyTablesCache[outletId] : undefined;
+
+  const [orders, setOrders] = useState<OrderWithItems[]>(() => cachedOrders || initialOrders);
+  const [tables, setTables] = useState<Table[]>(() => cachedTables || initialTables);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [loading, setLoading] = useState(initialOrders.length === 0);
+  const [loading, setLoading] = useState(!cachedOrders && initialOrders.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
@@ -61,7 +68,7 @@ export function OrderHistoryPageClient({
     try {
       localStorage.setItem('resto_history_view_mode', mode);
     } catch {
-      // Ignore storage errors
+      // Ignore
     }
   };
 
@@ -79,11 +86,15 @@ export function OrderHistoryPageClient({
 
         if (ordersRes.ok && isMounted) {
           const data = await ordersRes.json();
-          setOrders(data || []);
+          const ords = data || [];
+          setOrders(ords);
+          historyOrdersCache[outletId] = ords;
         }
         if (tablesRes.ok && isMounted) {
           const tData = await tablesRes.json();
-          setTables(tData.tables || tData || []);
+          const tbls = tData.tables || tData || [];
+          setTables(tbls);
+          historyTablesCache[outletId] = tbls;
         }
       } catch (err) {
         console.error('Error fetching order history:', err);
@@ -111,7 +122,9 @@ export function OrderHistoryPageClient({
       const response = await fetch(`/api/orders?outlet_id=${outletId}&status=COMPLETED,CANCELLED`);
       if (response.ok) {
         const data = await response.json();
-        setOrders(data || []);
+        const ords = data || [];
+        setOrders(ords);
+        historyOrdersCache[outletId] = ords;
         if (isManual) {
           toast.success('Order history synced');
         }

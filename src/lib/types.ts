@@ -324,6 +324,7 @@ export interface Recipe {
   // Joined
   menu_item?: MenuItem;
   ingredients?: RecipeIngredient[];
+  recipe_ingredients?: RecipeIngredient[];
 }
 
 export interface RecipeIngredient {

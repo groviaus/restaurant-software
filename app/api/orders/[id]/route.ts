@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile } from '@/lib/auth';
+import { requirePermission, getUserProfile , handleApiError } from '@/lib/auth';
 import { updateOrderStatusSchema, orderIdSchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 import { reverseOrderConsumption, consumeForOrder } from '@/lib/inventory/inventoryService';
@@ -48,10 +48,7 @@ export async function GET(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch order' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch order');
   }
 }
 
@@ -163,10 +160,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to update order' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to update order');
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission, handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 const createCategorySchema = z.object({
@@ -48,14 +48,17 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        return NextResponse.json({ categories: categoriesWithCount });
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Failed to fetch categories';
-        console.error('Categories API error:', error);
         return NextResponse.json(
-            { error: message },
-            { status: 500 }
+            { categories: categoriesWithCount },
+            {
+                headers: {
+                    'Cache-Control': 'private, max-age=20, stale-while-revalidate=59',
+                },
+            }
         );
+    } catch (error: unknown) {
+        console.error('Categories API error:', error);
+        return handleApiError(error);
     }
 }
 
@@ -149,11 +152,7 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
-        const message = error instanceof Error ? error.message : 'Internal server error';
         console.error('Category creation error:', error);
-        return NextResponse.json(
-            { error: message },
-            { status: 500 }
-        );
+        return handleApiError(error);
     }
 }

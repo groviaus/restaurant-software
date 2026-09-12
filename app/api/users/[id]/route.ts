@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission , handleApiError } from '@/lib/auth';
 
 // UPDATE User (Change role/outlet)
 // UPDATE User (Change role/outlet)

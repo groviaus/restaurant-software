@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -88,10 +88,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ items: report });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate report' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to generate report');
   }
 }
 

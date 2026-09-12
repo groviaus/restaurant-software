@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth , handleApiError } from '@/lib/auth';
 import { updateTableSchema, tableIdSchema } from '@/lib/schemas';
 
 export async function PATCH(
@@ -34,10 +34,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to update table' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to update table');
   }
 }
 
@@ -66,10 +63,7 @@ export async function DELETE(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete table' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to delete table');
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId, handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 const createItemSchema = z.object({
@@ -53,9 +53,16 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ items: data ?? [] });
+    return NextResponse.json(
+      { items: data ?? [] },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=15, stale-while-revalidate=59',
+        },
+      }
+    );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to fetch inventory items' }, { status: 500 });
+    return handleApiError(err);
   }
 }
 
@@ -83,7 +90,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ item: data }, { status: 201 });
   } catch (err: any) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: err.issues }, { status: 400 });
-    return NextResponse.json({ error: err.message || 'Failed to create inventory item' }, { status: 500 });
+    return handleApiError(err);
   }
 }
 
@@ -114,7 +121,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ item: data });
   } catch (err: any) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: err.issues }, { status: 400 });
-    return NextResponse.json({ error: err.message || 'Failed to update inventory item' }, { status: 500 });
+    return handleApiError(err);
   }
 }
 
@@ -143,6 +150,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to delete inventory item' }, { status: 500 });
+    return handleApiError(err);
   }
 }

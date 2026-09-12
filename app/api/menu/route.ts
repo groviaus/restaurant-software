@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission, handleApiError } from '@/lib/auth';
 import { createMenuItemSchema, menuQuerySchema } from '@/lib/schemas';
 import { ZodError } from 'zod';
 
@@ -63,14 +63,17 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ items: data || [] });
+    return NextResponse.json(
+      { items: data || [] },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=15, stale-while-revalidate=59',
+        },
+      }
+    );
   } catch (error: unknown) {
     console.error('Menu API error:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to fetch menu items';
-    return NextResponse.json(
-      { error: msg },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requireAuth, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requireAuth, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 import { billRequestSchema } from '@/lib/schemas';
 import { OrderStatus, PaymentMethod } from '@/lib/types';
 
@@ -179,10 +179,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate bill' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to generate bill');
   }
 }
 

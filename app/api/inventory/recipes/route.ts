@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 const ingredientSchema = z.object({
@@ -49,7 +49,13 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ recipes: data ?? [] });
+    const normalizedRecipes = (data ?? []).map((r: any) => ({
+      ...r,
+      ingredients: r.recipe_ingredients ?? r.ingredients ?? [],
+      recipe_ingredients: r.recipe_ingredients ?? r.ingredients ?? [],
+    }));
+
+    return NextResponse.json({ recipes: normalizedRecipes });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to fetch recipes' }, { status: 500 });
   }
@@ -124,7 +130,15 @@ export async function POST(request: NextRequest) {
       .eq('id', recipeData.id)
       .single();
 
-    return NextResponse.json({ recipe: fullRecipe }, { status: 201 });
+    const normalizedRecipe = fullRecipe
+      ? {
+          ...(fullRecipe as any),
+          ingredients: (fullRecipe as any).recipe_ingredients ?? [],
+          recipe_ingredients: (fullRecipe as any).recipe_ingredients ?? [],
+        }
+      : null;
+
+    return NextResponse.json({ recipe: normalizedRecipe }, { status: 201 });
   } catch (err: any) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: err.issues }, { status: 400 });
     return NextResponse.json({ error: err.message || 'Failed to save recipe' }, { status: 500 });

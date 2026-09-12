@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth , handleApiError } from '@/lib/auth';
 import { orderIdSchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
@@ -56,10 +56,7 @@ export async function POST(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to complete order' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to complete order');
   }
 }
 

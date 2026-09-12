@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireAuth, requirePermission } from '@/lib/auth';
+import { requireAuth, requirePermission, handleApiError } from '@/lib/auth';
 import { createTableSchema, tablesQuerySchema } from '@/lib/schemas';
 
 export async function GET(request: NextRequest) {
@@ -79,12 +79,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ tables: tables || [] });
-  } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch tables' },
-      { status: 500 }
+      { tables: tables || [] },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=5, stale-while-revalidate=20',
+        },
+      }
     );
+  } catch (error: any) {
+    return handleApiError(error);
   }
 }
 
@@ -113,10 +117,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to create table' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

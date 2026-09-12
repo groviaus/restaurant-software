@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { requireAuth, requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requireAuth, requirePermission, getUserProfile, getEffectiveOutletId, handleApiError } from '@/lib/auth';
 import { createOrderSchema, ordersQuerySchema } from '@/lib/schemas';
 import { OrderStatus } from '@/lib/types';
 
@@ -59,12 +59,12 @@ export async function GET(request: NextRequest) {
       queryBuilder = queryBuilder.lte('created_at', query.end_date);
     }
 
-    if (query.limit) {
-      queryBuilder = queryBuilder.limit(query.limit);
-    }
-
+    // Default limit to 100 to prevent unbounded memory spikes
+    const limit = query.limit || 100;
     if (query.offset) {
-      queryBuilder = queryBuilder.range(query.offset, query.offset + (query.limit || 50) - 1);
+      queryBuilder = queryBuilder.range(query.offset, query.offset + limit - 1);
+    } else {
+      queryBuilder = queryBuilder.limit(limit);
     }
 
     const { data, error } = await queryBuilder;
@@ -73,10 +73,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch orders' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -244,10 +241,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to create order' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

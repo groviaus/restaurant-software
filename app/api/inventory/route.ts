@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 const updateInventorySchema = z.object({
@@ -37,10 +37,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ inventory: inventory || [] });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch inventory' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch inventory');
   }
 }
 
@@ -140,10 +137,7 @@ export async function PATCH(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to update inventory' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to update inventory');
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId , handleApiError } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -36,10 +36,7 @@ export async function GET() {
 
     return NextResponse.json({ alerts: lowStock || [] });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch inventory alerts' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch inventory alerts');
   }
 }
 

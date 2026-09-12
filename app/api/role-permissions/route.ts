@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSession } from '@/lib/auth';
+import { getSession , handleApiError } from '@/lib/auth';
 
 // UPDATE permissions for a role (Bulk Upsert)
 export async function POST(request: NextRequest) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission , handleApiError } from '@/lib/auth';
 import { updateMenuItemSchema, menuItemIdSchema } from '@/lib/schemas';
 
 export async function PATCH(
@@ -40,10 +40,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to update menu item' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to update menu item');
   }
 }
 
@@ -73,10 +70,7 @@ export async function DELETE(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete menu item' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to delete menu item');
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requirePermission, getUserProfile, getEffectiveOutletId } from '@/lib/auth';
+import { requirePermission, getUserProfile, getEffectiveOutletId, handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 const createOutletSchema = z.object({
@@ -25,7 +25,14 @@ export async function GET() {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json({ outlets: outlets || [] });
+      return NextResponse.json(
+        { outlets: outlets || [] },
+        {
+          headers: {
+            'Cache-Control': 'private, max-age=30, stale-while-revalidate=120',
+          },
+        }
+      );
     } else {
       const effectiveOutletId = getEffectiveOutletId(profile);
       if (effectiveOutletId) {
@@ -39,16 +46,20 @@ export async function GET() {
           return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        return NextResponse.json({ outlets: outlet ? [outlet] : [] });
+        return NextResponse.json(
+          { outlets: outlet ? [outlet] : [] },
+          {
+            headers: {
+              'Cache-Control': 'private, max-age=30, stale-while-revalidate=120',
+            },
+          }
+        );
       }
 
       return NextResponse.json({ outlets: [] });
     }
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch outlets' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -80,10 +91,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to create outlet' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

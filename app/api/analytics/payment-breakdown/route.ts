@@ -1,3 +1,4 @@
+import { handleApiError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { getCachedAuth } from '@/lib/auth/cache';
@@ -93,10 +94,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch payment breakdown' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch payment breakdown');
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getUserProfile } from '@/lib/auth';
+import { getUserProfile , handleApiError } from '@/lib/auth';
 import { z } from 'zod';
 
 const switchOutletSchema = z.object({
@@ -70,10 +70,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to switch outlet' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to switch outlet');
   }
 }
 

@@ -214,7 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .from('users')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
 
             const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
 
@@ -260,7 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
             } else {
                 currentProfileUserIdRef.current = userId;
-                setProfile(data as UserProfile);
+                setProfile(data as unknown as UserProfile);
             }
         } catch (error: any) {
             console.error('Error in fetchUserProfile:', error);

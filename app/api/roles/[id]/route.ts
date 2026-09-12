@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission , handleApiError } from '@/lib/auth';
 
 // GET single role with permissions
 export async function GET(

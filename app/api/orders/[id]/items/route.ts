@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission , handleApiError } from '@/lib/auth';
 import { orderIdSchema, orderItemSchema } from '@/lib/schemas';
 import { z } from 'zod';
 import { QuantityType } from '@/lib/types';
@@ -260,10 +260,7 @@ export async function PATCH(
       );
     }
     console.error('Error updating order items:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to update order items' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to update order items');
   }
 }
 

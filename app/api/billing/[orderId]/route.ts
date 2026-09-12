@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requirePermission } from '@/lib/auth';
+import { requirePermission, handleApiError } from '@/lib/auth';
 import { billOrderIdSchema } from '@/lib/schemas';
 
 export async function GET(
@@ -56,10 +56,7 @@ export async function GET(
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch bill' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
