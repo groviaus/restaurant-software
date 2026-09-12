@@ -167,8 +167,26 @@ export function OrdersTable({
 
   const refetchOrders = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['orders'] });
-    if (onRefresh) onRefresh();
-  }, [queryClient, onRefresh]);
+    if (onRefresh) {
+      onRefresh();
+    } else if (outletId) {
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStart = today.toISOString();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const todayEnd = tomorrow.toISOString();
+        const res = await fetch(`/api/orders?outlet_id=${outletId}&start_date=${todayStart}&end_date=${todayEnd}`);
+        if (res.ok) {
+          const fresh = await res.json();
+          setOrders(fresh);
+        }
+      } catch (err) {
+        console.error('Failed to refetch orders:', err);
+      }
+    }
+  }, [queryClient, onRefresh, outletId, setOrders]);
 
   // Realtime order subscription
   useRealtimeOrders({

@@ -106,8 +106,19 @@ export function TableGrid({
 
   const refetchTables = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['tables'] });
+    if (outletId) {
+      try {
+        const res = await fetch(`/api/tables?outlet_id=${outletId}`);
+        if (res.ok) {
+          const freshTables = await res.json();
+          setTables(freshTables);
+        }
+      } catch (e) {
+        console.error('Failed to refetch tables:', e);
+      }
+    }
     onRefresh?.();
-  }, [queryClient, onRefresh]);
+  }, [queryClient, outletId, setTables, onRefresh]);
 
   // Real-time table updates
   useRealtimeTables({
