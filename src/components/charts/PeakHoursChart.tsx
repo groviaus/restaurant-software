@@ -95,7 +95,7 @@ export function PeakHoursChart() {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border/60 bg-card p-5 shadow-xs">
+      <div className="rounded-xl border border-border/60 bg-card p-5 shadow-xs flex flex-col justify-between h-full">
         <div className="flex items-center justify-between mb-4">
           <div className="space-y-1">
             <div className="h-4 w-28 bg-muted rounded animate-pulse" />
@@ -103,7 +103,7 @@ export function PeakHoursChart() {
           </div>
           <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
         </div>
-        <div className="h-[220px] sm:h-[260px] flex items-end gap-2 p-2">
+        <div className="h-[220px] sm:h-[280px] flex items-end gap-2 p-2 mt-auto">
           {[...Array(12)].map((_, i) => (
             <div
               key={i}
@@ -117,7 +117,7 @@ export function PeakHoursChart() {
   }
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-border hover:shadow-md">
+    <div className="rounded-xl border border-border/60 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-border hover:shadow-md flex flex-col justify-between h-full">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-4">
         <div>
@@ -136,8 +136,8 @@ export function PeakHoursChart() {
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="h-[210px] sm:h-[250px] w-full">
+      {/* Chart - Anchored to bottom of card */}
+      <div className="h-[220px] sm:h-[280px] w-full mt-auto">
         {data.length === 0 ? (
           <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
             No order distribution data recorded

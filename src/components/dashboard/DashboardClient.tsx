@@ -395,11 +395,12 @@ export function DashboardClient({
       </div>
 
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2 px-1 sm:px-0">
+        <TopItemsList />
+        <StaffPerformanceList />
+      </div>
+
+      <div className="px-1 sm:px-0">
         <PeakHoursChart />
-        <div className="space-y-4 sm:space-y-6">
-          <TopItemsList />
-          <StaffPerformanceList />
-        </div>
       </div>
     </div>
   );
