@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
+import { loginAction } from './actions';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,17 +18,18 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data?.user) {
+      const result = await loginAction(email, password);
+      
+      if (result?.error) {
+        setError(result.error);
+        setLoading(false);
+      } else if (result?.success) {
+        // Use a hard reload to completely bypass Next.js client-side navigation
+        // This ensures the entire React tree is cleanly remounted, avoiding any "Rendered more hooks" HMR/navigation errors
         window.location.href = '/';
       }
     } catch (error: any) {
+      console.error("Login error:", error);
       setError(error.message || 'An error occurred during login');
       setLoading(false);
     }

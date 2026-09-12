@@ -16,23 +16,28 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+import { getUser, getUserProfile } from '@/lib/auth';
+
 export const metadata: Metadata = {
   title: 'Restaurant POS System',
   description: 'Restaurant Point of Sale and Multi-Outlet Management System',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getUser();
+  const profile = user ? await getUserProfile() : null;
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <QueryProvider>
-          <AuthProvider>
+          <AuthProvider initialUser={user} initialProfile={profile}>
             <LayoutWrapper>{children}</LayoutWrapper>
             <Toaster />
           </AuthProvider>
