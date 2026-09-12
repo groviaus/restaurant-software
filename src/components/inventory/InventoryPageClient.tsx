@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import { useOutlet } from '@/hooks/useOutlet';
 
@@ -149,16 +150,7 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
     return true;
   });
 
-  if (loading && inventoryItems.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-3">
-          <div className="w-9 h-9 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs font-medium text-muted-foreground">Synchronizing live stock ledger...</p>
-        </div>
-      </div>
-    );
-  }
+  const isPageLoading = loading && inventoryItems.length === 0;
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -269,8 +261,8 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
             >
               <Boxes className="w-3.5 h-3.5" />
               <span>Items Master</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground">
-                {inventoryItems.length}
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground min-w-4 inline-flex items-center justify-center">
+                {isPageLoading ? <Skeleton className="h-2 w-3" /> : inventoryItems.length}
               </span>
             </TabsTrigger>
 
@@ -280,8 +272,8 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
             >
               <ClipboardList className="w-3.5 h-3.5" />
               <span>Ledger Logs</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground">
-                {movements.length}
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground min-w-4 inline-flex items-center justify-center">
+                {isPageLoading ? <Skeleton className="h-2 w-3" /> : movements.length}
               </span>
             </TabsTrigger>
 
@@ -291,8 +283,8 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
             >
               <ChefHat className="w-3.5 h-3.5" />
               <span>Recipes / BOM</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground">
-                {recipeCount}
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground min-w-4 inline-flex items-center justify-center">
+                {isPageLoading ? <Skeleton className="h-2 w-3" /> : recipeCount}
               </span>
             </TabsTrigger>
 
@@ -311,6 +303,7 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
           <InventoryDashboardView
             items={inventoryItems}
             movements={movements}
+            loading={isPageLoading}
             onOpenRecordMovement={() => setRecordMovementOpen(true)}
             onOpenWastage={() => setWastageModalOpen(true)}
             onOpenStockCount={() => setStockCountOpen(true)}
@@ -324,6 +317,7 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
           <InventoryItemsTable
             items={inventoryItems}
             outletId={outletId}
+            loading={isPageLoading}
             onRefetch={() => fetchAll(true)}
           />
         </TabsContent>

@@ -17,6 +17,7 @@ import { Loader2, Save, Eye, PenSquare, Trash2, Plus, CheckCheck, X, Shield, Spa
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 interface PermissionMatrixProps {
@@ -131,14 +132,7 @@ export function PermissionMatrix({ roleId, initialPermissions }: PermissionMatri
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 gap-3 bg-card rounded-2xl border border-border/70">
-        <Loader2 className="h-7 w-7 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Loading access matrix...</p>
-      </div>
-    );
-  }
+
 
   return (
     <Card className="rounded-2xl border border-border/70 shadow-2xs overflow-hidden">
@@ -198,7 +192,32 @@ export function PermissionMatrix({ roleId, initialPermissions }: PermissionMatri
               </TableRow>
             </TableHeader>
             <TableBody>
-              {modules.map((module) => {
+              {loading ? (
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <TableRow key={idx} className="border-b border-border/50">
+                    <TableCell className="py-3 pl-5">
+                      <Skeleton className="h-4 w-32 rounded-md mb-1.5" />
+                      <Skeleton className="h-3 w-20 rounded-md" />
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <Skeleton className="h-4 w-4 rounded-md mx-auto" />
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <Skeleton className="h-4 w-4 rounded-md mx-auto" />
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <Skeleton className="h-4 w-4 rounded-md mx-auto" />
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <Skeleton className="h-4 w-4 rounded-md mx-auto" />
+                    </TableCell>
+                    <TableCell className="py-3 pr-5 text-right">
+                      <Skeleton className="h-7 w-20 rounded-lg ml-auto" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                modules.map((module) => {
                 const perm = permissions[module.id] || {
                   can_view: false,
                   can_create: false,
@@ -257,14 +276,31 @@ export function PermissionMatrix({ roleId, initialPermissions }: PermissionMatri
                     </TableCell>
                   </TableRow>
                 );
-              })}
+              })
+            )}
             </TableBody>
           </Table>
         </div>
 
         {/* Mobile View */}
         <div className="md:hidden p-3 space-y-3">
-          {modules.map((module) => {
+          {loading ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <Card key={idx} className="rounded-xl border border-border/70 p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-28 rounded-md" />
+                  <Skeleton className="h-3 w-16 rounded-md" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Skeleton className="h-10 rounded-lg" />
+                  <Skeleton className="h-10 rounded-lg" />
+                  <Skeleton className="h-10 rounded-lg" />
+                  <Skeleton className="h-10 rounded-lg" />
+                </div>
+              </Card>
+            ))
+          ) : (
+            modules.map((module) => {
             const perm = permissions[module.id] || {
               can_view: false,
               can_create: false,
@@ -310,7 +346,8 @@ export function PermissionMatrix({ roleId, initialPermissions }: PermissionMatri
                 </div>
               </Card>
             );
-          })}
+          })
+        )}
         </div>
       </CardContent>
     </Card>

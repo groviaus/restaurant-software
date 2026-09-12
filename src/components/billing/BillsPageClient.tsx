@@ -38,43 +38,7 @@ export function BillsPageClient({ outletId: propOutletId }: BillsPageClientProps
     }
   };
 
-  if (billsQuery.isLoading && bills.length === 0) {
-    return (
-      <div className="space-y-4 sm:space-y-5">
-        {/* Header Skeleton */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <Skeleton className="h-7 w-36 rounded-lg" />
-            <Skeleton className="h-4 w-52 rounded-md" />
-          </div>
-          <Skeleton className="h-8 w-20 rounded-xl" />
-        </div>
-
-        {/* 4 KPI Cards Skeleton */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
-          ))}
-        </div>
-
-        {/* Controls Skeleton */}
-        <div className="flex items-center justify-between gap-3">
-          <Skeleton className="h-8.5 w-64 rounded-xl" />
-          <div className="flex gap-2">
-            <Skeleton className="h-8.5 w-24 rounded-xl" />
-            <Skeleton className="h-8.5 w-16 rounded-xl" />
-          </div>
-        </div>
-
-        {/* Grid Cards Skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-52 w-full rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const isLoading = billsQuery.isLoading && bills.length === 0;
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -85,8 +49,8 @@ export function BillsPageClient({ outletId: propOutletId }: BillsPageClientProps
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               Bills & Invoices
             </h1>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {bills.length}
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground min-w-6 inline-flex items-center justify-center">
+              {isLoading ? <Skeleton className="h-3 w-5" /> : bills.length}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
@@ -124,6 +88,7 @@ export function BillsPageClient({ outletId: propOutletId }: BillsPageClientProps
         bills={bills}
         outletId={outletId}
         tables={tables}
+        loading={isLoading}
         onRefresh={() => {
           billsQuery.refetch();
           tablesQuery.refetch();

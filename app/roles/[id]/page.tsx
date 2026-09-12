@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PermissionMatrix } from '@/components/roles/PermissionMatrix';
 import { toast } from 'sonner';
 
@@ -76,16 +77,7 @@ export default function EditRolePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-20 gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Loading role profile...</p>
-      </div>
-    );
-  }
 
-  if (!role) return null;
 
   return (
     <div className="space-y-6">
@@ -102,8 +94,8 @@ export default function EditRolePage() {
           </Button>
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
-                Role: {role.name}
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate flex items-center gap-2">
+                Role: {loading ? <Skeleton className="h-7 w-32 rounded-md inline-block" /> : (role?.name || 'Untitled Role')}
               </h1>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                 Security Profile
@@ -130,57 +122,71 @@ export default function EditRolePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5">
-              <form onSubmit={handleUpdateRole} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground/90">
-                    Role Name <span className="text-rose-500">*</span>
-                  </Label>
-                  <Input
-                    id="edit-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    className="h-10 rounded-xl border-border/70 bg-background text-sm"
-                  />
+              {loading ? (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-20 rounded-md" />
+                    <Skeleton className="h-10 w-full rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-28 rounded-md" />
+                    <Skeleton className="h-24 w-full rounded-xl" />
+                  </div>
+                  <Skeleton className="h-9 w-full rounded-xl" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-desc" className="text-xs font-semibold text-foreground/90">
-                    Role Description
-                  </Label>
-                  <Textarea
-                    id="edit-desc"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={4}
-                    placeholder="Describe staff responsibilities..."
-                    className="rounded-xl border-border/70 bg-background text-xs resize-none leading-relaxed"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={saving || !formData.name.trim()}
-                  className="w-full h-9 rounded-xl text-xs font-semibold shadow-sm gap-1.5 cursor-pointer"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Saving Changes...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-3.5 h-3.5" />
-                      Update Role Name
-                    </>
-                  )}
-                </Button>
-              </form>
+              ) : (
+                <form onSubmit={handleUpdateRole} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground/90">
+                      Role Name <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      id="edit-name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                      className="h-10 rounded-xl border-border/70 bg-background text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-desc" className="text-xs font-semibold text-foreground/90">
+                      Role Description
+                    </Label>
+                    <Textarea
+                      id="edit-desc"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows={4}
+                      placeholder="Describe staff responsibilities..."
+                      className="rounded-xl border-border/70 bg-background text-xs resize-none leading-relaxed"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={saving || !formData.name.trim()}
+                    className="w-full h-9 rounded-xl text-xs font-semibold shadow-sm gap-1.5 cursor-pointer"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Saving Changes...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        Update Role Name
+                      </>
+                    )}
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* Permission Matrix */}
         <div className="lg:col-span-2">
-          <PermissionMatrix roleId={role.id} initialPermissions={permissions} />
+          <PermissionMatrix roleId={role?.id || id} initialPermissions={permissions} />
         </div>
       </div>
     </div>

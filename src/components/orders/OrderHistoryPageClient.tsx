@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import { useOutlet } from '@/hooks/useOutlet';
 
@@ -282,6 +283,8 @@ export function OrderHistoryPageClient({
     setSearchQuery('');
   };
 
+  const isPageLoading = loading && orders.length === 0;
+
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* 1. Header & Live Sync Bar */}
@@ -290,8 +293,8 @@ export function OrderHistoryPageClient({
           <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
             Order History
           </h1>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            {filteredOrders.length}
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground min-w-6 inline-flex items-center justify-center">
+            {isPageLoading ? <Skeleton className="h-3 w-5" /> : filteredOrders.length}
           </span>
         </div>
 
@@ -363,7 +366,7 @@ export function OrderHistoryPageClient({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            ₹{metrics.totalRevenue.toFixed(2)}
+            {isPageLoading ? <Skeleton className="h-7 w-20 my-0.5" /> : `₹${metrics.totalRevenue.toFixed(2)}`}
           </div>
           <p className="text-[11px] text-muted-foreground truncate font-medium">
             {metrics.completedCount} {metrics.completedCount === 1 ? 'bill settled' : 'bills settled'}
@@ -381,7 +384,7 @@ export function OrderHistoryPageClient({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            {metrics.completedCount}
+            {isPageLoading ? <Skeleton className="h-7 w-12 my-0.5" /> : metrics.completedCount}
           </div>
           <p className="text-[11px] text-muted-foreground truncate font-medium">
             {metrics.dineInCount} Dine-In • {metrics.takeawayCount} Takeaway
@@ -399,7 +402,7 @@ export function OrderHistoryPageClient({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            {metrics.cancelledCount}
+            {isPageLoading ? <Skeleton className="h-7 w-10 my-0.5" /> : metrics.cancelledCount}
           </div>
           <p className="text-[11px] text-muted-foreground truncate font-medium">
             {metrics.cancelledCount === 0 ? 'Zero cancellations' : 'Voided or cancelled'}
@@ -417,7 +420,7 @@ export function OrderHistoryPageClient({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            ₹{metrics.avgOrderValue.toFixed(2)}
+            {isPageLoading ? <Skeleton className="h-7 w-16 my-0.5" /> : `₹${metrics.avgOrderValue.toFixed(2)}`}
           </div>
           <p className="text-[11px] text-muted-foreground truncate font-medium">
             Average spend per order
@@ -441,6 +444,7 @@ export function OrderHistoryPageClient({
         orders={filteredOrders}
         outletId={outletId}
         viewMode={viewMode}
+        loading={isPageLoading}
         onClearFilters={handleClearFilters}
       />
     </div>

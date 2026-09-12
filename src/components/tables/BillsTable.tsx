@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { OrderWithItems, PaymentMethod, Table as TableType } from '@/lib/types';
 import {
   Eye,
@@ -43,11 +44,12 @@ interface BillsTableProps {
   outletId: string;
   tables: TableType[];
   onRefresh?: () => void;
+  loading?: boolean;
 }
 
 const ITEMS_PER_PAGE = 12;
 
-export function BillsTable({ bills: initialBills, outletId, tables, onRefresh }: BillsTableProps) {
+export function BillsTable({ bills: initialBills, outletId, tables, onRefresh, loading = false }: BillsTableProps) {
   const [selectedBill, setSelectedBill] = useState<OrderWithItems | null>(null);
   const [billModalOpen, setBillModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -373,10 +375,14 @@ export function BillsTable({ bills: initialBills, outletId, tables, onRefresh }:
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-              ₹{metrics.totalRevenue.toFixed(2)}
+              {loading && bills.length === 0 ? (
+                <Skeleton className="h-7 w-20 rounded my-0.5" />
+              ) : (
+                `₹${metrics.totalRevenue.toFixed(2)}`
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium truncate">
-              {metrics.count} {metrics.count === 1 ? 'bill settled' : 'bills settled'}
+              {loading && bills.length === 0 ? 'Calculating...' : `${metrics.count} ${metrics.count === 1 ? 'bill settled' : 'bills settled'}`}
             </p>
           </div>
 
@@ -391,7 +397,11 @@ export function BillsTable({ bills: initialBills, outletId, tables, onRefresh }:
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-sky-600 dark:text-sky-400">
-              ₹{metrics.digitalSum.toFixed(2)}
+              {loading && bills.length === 0 ? (
+                <Skeleton className="h-7 w-20 rounded my-0.5" />
+              ) : (
+                `₹${metrics.digitalSum.toFixed(2)}`
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium truncate">
               {metrics.digitalPercentage}% UPI & Cards ({metrics.digitalCount})
@@ -409,7 +419,11 @@ export function BillsTable({ bills: initialBills, outletId, tables, onRefresh }:
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-400">
-              ₹{metrics.cashSum.toFixed(2)}
+              {loading && bills.length === 0 ? (
+                <Skeleton className="h-7 w-20 rounded my-0.5" />
+              ) : (
+                `₹${metrics.cashSum.toFixed(2)}`
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium truncate">
               {metrics.cashCount} cash {metrics.cashCount === 1 ? 'bill' : 'bills'}
@@ -427,7 +441,11 @@ export function BillsTable({ bills: initialBills, outletId, tables, onRefresh }:
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-              ₹{metrics.avgTicket.toFixed(2)}
+              {loading && bills.length === 0 ? (
+                <Skeleton className="h-7 w-20 rounded my-0.5" />
+              ) : (
+                `₹${metrics.avgTicket.toFixed(2)}`
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium truncate">
               Average revenue per bill
@@ -582,7 +600,26 @@ export function BillsTable({ bills: initialBills, outletId, tables, onRefresh }:
         {/* 5. Mobile-First Card Grid View */}
         {viewMode === 'grid' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-            {paginatedBills.length === 0 ? (
+            {loading && bills.length === 0 ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-card border border-border/70 rounded-2xl p-4 space-y-3.5 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-5 w-16 rounded-md" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-8 w-24 rounded-lg" />
+                  </div>
+                </div>
+              ))
+            ) : paginatedBills.length === 0 ? (
               <div className="col-span-full rounded-2xl border border-dashed border-border/70 p-10 text-center space-y-3 bg-card/40">
                 <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
                   <Receipt className="h-6 w-6" />
@@ -738,7 +775,21 @@ export function BillsTable({ bills: initialBills, outletId, tables, onRefresh }:
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedBills.length === 0 ? (
+                  {loading && bills.length === 0 ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <TableRow key={i} className="border-b border-border/50">
+                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16 rounded-md" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20 rounded-md" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16 font-mono" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-7 w-16 rounded-lg ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : paginatedBills.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                         <Receipt className="h-8 w-8 mx-auto mb-2 opacity-40" />

@@ -21,7 +21,6 @@ import {
   Users,
   Shield,
   Settings,
-  Loader2,
   PanelLeftClose,
   PanelLeftOpen,
   type LucideIcon,
@@ -110,8 +109,6 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     }
     return false;
   });
-  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
-
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const next = !prev;
@@ -148,13 +145,9 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     router.push('/login');
   };
 
-  const handleLinkClick = (href: string) => {
+  const handleLinkClick = () => {
     if (onClose) {
       onClose();
-    }
-    if (href !== pathname) {
-      setNavigatingTo(href);
-      setTimeout(() => setNavigatingTo(null), 800);
     }
   };
 
@@ -288,21 +281,19 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href + '/'));
-                  const isNavigating = navigatingTo === item.href;
                   const Icon = item.icon;
 
                   const linkContent = (
                     <Link
                       href={item.href}
                       prefetch={true}
-                      onClick={() => handleLinkClick(item.href)}
+                      onClick={() => handleLinkClick()}
                       className={cn(
                         'group relative flex items-center gap-3 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium transition-all duration-150 cursor-pointer min-h-[40px]',
                         isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-start',
                         isActive
                           ? 'bg-gradient-to-r from-indigo-600/20 to-indigo-600/5 text-white font-semibold shadow-xs border border-indigo-500/30'
-                          : 'text-slate-400 hover:bg-slate-900/80 hover:text-slate-100 active:bg-slate-800/60',
-                        isNavigating && 'opacity-70 cursor-wait'
+                          : 'text-slate-400 hover:bg-slate-900/80 hover:text-slate-100 active:bg-slate-800/60'
                       )}
                     >
                       {/* Active Left Glow Accent Bar in Expanded Mode */}
@@ -332,12 +323,10 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                         {item.name}
                       </span>
 
-                      {/* Loading or Active Dot */}
-                      {isNavigating ? (
-                        <Loader2 className={cn('h-3.5 w-3.5 animate-spin text-indigo-400 ml-auto flex-shrink-0', isCollapsed && 'lg:hidden')} />
-                      ) : isActive && !isCollapsed ? (
+                      {/* Active Dot */}
+                      {isActive && !isCollapsed && (
                         <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-xs shadow-indigo-400/80" />
-                      ) : null}
+                      )}
                     </Link>
                   );
 

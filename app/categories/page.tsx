@@ -295,41 +295,9 @@ export default function CategoriesPage() {
     }
   };
 
-  if (permLoading || (loading && categories.length === 0)) {
-    return (
-      <div className="space-y-4 sm:space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <Skeleton className="h-7 w-48 rounded-lg" />
-            <Skeleton className="h-4 w-64 rounded-md" />
-          </div>
-          <Skeleton className="h-8.5 w-32 rounded-xl" />
-        </div>
+  const isPageLoading = permLoading || (loading && categories.length === 0);
 
-        {/* 4 KPI Cards Skeleton */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
-          ))}
-        </div>
-
-        {/* Controls Skeleton */}
-        <div className="flex items-center justify-between gap-3">
-          <Skeleton className="h-8.5 w-64 rounded-xl" />
-          <Skeleton className="h-8.5 w-36 rounded-xl" />
-        </div>
-
-        {/* Grid Skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentOutlet) {
+  if (!currentOutlet && !isPageLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground text-sm">Please select an outlet from the top bar.</p>
@@ -346,8 +314,8 @@ export default function CategoriesPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               Menu Categories
             </h1>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {categories.length}
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground min-w-6 inline-flex items-center justify-center">
+              {isPageLoading ? <Skeleton className="h-3 w-5" /> : categories.length}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">
@@ -403,7 +371,7 @@ export default function CategoriesPage() {
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            {metrics.total}
+            {isPageLoading ? <Skeleton className="h-7 w-12 my-0.5" /> : metrics.total}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Menu sections active
@@ -421,7 +389,7 @@ export default function CategoriesPage() {
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {metrics.totalItems}
+            {isPageLoading ? <Skeleton className="h-7 w-14 my-0.5" /> : metrics.totalItems}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Assigned to categories
@@ -439,10 +407,10 @@ export default function CategoriesPage() {
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-sky-600 dark:text-sky-400">
-            {metrics.coveragePercent}%
+            {isPageLoading ? <Skeleton className="h-7 w-16 my-0.5" /> : `${metrics.coveragePercent}%`}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
-            {metrics.withItems} populated, {metrics.emptyCount} empty
+            {isPageLoading ? 'calculating...' : `${metrics.withItems} populated, ${metrics.emptyCount} empty`}
           </p>
         </div>
 
@@ -457,7 +425,7 @@ export default function CategoriesPage() {
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            0 to {metrics.maxOrder}
+            {isPageLoading ? <Skeleton className="h-7 w-16 my-0.5" /> : `0 to ${metrics.maxOrder}`}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Priority ordering sequence
@@ -509,7 +477,9 @@ export default function CategoriesPage() {
                 )}
               >
                 <span>{tab.label}</span>
-                <span className="text-[10px] font-semibold opacity-70">({tab.count})</span>
+                <span className="text-[10px] font-semibold opacity-70">
+                  ({isPageLoading ? <Skeleton className="h-2 w-3 inline-block" /> : tab.count})
+                </span>
               </button>
             ))}
           </div>
@@ -549,7 +519,10 @@ export default function CategoriesPage() {
       {/* 4. Results Counter */}
       <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
         <span>
-          Showing <strong className="font-semibold text-foreground">{filteredCategories.length}</strong>{' '}
+          Showing{' '}
+          <strong className="font-semibold text-foreground">
+            {isPageLoading ? '...' : filteredCategories.length}
+          </strong>{' '}
           {filteredCategories.length === 1 ? 'category' : 'categories'}
         </span>
         {(searchQuery || filterSegment !== 'ALL') && (
@@ -569,7 +542,26 @@ export default function CategoriesPage() {
       {/* 5. Mobile-First Card Grid View */}
       {viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-          {filteredCategories.length === 0 ? (
+          {isPageLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-card border border-border/70 rounded-2xl p-4 space-y-3.5 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-5 w-14 rounded-md" />
+                  </div>
+                  <Skeleton className="h-3 w-40" />
+                </div>
+                <div className="pt-3 border-t border-border/40 flex items-center justify-between">
+                  <Skeleton className="h-5 w-16 rounded-md" />
+                  <div className="flex gap-1">
+                    <Skeleton className="h-7 w-7 rounded-lg" />
+                    <Skeleton className="h-7 w-7 rounded-lg" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : filteredCategories.length === 0 ? (
             <div className="col-span-full rounded-2xl border border-dashed border-border/70 p-10 text-center space-y-3 bg-card/40">
               <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
                 <FolderOpen className="h-6 w-6" />
@@ -690,7 +682,17 @@ export default function CategoriesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCategories.length === 0 ? (
+                {isPageLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TableRow key={i} className="border-b border-border/50">
+                      <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-16 rounded-md" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-7 w-16 rounded-lg ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredCategories.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                       <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />

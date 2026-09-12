@@ -39,6 +39,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ITEM_TYPE_LABELS: Record<InventoryItemType, string> = {
   raw_material: 'Raw Material',
@@ -107,9 +108,10 @@ interface InventoryItemsTableProps {
   items: InventoryItem[];
   outletId: string;
   onRefetch: () => void;
+  loading?: boolean;
 }
 
-export function InventoryItemsTable({ items, outletId, onRefetch }: InventoryItemsTableProps) {
+export function InventoryItemsTable({ items, outletId, onRefetch, loading = false }: InventoryItemsTableProps) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -181,7 +183,7 @@ export function InventoryItemsTable({ items, outletId, onRefetch }: InventoryIte
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            {metrics.total}
+            {loading ? <Skeleton className="h-7 w-12 my-0.5" /> : metrics.total}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             {items.filter((i) => i.active).length} active raw materials
@@ -199,7 +201,7 @@ export function InventoryItemsTable({ items, outletId, onRefetch }: InventoryIte
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            ₹{metrics.totalVal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            {loading ? <Skeleton className="h-7 w-20 my-0.5" /> : `₹${metrics.totalVal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             At active cost valuation
@@ -225,7 +227,7 @@ export function InventoryItemsTable({ items, outletId, onRefetch }: InventoryIte
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-400">
-            {metrics.lowCount}
+            {loading ? <Skeleton className="h-7 w-10 my-0.5" /> : metrics.lowCount}
           </div>
           <p className="text-[11px] text-amber-600/80 font-medium truncate">
             Below min / reorder level
@@ -251,7 +253,7 @@ export function InventoryItemsTable({ items, outletId, onRefetch }: InventoryIte
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-rose-600 dark:text-rose-400">
-            {metrics.outCount}
+            {loading ? <Skeleton className="h-7 w-10 my-0.5" /> : metrics.outCount}
           </div>
           <p className="text-[11px] text-rose-600/80 font-medium truncate">
             Ingredients depleted
@@ -351,7 +353,24 @@ export function InventoryItemsTable({ items, outletId, onRefetch }: InventoryIte
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {loading && items.length === 0 ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i} className="border-b border-border/40">
+                  <TableCell className="py-3">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-3"><Skeleton className="h-5 w-20 rounded-md" /></TableCell>
+                  <TableCell className="py-3"><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell className="py-3"><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell className="py-3"><Skeleton className="h-5 w-18 rounded-full" /></TableCell>
+                  <TableCell className="py-3"><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell className="text-right py-3"><Skeleton className="h-7 w-16 rounded-lg ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-16">
                   <div className="flex flex-col items-center justify-center max-w-sm mx-auto text-center space-y-3">

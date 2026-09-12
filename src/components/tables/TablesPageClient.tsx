@@ -41,34 +41,6 @@ export function TablesPageClient({ outletId: propOutletId }: TablesPageClientPro
     }
   };
 
-  if (tablesQuery.isLoading && tables.length === 0) {
-    return (
-      <div className="space-y-4 sm:space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              Tables & Floor
-            </h1>
-          </div>
-        </div>
-
-        {/* Skeleton Metric Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
-          ))}
-        </div>
-
-        {/* Skeleton Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* Page Header */}
@@ -78,7 +50,7 @@ export function TablesPageClient({ outletId: propOutletId }: TablesPageClientPro
             Tables & Floor
           </h1>
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            {tables.length}
+            {tablesQuery.isLoading && tables.length === 0 ? '...' : tables.length}
           </span>
         </div>
 
@@ -112,6 +84,7 @@ export function TablesPageClient({ outletId: propOutletId }: TablesPageClientPro
         tables={tables}
         outletId={outletId}
         activeOrders={activeOrders}
+        loading={tablesQuery.isLoading && tables.length === 0}
         onRefresh={() => {
           tablesQuery.refetch();
           activeOrdersQuery.refetch();

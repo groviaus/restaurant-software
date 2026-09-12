@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import { useOutlet } from '@/hooks/useOutlet';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface OutletSettings {
   outlet_id: string;
@@ -188,16 +189,9 @@ export default function SettingsPage() {
     }
   };
 
-  if (permLoading || loading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-20 gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Loading outlet settings...</p>
-      </div>
-    );
-  }
+  const isSettingsLoading = permLoading || loading;
 
-  if (!currentOutlet) {
+  if (!currentOutlet && !isSettingsLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[350px] p-6 text-center space-y-3 bg-card rounded-2xl border border-border/70">
         <Building2 className="w-10 h-10 text-muted-foreground/60" />
@@ -218,8 +212,8 @@ export default function SettingsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Outlet Preferences
             </h1>
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-              {currentOutlet.name}
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 min-w-16 inline-flex items-center justify-center">
+              {currentOutlet ? currentOutlet.name : <Skeleton className="h-3 w-14" />}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">

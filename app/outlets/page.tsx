@@ -6,6 +6,7 @@ import { useOutlet } from '@/hooks/useOutlet';
 import { OutletsTable } from '@/components/tables/OutletsTable';
 import { Store, Loader2 } from 'lucide-react';
 import { Outlet, UserRole } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function OutletsPage() {
   const { profile, loading: authLoading } = useAuth();
@@ -36,14 +37,7 @@ export default function OutletsPage() {
     }
   }, [storeOutlets, fetchOutlets]);
 
-  if (authLoading && !profile) {
-    return (
-      <div className="flex flex-col items-center justify-center p-16 gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Checking authentication...</p>
-      </div>
-    );
-  }
+  const isOutletsLoading = (authLoading && !profile) || (loading && outlets.length === 0);
 
   return (
     <div className="space-y-6">
@@ -54,8 +48,8 @@ export default function OutletsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Outlets & Branches
             </h1>
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-              {profile?.role === 'admin' ? 'Admin' : 'Branch'}
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 min-w-12 inline-flex items-center justify-center">
+              {profile?.role === 'admin' ? 'Admin' : (profile?.role ? 'Branch' : <Skeleton className="h-3 w-10" />)}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">
@@ -67,10 +61,32 @@ export default function OutletsPage() {
       </div>
 
       {/* Outlets List Component */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 gap-3 bg-card rounded-2xl border border-border/60">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-xs text-muted-foreground">Loading branches and outlets...</p>
+      {isOutletsLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border/70 rounded-2xl p-5 space-y-4 shadow-xs flex flex-col justify-between">
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Store className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                </div>
+                <Skeleton className="h-3 w-48" />
+              </div>
+
+              <div className="pt-3 border-t border-border/40 flex items-center justify-between">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-8 w-24 rounded-xl" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <OutletsTable

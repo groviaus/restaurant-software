@@ -19,10 +19,12 @@ import {
   ArrowUpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface InventoryDashboardViewProps {
   items: InventoryItem[];
   movements: InventoryMovement[];
+  loading?: boolean;
   onOpenRecordMovement: () => void;
   onOpenWastage: () => void;
   onOpenStockCount: () => void;
@@ -33,6 +35,7 @@ interface InventoryDashboardViewProps {
 export function InventoryDashboardView({
   items,
   movements,
+  loading = false,
   onOpenRecordMovement,
   onOpenWastage,
   onOpenStockCount,
@@ -183,7 +186,7 @@ export function InventoryDashboardView({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            {totalItems}
+            {loading ? <Skeleton className="h-7 w-12 my-0.5" /> : totalItems}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Ingredients & packaging tracked
@@ -201,7 +204,7 @@ export function InventoryDashboardView({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            ₹{totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            {loading ? <Skeleton className="h-7 w-20 my-0.5" /> : `₹${totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Total on-hand asset value
@@ -222,7 +225,7 @@ export function InventoryDashboardView({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-400">
-            {lowStockItems.length}
+            {loading ? <Skeleton className="h-7 w-10 my-0.5" /> : lowStockItems.length}
           </div>
           <p className="text-[11px] text-amber-600/80 font-medium truncate">
             Under minimum threshold
@@ -243,7 +246,7 @@ export function InventoryDashboardView({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-rose-600 dark:text-rose-400">
-            {outOfStockItems.length}
+            {loading ? <Skeleton className="h-7 w-10 my-0.5" /> : outOfStockItems.length}
           </div>
           <p className="text-[11px] text-rose-600/80 font-medium truncate">
             Disables linked dishes in POS
@@ -271,7 +274,17 @@ export function InventoryDashboardView({
             </div>
 
             <div className="space-y-2">
-              {outOfStockItems.length === 0 && lowStockItems.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-2.5 rounded-xl border border-border/40">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))
+              ) : outOfStockItems.length === 0 && lowStockItems.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-xs">
                   All inventory stocks are healthy. No items require immediate purchase.
                 </div>

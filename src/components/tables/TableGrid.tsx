@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { TableForm } from '@/components/forms/TableForm';
 import { OrderForm } from '@/components/forms/OrderForm';
 import { BillModal } from '@/components/billing/BillModal';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Utensils,
   Users,
@@ -35,6 +36,7 @@ interface TableGridProps {
   onRefresh?: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   activeOrders?: any[];
+  loading?: boolean;
 }
 
 export function TableGrid({
@@ -42,6 +44,7 @@ export function TableGrid({
   outletId,
   onRefresh,
   activeOrders: initialActiveOrders = [],
+  loading = false,
 }: TableGridProps) {
   const queryClient = useQueryClient();
   const deleteTableMutation = useDeleteTableMutation();
@@ -271,10 +274,14 @@ export function TableGrid({
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-              {tables.length}
+              {loading && tables.length === 0 ? (
+                <Skeleton className="h-7 w-12 rounded my-0.5" />
+              ) : (
+                tables.length
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium">
-              {totalSeats} total seating capacity
+              {loading && tables.length === 0 ? 'Loading seating...' : `${totalSeats} total seating capacity`}
             </p>
           </div>
 
@@ -289,7 +296,11 @@ export function TableGrid({
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              {emptyCount}
+              {loading && tables.length === 0 ? (
+                <Skeleton className="h-7 w-12 rounded my-0.5" />
+              ) : (
+                emptyCount
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium">
               Ready for walk-in guests
@@ -307,7 +318,11 @@ export function TableGrid({
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-400">
-              {occupiedCount}
+              {loading && tables.length === 0 ? (
+                <Skeleton className="h-7 w-12 rounded my-0.5" />
+              ) : (
+                occupiedCount
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium">
               {tables.length > 0 ? `${Math.round((occupiedCount / tables.length) * 100)}% floor occupancy` : 'No tables'}
@@ -325,7 +340,11 @@ export function TableGrid({
               </div>
             </div>
             <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-              ₹{activeFloorRevenue.toFixed(2)}
+              {loading && tables.length === 0 ? (
+                <Skeleton className="h-7 w-20 rounded my-0.5" />
+              ) : (
+                `₹${activeFloorRevenue.toFixed(2)}`
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground font-medium">
               {floorOrders.length} active table {floorOrders.length === 1 ? 'bill' : 'bills'}
@@ -442,8 +461,24 @@ export function TableGrid({
           </div>
         </div>
 
-        {/* 3. Empty State (When zero tables exist on floor) */}
-        {tables.length === 0 ? (
+        {/* 3. Floor Grid Cards or Loading Skeletons */}
+        {loading && tables.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-card border border-border/60 rounded-2xl p-4 space-y-3 shadow-xs">
+                <div className="flex justify-between items-center">
+                  <Skeleton className="h-5 w-20 rounded-lg" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-28 rounded" />
+                <div className="pt-2 border-t border-border/40 flex justify-between items-center">
+                  <Skeleton className="h-4 w-16 rounded" />
+                  <Skeleton className="h-8 w-20 rounded-xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : tables.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border/80 p-8 sm:p-14 text-center bg-card/60 space-y-4">
             <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-inner">
               <Utensils className="h-8 w-8" />

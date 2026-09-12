@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { OrderStatus, Table as TableType, PaymentMethod, Order } from '@/lib/types';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BillModal } from '@/components/billing/BillModal';
@@ -71,6 +72,7 @@ interface OrdersTableProps {
   outletId: string;
   tables: TableType[];
   onRefresh?: () => void;
+  loading?: boolean;
 }
 
 type StatusTab = 'ACTIVE' | 'NEW' | 'PREPARING' | 'READY' | 'SERVED' | 'COMPLETED' | 'ALL';
@@ -81,6 +83,7 @@ export function OrdersTable({
   outletId,
   tables: initialTables,
   onRefresh,
+  loading = false,
 }: OrdersTableProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -653,7 +656,7 @@ export function OrdersTable({
                       : 'bg-muted/80 text-muted-foreground'
                   )}
                 >
-                  {tab.count}
+                  {loading ? '—' : tab.count}
                 </span>
               </button>
             );
@@ -674,9 +677,18 @@ export function OrdersTable({
         {/* Results Counter Sub-header */}
         <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
           <span>
-            Showing <strong className="font-semibold text-foreground">{filteredOrders.length}</strong> {filteredOrders.length === 1 ? 'order' : 'orders'}
+            {loading ? (
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground font-medium">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
+                Loading live orders...
+              </span>
+            ) : (
+              <>
+                Showing <strong className="font-semibold text-foreground">{filteredOrders.length}</strong> {filteredOrders.length === 1 ? 'order' : 'orders'}
+              </>
+            )}
           </span>
-          {(searchQuery || statusTab !== 'ACTIVE' || orderTypeFilter !== 'ALL') && (
+          {(searchQuery || statusTab !== 'ACTIVE' || orderTypeFilter !== 'ALL') && !loading && (
             <button
               type="button"
               onClick={() => {
@@ -692,7 +704,81 @@ export function OrdersTable({
         </div>
 
         {/* Orders Display: Grid View vs Table View */}
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          viewMode === 'grid' ? (
+            /* Card Grid Skeletons */
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5 sm:gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-2xs space-y-3.5"
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <Skeleton className="h-4 w-20 rounded" />
+                        <Skeleton className="h-4 w-16 rounded" />
+                      </div>
+                      <Skeleton className="h-3 w-28 rounded" />
+                    </div>
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                  </div>
+                  <div className="space-y-2 border-y border-border/40 py-3">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-3.5 w-32 rounded" />
+                      <Skeleton className="h-3.5 w-10 rounded" />
+                    </div>
+                    <div className="flex justify-between">
+                      <Skeleton className="h-3.5 w-24 rounded" />
+                      <Skeleton className="h-3.5 w-10 rounded" />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pt-1">
+                    <div className="space-y-1">
+                      <Skeleton className="h-2.5 w-8 rounded" />
+                      <Skeleton className="h-5 w-16 rounded" />
+                    </div>
+                    <Skeleton className="h-8.5 w-28 rounded-lg" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Dense Table Skeletons with REAL static headers */
+            <div className="rounded-2xl border border-border/60 bg-card/80 overflow-hidden shadow-2xs backdrop-blur-md">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow className="border-border/60">
+                      <TableHead className="min-w-[100px] text-xs font-semibold uppercase tracking-wider">Order ID</TableHead>
+                      <TableHead className="min-w-[80px] text-xs font-semibold uppercase tracking-wider">Type</TableHead>
+                      <TableHead className="min-w-[80px] text-xs font-semibold uppercase tracking-wider">Table</TableHead>
+                      <TableHead className="min-w-[110px] text-xs font-semibold uppercase tracking-wider">Status</TableHead>
+                      <TableHead className="min-w-[90px] text-xs font-semibold uppercase tracking-wider">Total</TableHead>
+                      <TableHead className="min-w-[140px] text-xs font-semibold uppercase tracking-wider">Placed At</TableHead>
+                      <TableHead className="text-right min-w-[200px] text-xs font-semibold uppercase tracking-wider">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <TableRow key={i} className="border-border/50">
+                        <TableCell><Skeleton className="h-4 w-20 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-12 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-14 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24 rounded" /></TableCell>
+                        <TableCell className="text-right">
+                          <Skeleton className="h-7 w-24 rounded-lg ml-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )
+        ) : filteredOrders.length === 0 ? (
           <div className="rounded-2xl border border-border/60 bg-card/40 p-12 text-center space-y-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground mx-auto">
               <ShoppingBag className="h-6 w-6" />

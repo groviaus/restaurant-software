@@ -658,14 +658,7 @@ export default function AnalyticsPage() {
     }
   };
 
-  if (permLoading) {
-    return (
-      <div className="min-h-[400px] flex flex-col items-center justify-center gap-3">
-        <div className="w-9 h-9 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-        <span className="text-xs font-medium text-muted-foreground animate-pulse">Loading analytics workspace...</span>
-      </div>
-    );
-  }
+  const isAnalyticsLoading = loading || permLoading;
 
   return (
     <div className="space-y-6 pb-12">
@@ -754,7 +747,7 @@ export default function AnalyticsPage() {
         </div>
 
         <TabsContent value={period} className="space-y-6 mt-0">
-          {loading ? (
+          {isAnalyticsLoading ? (
             <>
               {/* Skeleton Cards */}
               <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

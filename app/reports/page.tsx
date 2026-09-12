@@ -48,14 +48,7 @@ export default function ReportsPage() {
     }
   }, [permLoading, checkPermission, router]);
 
-  if (permLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-20 gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Checking permissions...</p>
-      </div>
-    );
-  }
+
 
   const downloadReport = async (type: string, params: Record<string, string>) => {
     setLoading(type);

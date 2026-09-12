@@ -29,18 +29,21 @@ import { BillModal } from '@/components/billing/BillModal';
 import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface OrderHistoryTableProps {
   orders: OrderWithItems[];
   outletId: string;
   viewMode?: 'table' | 'card';
   onClearFilters?: () => void;
+  loading?: boolean;
 }
 
 export function OrderHistoryTable({
   orders,
   viewMode = 'table',
   onClearFilters,
+  loading = false,
 }: OrderHistoryTableProps) {
   const [selectedOrderForBill, setSelectedOrderForBill] = useState<OrderWithItems | null>(null);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<OrderWithItems | null>(null);
@@ -133,6 +136,78 @@ export function OrderHistoryTable({
         );
     }
   };
+
+  if (loading && orders.length === 0) {
+    return (
+      <>
+        {/* Mobile / Card View Skeletons */}
+        <div
+          className={cn(
+            'space-y-3',
+            viewMode === 'card' ? 'block' : 'block md:hidden'
+          )}
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-card border border-border/70 rounded-2xl p-4 space-y-3 shadow-2xs"
+            >
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-44" />
+              <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-8 w-20 rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Dense Table View Skeletons */}
+        <div
+          className={cn(
+            'rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs',
+            viewMode === 'table' ? 'hidden md:block' : 'hidden'
+          )}
+        >
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="border-b border-border/70">
+                  <TableHead className="text-xs font-bold text-foreground py-3 min-w-[110px]">Order ID</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 min-w-[130px]">Type & Table</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 min-w-[220px]">Items Summary</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 min-w-[110px]">Status</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 min-w-[100px]">Payment</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 min-w-[120px]">Billed By</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 min-w-[140px]">Date & Time</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 text-right min-w-[110px]">Total</TableHead>
+                  <TableHead className="text-xs font-bold text-foreground py-3 text-right min-w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-border/60">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i} className="border-b border-border/50">
+                    <TableCell className="py-3"><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="py-3 text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                    <TableCell className="py-3 text-right"><Skeleton className="h-7 w-16 rounded-lg ml-auto" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   // Empty State Component
   if (orders.length === 0) {

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ interface MenuTableProps {
   isSyncing?: boolean;
   onSync?: () => void;
   onRefresh?: () => void;
+  loading?: boolean;
 }
 
 export function MenuTable({
@@ -73,6 +75,7 @@ export function MenuTable({
   isSyncing = false,
   onSync,
   onRefresh,
+  loading = false,
 }: MenuTableProps) {
   const deleteMenuItemMutation = useDeleteMenuItemMutation();
   const updateMenuItemMutation = useUpdateMenuItemMutation();
@@ -361,7 +364,11 @@ export function MenuTable({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            {metrics.total}
+            {loading && items.length === 0 ? (
+              <Skeleton className="h-7 w-12 rounded my-0.5" />
+            ) : (
+              metrics.total
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Catalog items active
@@ -379,7 +386,11 @@ export function MenuTable({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {metrics.availableCount}
+            {loading && items.length === 0 ? (
+              <Skeleton className="h-7 w-12 rounded my-0.5" />
+            ) : (
+              metrics.availableCount
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             {metrics.availablePct}% ready to order ({metrics.unavailableCount} out of stock)
@@ -397,7 +408,11 @@ export function MenuTable({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-sky-600 dark:text-sky-400">
-            {metrics.categoryCount}
+            {loading && items.length === 0 ? (
+              <Skeleton className="h-7 w-12 rounded my-0.5" />
+            ) : (
+              metrics.categoryCount
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Across menu catalog groups
@@ -415,7 +430,11 @@ export function MenuTable({
             </div>
           </div>
           <div className="font-mono text-lg sm:text-2xl font-black text-foreground">
-            ₹{metrics.avgPrice}
+            {loading && items.length === 0 ? (
+              <Skeleton className="h-7 w-16 rounded my-0.5" />
+            ) : (
+              `₹${metrics.avgPrice}`
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground font-medium truncate">
             Max item price ₹{metrics.maxPrice.toFixed(0)}
@@ -594,7 +613,27 @@ export function MenuTable({
       {/* 4. Mobile-First Card Grid View */}
       {viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
-          {filteredItems.length === 0 ? (
+          {loading && items.length === 0 ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-card border border-border/70 rounded-2xl p-4 space-y-3.5 shadow-xs flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex justify-between items-start">
+                    <Skeleton className="h-5 w-28 rounded" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3.5 w-20 rounded" />
+                  <Skeleton className="h-3 w-40 rounded" />
+                </div>
+                <div className="pt-2 border-t border-border/40 flex justify-between items-center">
+                  <Skeleton className="h-5 w-16 rounded" />
+                  <Skeleton className="h-8 w-20 rounded-xl" />
+                </div>
+              </div>
+            ))
+          ) : filteredItems.length === 0 ? (
             <div className="col-span-full rounded-2xl border border-dashed border-border/70 p-10 text-center space-y-3 bg-card/40">
               <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
                 <UtensilsCrossed className="h-6 w-6" />
@@ -814,7 +853,22 @@ export function MenuTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.length === 0 ? (
+                {loading && items.length === 0 ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TableRow key={i} className="border-b border-border/50">
+                      <TableCell><Skeleton className="h-4 w-4 rounded" /></TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-32 rounded mb-1" />
+                        <Skeleton className="h-3 w-20 rounded" />
+                      </TableCell>
+                      <TableCell><Skeleton className="h-4 w-20 rounded" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-14 rounded ml-auto" /></TableCell>
+                      <TableCell className="text-center"><Skeleton className="h-4 w-12 rounded mx-auto" /></TableCell>
+                      <TableCell className="text-center"><Skeleton className="h-5 w-16 rounded-full mx-auto" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-16 rounded-xl ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                       <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-40" />

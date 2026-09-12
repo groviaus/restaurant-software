@@ -119,13 +119,9 @@ export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientPro
     );
   }
 
-  if (loading && orders.length === 0 && tables.length === 0) {
-    return <OrdersPageSkeleton />;
-  }
-
   return (
     <div className="space-y-5">
-      {/* Page Header Command Bar */}
+      {/* Page Header Command Bar - STATIC & INSTANT */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
@@ -160,7 +156,7 @@ export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientPro
         </div>
       </div>
 
-      {/* Operational KPI Pipeline Cards */}
+      {/* Operational KPI Pipeline Cards - FIXED CARDS, SKELETON ON VALUES ONLY */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Active Orders */}
         <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card/80 p-3 sm:p-4 shadow-2xs backdrop-blur-md transition-all hover:border-border">
@@ -171,9 +167,13 @@ export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientPro
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-foreground">
-              {stats.activeCount}
-            </span>
+            {loading && orders.length === 0 ? (
+              <Skeleton className="h-7 w-12 rounded my-0.5" />
+            ) : (
+              <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-foreground">
+                {stats.activeCount}
+              </span>
+            )}
             <span className="text-[11px] text-muted-foreground">in service</span>
           </div>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500/40" />
@@ -188,9 +188,13 @@ export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientPro
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-amber-600 dark:text-amber-400">
-              {stats.kitchenCount}
-            </span>
+            {loading && orders.length === 0 ? (
+              <Skeleton className="h-7 w-12 rounded my-0.5" />
+            ) : (
+              <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-amber-600 dark:text-amber-400">
+                {stats.kitchenCount}
+              </span>
+            )}
             <span className="text-[11px] text-muted-foreground">preparing</span>
           </div>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-amber-500/50" />
@@ -205,9 +209,13 @@ export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientPro
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
-              {stats.readyCount}
-            </span>
+            {loading && orders.length === 0 ? (
+              <Skeleton className="h-7 w-12 rounded my-0.5" />
+            ) : (
+              <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+                {stats.readyCount}
+              </span>
+            )}
             <span className="text-[11px] text-muted-foreground">pickup ready</span>
           </div>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-emerald-500/50" />
@@ -222,11 +230,15 @@ export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientPro
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-foreground">
-              ₹{stats.completedSales.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-            </span>
+            {loading && orders.length === 0 ? (
+              <Skeleton className="h-7 w-20 rounded my-0.5" />
+            ) : (
+              <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-foreground">
+                ₹{stats.completedSales.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+            )}
             <span className="text-[11px] text-muted-foreground">
-              ({stats.completedCount} billed)
+              {loading && orders.length === 0 ? '' : `(${stats.completedCount} billed)`}
             </span>
           </div>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-indigo-500/50" />
@@ -239,34 +251,8 @@ export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientPro
         outletId={outletId}
         tables={tables}
         onRefresh={handleRefresh}
+        loading={loading && orders.length === 0}
       />
-    </div>
-  );
-}
-
-function OrdersPageSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-48 rounded-lg" />
-        <Skeleton className="h-4 w-72 rounded-md" />
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
-        ))}
-      </div>
-      <div className="rounded-2xl border border-border/60 p-5 space-y-4">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-9 w-64 rounded-lg" />
-          <Skeleton className="h-9 w-32 rounded-lg" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-48 rounded-xl" />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

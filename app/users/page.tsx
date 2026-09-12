@@ -6,6 +6,7 @@ import { UsersTable } from '@/components/users/UsersTable';
 import { UserForm } from '@/components/users/UserForm';
 import { Loader2, Users, Shield, UserCheck, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // In-memory cache across navigations
 let usersMemoryCache: User[] | null = null;
@@ -78,9 +79,9 @@ export default function UsersPage() {
             <Users className="w-3.5 h-3.5 text-primary" />
             <span>Total Accounts</span>
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-            {users.length}
-          </p>
+          <div className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+            {loading && users.length === 0 ? <Skeleton className="h-7 w-12 my-0.5" /> : users.length}
+          </div>
         </div>
 
         <div className="p-4 rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm space-y-1 shadow-2xs">
@@ -88,9 +89,9 @@ export default function UsersPage() {
             <Shield className="w-3.5 h-3.5 text-indigo-500" />
             <span>Administrators</span>
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-            {adminCount}
-          </p>
+          <div className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+            {loading && users.length === 0 ? <Skeleton className="h-7 w-10 my-0.5" /> : adminCount}
+          </div>
         </div>
 
         <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm space-y-1 shadow-2xs">
@@ -98,9 +99,9 @@ export default function UsersPage() {
             <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
             <span>Floor & Kitchen Staff</span>
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-            {staffCount}
-          </p>
+          <div className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+            {loading && users.length === 0 ? <Skeleton className="h-7 w-10 my-0.5" /> : staffCount}
+          </div>
         </div>
       </div>
 
@@ -119,7 +120,7 @@ export default function UsersPage() {
           <button
             type="button"
             onClick={() => setSearch('')}
-            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md"
+            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md cursor-pointer"
           >
             Clear
           </button>
@@ -127,10 +128,25 @@ export default function UsersPage() {
       </div>
 
       {/* Users Table */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 gap-3 bg-card rounded-2xl border border-border/60">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-xs text-muted-foreground">Loading staff accounts...</p>
+      {loading && users.length === 0 ? (
+        <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs">
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-0">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-40" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-16 rounded-md" />
+                  <Skeleton className="h-7 w-14 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <UsersTable users={filteredUsers} onRefresh={fetchUsers} />
