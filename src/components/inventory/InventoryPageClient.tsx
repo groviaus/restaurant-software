@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Package2, ClipboardList, ChefHat, AlertTriangle, RotateCcw,
   TrendingDown, Boxes, LayoutDashboard, ShoppingCart,
-  Plus, ClipboardCheck, Trash2, Search, X
+  Plus, ClipboardCheck, Trash2, Search, X, CupSoda
 } from 'lucide-react';
 import {
   Select,
@@ -425,20 +425,68 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
                           ₹{menuItem.price}
                         </td>
                         <td className="px-4 py-3">
-                          {recipe ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                              ✓ Configured · Yield {recipe.yield_quantity} {recipe.yield_unit}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-border/60 bg-muted/60 text-muted-foreground">
-                              No recipe set
-                            </span>
-                          )}
+                          {(() => {
+                            if (!recipe) {
+                              return (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-border/60 bg-muted/60 text-muted-foreground">
+                                  No stock link
+                                </span>
+                              );
+                            }
+                            const ings = recipe.ingredients ?? (recipe as any).recipe_ingredients ?? [];
+                            const isPackaged =
+                              ings.length === 1 &&
+                              Number(ings[0].quantity) === 1 &&
+                              (ings[0].unit === 'pcs' ||
+                                ings[0].unit === 'bottle' ||
+                                ings[0].unit === 'can' ||
+                                ings[0].unit === 'unit' ||
+                                recipe.yield_unit === 'bottle' ||
+                                recipe.yield_unit === 'can' ||
+                                recipe.notes?.toLowerCase().includes('packaged') ||
+                                recipe.notes?.toLowerCase().includes('ready-to-serve'));
+
+                            if (isPackaged) {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
+                                  <CupSoda className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                                  Packaged (1:1 Stock)
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                ✓ Configured · Yield {recipe.yield_quantity} {recipe.yield_unit}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-[11px]">
                           {(() => {
                             const ings = recipe?.ingredients ?? (recipe as any)?.recipe_ingredients ?? [];
                             if (!ings.length) return <span className="opacity-40">—</span>;
+
+                            const isPackaged =
+                              ings.length === 1 &&
+                              Number(ings[0].quantity) === 1 &&
+                              (ings[0].unit === 'pcs' ||
+                                ings[0].unit === 'bottle' ||
+                                ings[0].unit === 'can' ||
+                                ings[0].unit === 'unit' ||
+                                recipe?.yield_unit === 'bottle' ||
+                                recipe?.yield_unit === 'can' ||
+                                recipe?.notes?.toLowerCase().includes('packaged') ||
+                                recipe?.notes?.toLowerCase().includes('ready-to-serve'));
+
+                            if (isPackaged) {
+                              return (
+                                <span className="font-semibold text-foreground">
+                                  1x {ings[0].inventory_item?.name ?? 'Stock Bottle'} ({ings[0].unit})
+                                </span>
+                              );
+                            }
+
                             const names = ings
                               .map((ing: any) => ing.inventory_item?.name ?? 'Item')
                               .slice(0, 3)
@@ -447,18 +495,54 @@ export function InventoryPageClient({ outletId: propOutletId }: InventoryPageCli
                           })()}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedMenuItem(menuItem);
-                              setRecipeBuilderOpen(true);
-                            }}
-                            className="h-7 px-3 text-xs font-semibold rounded-lg border-border/60 hover:bg-muted/80 shadow-2xs gap-1.5 cursor-pointer"
-                          >
-                            <ChefHat className="w-3.5 h-3.5 text-primary" />
-                            <span>{recipe ? 'Edit Recipe' : 'Add Recipe'}</span>
-                          </Button>
+                          {(() => {
+                            const cat = (menuItem.category || '').toLowerCase();
+                            const isDrink =
+                              cat.includes('cold drink') ||
+                              cat.includes('beverage') ||
+                              cat.includes('drink') ||
+                              cat.includes('soda');
+                            const ings = recipe?.ingredients ?? (recipe as any)?.recipe_ingredients ?? [];
+                            const isPackaged =
+                              recipe &&
+                              ings.length === 1 &&
+                              Number(ings[0].quantity) === 1 &&
+                              (ings[0].unit === 'pcs' ||
+                                ings[0].unit === 'bottle' ||
+                                ings[0].unit === 'can' ||
+                                ings[0].unit === 'unit' ||
+                                recipe.yield_unit === 'bottle' ||
+                                recipe.yield_unit === 'can' ||
+                                recipe.notes?.toLowerCase().includes('packaged') ||
+                                recipe.notes?.toLowerCase().includes('ready-to-serve'));
+
+                            return (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedMenuItem(menuItem);
+                                  setRecipeBuilderOpen(true);
+                                }}
+                                className="h-7 px-3 text-xs font-semibold rounded-lg border-border/60 hover:bg-muted/80 shadow-2xs gap-1.5 cursor-pointer"
+                              >
+                                {isPackaged || isDrink ? (
+                                  <CupSoda className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                                ) : (
+                                  <ChefHat className="w-3.5 h-3.5 text-primary" />
+                                )}
+                                <span>
+                                  {isPackaged
+                                    ? 'Edit Stock Link'
+                                    : isDrink && !recipe
+                                    ? 'Link Stock'
+                                    : recipe
+                                    ? 'Edit Recipe'
+                                    : 'Add Recipe'}
+                                </span>
+                              </Button>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
