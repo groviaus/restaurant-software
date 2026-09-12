@@ -12,6 +12,8 @@ import {
 } from 'recharts';
 import { TrendingUp, Calendar } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
+
 interface SalesData {
   date: string;
   sales: number;
@@ -50,9 +52,6 @@ function SalesTrendTooltip({ active, payload }: CustomTooltipProps) {
 }
 
 export function SalesTrendChart() {
-  const [data, setData] = useState<SalesData[]>([]);
-  const [loading, setLoading] = useState(true);
-
   // Format dates as YYYY-MM-DD
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
@@ -61,41 +60,32 @@ export function SalesTrendChart() {
     return `${year}-${month}-${day}`;
   };
 
-  useEffect(() => {
-    // Calculate date range for last 7 days
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - 6); // 7 days including today
+  const { data = [], isLoading: loading } = useQuery<SalesData[]>({
+    queryKey: ['analytics', 'sales-trend'],
+    queryFn: async () => {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 6);
 
-    const startDateStr = formatDate(startDate);
-    const endDateStr = formatDate(endDate);
+      const startDateStr = formatDate(startDate);
+      const endDateStr = formatDate(endDate);
 
-    fetch(`/api/analytics/sales-trend?startDate=${startDateStr}&endDate=${endDateStr}&period=week`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`API error: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((result) => {
-        // Format dates for better display (show as DD/MM)
-        const formattedData = (result.data || []).map((item: SalesData) => {
-          const dateParts = item.date.split('-');
-          const displayDate = `${dateParts[2]}/${dateParts[1]}`;
-          return {
-            ...item,
-            date: displayDate,
-            sales: Number(item.sales) || 0,
-          };
-        });
-        setData(formattedData);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error fetching sales trend:', error);
-        setLoading(false);
+      const res = await fetch(`/api/analytics/sales-trend?startDate=${startDateStr}&endDate=${endDateStr}&period=week`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      
+      const result = await res.json();
+      return (result.data || []).map((item: SalesData) => {
+        const dateParts = item.date.split('-');
+        const displayDate = `${dateParts[2]}/${dateParts[1]}`;
+        return {
+          ...item,
+          date: displayDate,
+          sales: Number(item.sales) || 0,
+        };
       });
-  }, []); // Empty deps - will refetch on page reload after outlet switch
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const total7DaysSales = data.reduce((sum, d) => sum + d.sales, 0);
 

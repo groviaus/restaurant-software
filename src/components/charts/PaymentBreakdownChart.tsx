@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Pie, PieChart, Label, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Wallet } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
+
 interface PaymentItem {
   method: string;
   amount: number;
@@ -51,18 +53,16 @@ function PaymentBreakdownTooltip({ active, payload }: PaymentTooltipProps) {
 }
 
 export function PaymentBreakdownChart() {
-  const [data, setData] = useState<PaymentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/analytics/payment-breakdown?days=30')
-      .then((res) => res.json())
-      .then((result) => {
-        setData(result.data || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []); // Empty deps - will refetch on page reload after outlet switch
+  const { data = [], isLoading: loading } = useQuery<PaymentItem[]>({
+    queryKey: ['analytics', 'payment-breakdown'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/payment-breakdown?days=30');
+      if (!res.ok) throw new Error('Network response was not ok');
+      const result = await res.json();
+      return result.data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const getChartColor = (method: string): string => {
     return colorMap[method.toLowerCase()] || '#6366f1';

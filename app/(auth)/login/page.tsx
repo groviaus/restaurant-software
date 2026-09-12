@@ -12,95 +12,20 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Wait for auth state change event to complete
-  const waitForAuthStateChange = async (maxWaitTime: number = 8000): Promise<boolean> => {
-    return new Promise((resolve) => {
-      let resolved = false;
-      let subscription: any = null;
-
-      const cleanup = () => {
-        if (!resolved) {
-          resolved = true;
-          if (subscription) {
-            subscription.unsubscribe();
-          }
-        }
-      };
-
-      const timeout = setTimeout(() => {
-        cleanup();
-        resolve(false);
-      }, maxWaitTime);
-
-      // Subscribe to auth state changes
-      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (resolved) return;
-        subscription = authSubscription;
-
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Wait a moment for AuthProvider to process the event
-          setTimeout(async () => {
-            if (resolved) return;
-            
-            try {
-              // Verify user is still available and session is valid
-              const { data: { user }, error } = await supabase.auth.getUser();
-              if (user && !error) {
-                // Give AuthProvider additional time to fetch profile
-                // This ensures ProtectedRoute won't redirect back to login
-                setTimeout(() => {
-                  if (!resolved) {
-                    cleanup();
-                    clearTimeout(timeout);
-                    resolve(true);
-                  }
-                }, 800);
-              } else {
-                // User verification failed
-                if (!resolved) {
-                  cleanup();
-                  clearTimeout(timeout);
-                  resolve(false);
-                }
-              }
-            } catch (err) {
-              // If check fails
-              if (!resolved) {
-                cleanup();
-                clearTimeout(timeout);
-                resolve(false);
-              }
-            }
-          }, 300);
-        }
-      });
-    });
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
 
-      // Wait for auth state change event to fire and complete
-      const authReady = await waitForAuthStateChange(8000);
-      
-      // Always use full page reload to avoid Next.js router cache issues
-      // This ensures a clean navigation with fresh auth state
-      if (authReady) {
-        // Use full page reload to ensure AuthProvider initializes properly
-        window.location.href = '/';
-      } else {
-        // Even on timeout, use full page reload as it will work after hard refresh
-        // The session is established, just needs a fresh page load
+      if (data?.user) {
         window.location.href = '/';
       }
     } catch (error: any) {

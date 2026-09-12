@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Users, Award } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
+
 interface StaffPerformance {
   name: string;
   orders: number;
@@ -10,18 +12,16 @@ interface StaffPerformance {
 }
 
 export function StaffPerformanceList() {
-  const [staff, setStaff] = useState<StaffPerformance[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/analytics/staff-performance?days=30&limit=5')
-      .then((res) => res.json())
-      .then((result) => {
-        setStaff(result.data || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  const { data: staff = [], isLoading: loading } = useQuery<StaffPerformance[]>({
+    queryKey: ['analytics', 'staff-performance'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/staff-performance?days=30&limit=5');
+      if (!res.ok) throw new Error('Network error');
+      const result = await res.json();
+      return result.data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   if (loading) {
     return (

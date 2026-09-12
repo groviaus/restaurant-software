@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Flame, AlertCircle } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
+
 interface TopItem {
   name: string;
   quantity: number;
@@ -10,21 +12,20 @@ interface TopItem {
 }
 
 export function TopItemsList() {
-  const [topItems, setTopItems] = useState<TopItem[]>([]);
-  const [lowItems, setLowItems] = useState<TopItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'top' | 'low'>('top');
 
-  useEffect(() => {
-    fetch('/api/analytics/top-items?days=30&limit=5')
-      .then((res) => res.json())
-      .then((result) => {
-        setTopItems(result.top || []);
-        setLowItems(result.low || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useQuery<{ top: TopItem[], low: TopItem[] }>({
+    queryKey: ['analytics', 'top-items'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/top-items?days=30&limit=5');
+      if (!res.ok) throw new Error('Network error');
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const topItems = data?.top || [];
+  const lowItems = data?.low || [];
 
   const maxQuantity = topItems.length > 0 ? Math.max(...topItems.map((i) => i.quantity)) : 1;
 

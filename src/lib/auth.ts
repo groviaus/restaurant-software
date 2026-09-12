@@ -25,16 +25,22 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 const profileCache = new Map<string, CacheEntry<User | null>>();
+const profilePromises = new Map<string, Promise<User | null>>();
 const permissionsCache = new Map<string, CacheEntry<any>>();
+const permissionsPromises = new Map<string, Promise<any>>();
 const AUTH_CACHE_TTL = 60 * 1000;
 
 export function invalidateUserAuthCache(userId?: string) {
   if (userId) {
     profileCache.delete(userId);
+    profilePromises.delete(userId);
     permissionsCache.delete(userId);
+    permissionsPromises.delete(userId);
   } else {
     profileCache.clear();
+    profilePromises.clear();
     permissionsCache.clear();
+    permissionsPromises.clear();
   }
 }
 
@@ -51,21 +57,32 @@ export async function getUserProfile(): Promise<User | null> {
     return cached.data;
   }
 
-  // Use service role client to bypass RLS and avoid recursion
-  const supabase = createServiceRoleClient();
-  const { data: profile, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  if (error || !profile) {
-    return null;
+  if (profilePromises.has(user.id)) {
+    return profilePromises.get(user.id)!;
   }
 
-  const userProfile = profile as User;
-  profileCache.set(user.id, { data: userProfile, timestamp: now });
-  return userProfile;
+  const promise = (async () => {
+    // Use service role client to bypass RLS and avoid recursion
+    const supabase = createServiceRoleClient();
+    const { data: profile, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error || !profile) {
+      profilePromises.delete(user.id);
+      return null;
+    }
+
+    const userProfile = profile as User;
+    profileCache.set(user.id, { data: userProfile, timestamp: Date.now() });
+    profilePromises.delete(user.id);
+    return userProfile;
+  })();
+
+  profilePromises.set(user.id, promise);
+  return promise;
 }
 
 export class AuthError extends Error {
@@ -175,52 +192,66 @@ export async function getUserPermissions(userId: string) {
     return 'ADMIN';
   }
 
-  const supabase = createServiceRoleClient();
-
-  // 1. Get user with role, role_id
-  const { data: userData, error: userError } = await supabase
-    .from('users')
-    .select('role, role_id')
-    .eq('id', userId)
-    .single();
-
-  if (userError || !userData) {
-    permissionsCache.set(userId, { data: [], timestamp: now });
-    return [];
-  }
-  const user = userData as any;
-
-  // 2. If 'admin', implicit full access
-  if (user.role === 'admin') {
-    permissionsCache.set(userId, { data: 'ADMIN', timestamp: now });
-    return 'ADMIN';
+  if (permissionsPromises.has(userId)) {
+    return permissionsPromises.get(userId)!;
   }
 
-  // 3. If has role_id, fetch permissions
-  if (user.role_id) {
-    const { data: permissions, error: permError } = await supabase
-      .from('role_permissions')
-      .select('*, modules(name)')
-      .eq('role_id', user.role_id);
+  const promise = (async () => {
+    const supabase = createServiceRoleClient();
 
-    if (permError) {
-      console.error('Error fetching permissions:', permError);
+    // 1. Get user with role, role_id
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role, role_id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData) {
+      permissionsCache.set(userId, { data: [], timestamp: Date.now() });
+      permissionsPromises.delete(userId);
       return [];
     }
+    const user = userData as any;
 
-    const perms = permissions.map((p: any) => ({
-      module: p.modules?.name,
-      can_view: p.can_view,
-      can_create: p.can_create,
-      can_edit: p.can_edit,
-      can_delete: p.can_delete
-    }));
-    permissionsCache.set(userId, { data: perms, timestamp: now });
-    return perms;
-  }
+    // 2. If 'admin', implicit full access
+    if (user.role === 'admin') {
+      permissionsCache.set(userId, { data: 'ADMIN', timestamp: Date.now() });
+      permissionsPromises.delete(userId);
+      return 'ADMIN';
+    }
 
-  permissionsCache.set(userId, { data: [], timestamp: now });
-  return [];
+    // 3. If has role_id, fetch permissions
+    if (user.role_id) {
+      const { data: permissions, error: permError } = await supabase
+        .from('role_permissions')
+        .select('*, modules(name)')
+        .eq('role_id', user.role_id);
+
+      if (permError) {
+        console.error('Error fetching permissions:', permError);
+        permissionsPromises.delete(userId);
+        return [];
+      }
+
+      const perms = permissions.map((p: any) => ({
+        module: p.modules?.name,
+        can_view: p.can_view,
+        can_create: p.can_create,
+        can_edit: p.can_edit,
+        can_delete: p.can_delete
+      }));
+      permissionsCache.set(userId, { data: perms, timestamp: Date.now() });
+      permissionsPromises.delete(userId);
+      return perms;
+    }
+
+    permissionsCache.set(userId, { data: [], timestamp: Date.now() });
+    permissionsPromises.delete(userId);
+    return [];
+  })();
+
+  permissionsPromises.set(userId, promise);
+  return promise;
 }
 
 export async function checkPermission(

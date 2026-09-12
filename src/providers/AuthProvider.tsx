@@ -128,13 +128,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         initializeAuth();
 
-        return () => {
-            if (initTimeoutRef.current) {
-                clearTimeout(initTimeoutRef.current);
-                initTimeoutRef.current = null;
-            }
-        };
-
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mountedRef.current) return;
 

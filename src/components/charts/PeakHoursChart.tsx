@@ -12,6 +12,8 @@ import {
 } from 'recharts';
 import { Clock } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
+
 interface HourData {
   hour: string;
   orders: number;
@@ -50,48 +52,37 @@ function PeakHoursTooltip({ active, payload }: PeakHoursTooltipProps) {
 }
 
 export function PeakHoursChart() {
-  const [data, setData] = useState<HourData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data = [], isLoading: loading } = useQuery<HourData[]>({
+    queryKey: ['analytics', 'peak-hours'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/peak-hours?days=30');
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const result = await res.json();
+      
+      const rawData = result.data || [];
 
-  useEffect(() => {
-    fetch('/api/analytics/peak-hours?days=30')
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`API error: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((result) => {
-        const rawData = result.data || [];
-
-        // Group into 2-hour intervals for better visualization
-        const grouped: Record<string, number> = {};
-        rawData.forEach((item: HourData) => {
-          const hour = parseInt(item.hour.split(':')[0]);
-          const intervalStart = Math.floor(hour / 2) * 2;
-          const intervalEnd = intervalStart + 2;
-          const intervalKey = `${intervalStart}-${intervalEnd}`;
-          grouped[intervalKey] = (grouped[intervalKey] || 0) + item.orders;
-        });
-
-        // Convert to array and sort by interval start time
-        const chartData = Object.entries(grouped)
-          .map(([hour, orders]) => ({
-            hour: `${hour}:00`,
-            orders: Number(orders) || 0,
-            intervalStart: parseInt(hour.split('-')[0]),
-          }))
-          .sort((a, b) => a.intervalStart - b.intervalStart)
-          .map((item) => ({ hour: item.hour, orders: item.orders }));
-
-        setData(chartData);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error fetching peak hours:', error);
-        setLoading(false);
+      // Group into 2-hour intervals for better visualization
+      const grouped: Record<string, number> = {};
+      rawData.forEach((item: HourData) => {
+        const hour = parseInt(item.hour.split(':')[0]);
+        const intervalStart = Math.floor(hour / 2) * 2;
+        const intervalEnd = intervalStart + 2;
+        const intervalKey = `${intervalStart}-${intervalEnd}`;
+        grouped[intervalKey] = (grouped[intervalKey] || 0) + item.orders;
       });
-  }, []);
+
+      // Convert to array and sort by interval start time
+      return Object.entries(grouped)
+        .map(([hour, orders]) => ({
+          hour: `${hour}:00`,
+          orders: Number(orders) || 0,
+          intervalStart: parseInt(hour.split('-')[0]),
+        }))
+        .sort((a, b) => a.intervalStart - b.intervalStart)
+        .map((item) => ({ hour: item.hour, orders: item.orders }));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   if (loading) {
     return (
