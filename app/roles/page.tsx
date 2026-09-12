@@ -6,17 +6,21 @@ import { RolesTable } from '@/components/roles/RolesTable';
 import { RoleForm } from '@/components/roles/RoleForm';
 import { Loader2, Shield, Lock, CheckCircle2, ShieldAlert } from 'lucide-react';
 
+// In-memory cache across navigations
+let rolesMemoryCache: Role[] | null = null;
+
 export default function RolesPage() {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<Role[]>(() => rolesMemoryCache || []);
+  const [loading, setLoading] = useState(() => !rolesMemoryCache);
 
   const fetchRoles = async () => {
-    setLoading(true);
+    if (!rolesMemoryCache) setLoading(true);
     try {
       const res = await fetch('/api/roles');
       if (res.ok) {
         const data = await res.json();
         setRoles(data);
+        rolesMemoryCache = data;
       }
     } catch (error) {
       console.error('Failed to fetch roles', error);

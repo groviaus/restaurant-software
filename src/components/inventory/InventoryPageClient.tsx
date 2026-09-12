@@ -29,17 +29,35 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+import { useOutlet } from '@/hooks/useOutlet';
+
 interface InventoryPageClientProps {
-  outletId: string;
+  outletId?: string;
 }
 
-export function InventoryPageClient({ outletId }: InventoryPageClientProps) {
+// Client-side in-memory cache for instant route navigation
+interface InventoryMemoryCache {
+  items: InventoryItem[];
+  movements: InventoryMovement[];
+  menuItems: MenuItem[];
+  recipes: Recipe[];
+  timestamp: number;
+}
+const inventoryCache: Record<string, InventoryMemoryCache> = {};
+const INVENTORY_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
+export function InventoryPageClient({ outletId: propOutletId }: InventoryPageClientProps) {
+  const { currentOutletId } = useOutlet();
+  const outletId = propOutletId || currentOutletId || '';
   const [activeTab, setActiveTab] = useState('items');
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [movements, setMovements] = useState<InventoryMovement[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = outletId ? inventoryCache[outletId] : undefined;
+  const hasValidCache = !!(cached && Date.now() - cached.timestamp < INVENTORY_CACHE_TTL);
+
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => cached?.items ?? []);
+  const [movements, setMovements] = useState<InventoryMovement[]>(() => cached?.movements ?? []);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => cached?.menuItems ?? []);
+  const [recipes, setRecipes] = useState<Recipe[]>(() => cached?.recipes ?? []);
+  const [loading, setLoading] = useState(!hasValidCache);
   const [refreshing, setRefreshing] = useState(false);
 
   // Modals state
@@ -55,6 +73,7 @@ export function InventoryPageClient({ outletId }: InventoryPageClientProps) {
   const [recipeSearch, setRecipeSearch] = useState('');
 
   const fetchAll = useCallback(async (silent = false) => {
+    if (!outletId) return;
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
@@ -73,10 +92,24 @@ export function InventoryPageClient({ outletId }: InventoryPageClientProps) {
         recipesRes.json(),
       ]);
 
-      setInventoryItems(itemsData.items ?? []);
-      setMovements(movData.movements ?? []);
-      setMenuItems(menuData.items ?? []);
-      setRecipes(recipesData.recipes ?? []);
+      const newItems = itemsData.items ?? [];
+      const newMovements = movData.movements ?? [];
+      const newMenu = menuData.items ?? [];
+      const newRecipes = recipesData.recipes ?? [];
+
+      setInventoryItems(newItems);
+      setMovements(newMovements);
+      setMenuItems(newMenu);
+      setRecipes(newRecipes);
+
+      // Store in memory cache
+      inventoryCache[outletId] = {
+        items: newItems,
+        movements: newMovements,
+        menuItems: newMenu,
+        recipes: newRecipes,
+        timestamp: Date.now(),
+      };
     } catch (err) {
       console.error('[InventoryPageClient] Fetch error:', err);
       toast.error('Failed to sync inventory data');
@@ -86,7 +119,14 @@ export function InventoryPageClient({ outletId }: InventoryPageClientProps) {
     }
   }, [outletId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    // If cache was valid on mount, trigger silent background revalidation
+    if (hasValidCache) {
+      fetchAll(true);
+    } else {
+      fetchAll(false);
+    }
+  }, [fetchAll, hasValidCache]);
 
   // Summary alerts
   const lowStockItems = inventoryItems.filter(

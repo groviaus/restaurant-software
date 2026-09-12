@@ -6,11 +6,15 @@ import { MenuTable } from '@/components/tables/MenuTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
+import { useOutlet } from '@/hooks/useOutlet';
+
 interface MenuPageClientProps {
-  outletId: string;
+  outletId?: string;
 }
 
-export function MenuPageClient({ outletId }: MenuPageClientProps) {
+export function MenuPageClient({ outletId: propOutletId }: MenuPageClientProps) {
+  const { currentOutletId } = useOutlet();
+  const outletId = propOutletId || currentOutletId || '';
   const [isSyncing, setIsSyncing] = useState(false);
   const menuQuery = useMenuItemsQuery(outletId);
   const categoriesQuery = useCategoriesQuery(outletId);

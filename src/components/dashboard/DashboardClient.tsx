@@ -18,14 +18,25 @@ import { MetricCard } from '@/components/dashboard/MetricCard';
 import { QuickActionsDesktop } from '@/components/dashboard/QuickActionsDesktop';
 
 interface DashboardClientProps {
-  initialTotalSales: number;
-  initialTotalOrders: number;
-  initialCompletedOrders: number;
-  initialTopItem: string;
-  initialLowStockAlertsCount: number;
-  initialTotalInventoryItems: number;
-  outletId: string;
+  initialTotalSales?: number;
+  initialTotalOrders?: number;
+  initialCompletedOrders?: number;
+  initialTopItem?: string;
+  initialLowStockAlertsCount?: number;
+  initialTotalInventoryItems?: number;
+  outletId?: string;
 }
+
+interface DashboardSummaryCache {
+  totalSales: number;
+  totalOrders: number;
+  completedOrders: number;
+  topItem: string;
+  lowStockAlertsCount: number;
+  totalInventoryItems: number;
+  timestamp: number;
+}
+const dashboardSummaryCache: Record<string, DashboardSummaryCache> = {};
 
 export function DashboardClient({
   initialTotalSales,
@@ -35,17 +46,20 @@ export function DashboardClient({
   initialLowStockAlertsCount,
   initialTotalInventoryItems,
   outletId,
-}: DashboardClientProps) {
+}: DashboardClientProps = {}) {
   const router = useRouter();
   const { profile } = useAuth();
   const { currentOutletId } = useOutlet();
-  const [totalSales, setTotalSales] = useState(initialTotalSales);
-  const [totalOrders, setTotalOrders] = useState(initialTotalOrders);
-  const [completedOrders, setCompletedOrders] = useState(initialCompletedOrders);
-  const [topItem, setTopItem] = useState(initialTopItem);
-  const [lowStockAlertsCount, setLowStockAlertsCount] = useState(initialLowStockAlertsCount);
-  const [totalInventoryItems, setTotalInventoryItems] = useState(initialTotalInventoryItems);
-  const [loading, setLoading] = useState(false);
+  const effectiveOutletId = currentOutletId || outletId || profile?.outlet_id || '';
+  const cached = effectiveOutletId ? dashboardSummaryCache[effectiveOutletId] : null;
+
+  const [totalSales, setTotalSales] = useState(cached?.totalSales ?? initialTotalSales ?? 0);
+  const [totalOrders, setTotalOrders] = useState(cached?.totalOrders ?? initialTotalOrders ?? 0);
+  const [completedOrders, setCompletedOrders] = useState(cached?.completedOrders ?? initialCompletedOrders ?? 0);
+  const [topItem, setTopItem] = useState(cached?.topItem ?? initialTopItem ?? 'N/A');
+  const [lowStockAlertsCount, setLowStockAlertsCount] = useState(cached?.lowStockAlertsCount ?? initialLowStockAlertsCount ?? 0);
+  const [totalInventoryItems, setTotalInventoryItems] = useState(cached?.totalInventoryItems ?? initialTotalInventoryItems ?? 0);
+  const [loading, setLoading] = useState(!cached && initialTotalSales === undefined);
 
   // Function to fetch dashboard data client-side (fallback for Capacitor)
   const fetchDashboardData = useCallback(async () => {
@@ -78,6 +92,11 @@ export function DashboardClient({
         clientTime: now.toISOString(),
       });
 
+      let sales = 0;
+      let orders = 0;
+      let completed = 0;
+      let top = 'N/A';
+
       // Fetch today's orders
       const { data: todayOrders, error: ordersError } = await supabase
         .from('orders')
@@ -89,11 +108,11 @@ export function DashboardClient({
       if (ordersError) {
         console.error('[Dashboard] Error fetching orders:', ordersError);
       } else if (todayOrders) {
-        const sales = todayOrders.reduce((sum, order: { status: string; total: number | string }) => {
+        sales = todayOrders.reduce((sum, order: { status: string; total: number | string }) => {
           return sum + (order.status === 'COMPLETED' ? (Number(order.total) || 0) : 0);
         }, 0);
-        const orders = todayOrders.length;
-        const completed = todayOrders.filter((o: { status: string }) => o.status === 'COMPLETED').length;
+        orders = todayOrders.length;
+        completed = todayOrders.filter((o: { status: string }) => o.status === 'COMPLETED').length;
 
         setTotalSales(sales);
         setTotalOrders(orders);
@@ -131,7 +150,7 @@ export function DashboardClient({
         });
 
         if (itemCounts.size > 0) {
-          const top = Array.from(itemCounts.values()).sort((a, b) => b.count - a.count)[0].name;
+          top = Array.from(itemCounts.values()).sort((a, b) => b.count - a.count)[0].name;
           setTopItem(top);
         }
       }
@@ -143,11 +162,12 @@ export function DashboardClient({
         .eq('outlet_id', effectiveOutletId)
         .eq('is_active', true);
 
+      let lowStockCount = 0;
+      let totalInventory = 0;
+
       if (!newInvErr && newInvData && newInvData.length > 0) {
-        setTotalInventoryItems(newInvData.length);
-        setLowStockAlertsCount(
-          newInvData.filter((item: any) => item.min_stock !== null && Number(item.current_stock) <= Number(item.min_stock)).length
-        );
+        totalInventory = newInvData.length;
+        lowStockCount = newInvData.filter((item: any) => item.min_stock !== null && Number(item.current_stock) <= Number(item.min_stock)).length;
       } else {
         const { data: inventoryData } = await supabase
           .from('inventory')
@@ -155,113 +175,86 @@ export function DashboardClient({
           .eq('outlet_id', effectiveOutletId);
 
         if (inventoryData) {
-          setTotalInventoryItems(inventoryData.length);
-          setLowStockAlertsCount(
-            inventoryData.filter((inv: { stock: number; low_stock_threshold: number }) => inv.stock <= inv.low_stock_threshold).length
-          );
+          totalInventory = inventoryData.length;
+          lowStockCount = inventoryData.filter((inv: { stock: number; low_stock_threshold: number }) => inv.stock <= inv.low_stock_threshold).length;
         }
       }
+
+      setTotalInventoryItems(totalInventory);
+      setLowStockAlertsCount(lowStockCount);
+
+      // Cache the fetched metrics for instant transitions
+      dashboardSummaryCache[effectiveOutletId] = {
+        totalSales: sales,
+        totalOrders: orders,
+        completedOrders: completed,
+        topItem: top,
+        lowStockAlertsCount: lowStockCount,
+        totalInventoryItems: totalInventory,
+        timestamp: Date.now(),
+      };
     } catch (error) {
       console.error('[Dashboard] Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
-  }, [currentOutletId, outletId]);
+  }, [effectiveOutletId]);
+
+  // Initial fetch on mount or when outlet changes
+  useEffect(() => {
+    if (effectiveOutletId) {
+      fetchDashboardData();
+    }
+  }, [effectiveOutletId, fetchDashboardData]);
 
   // Function to refetch dashboard data
   const refetchDashboard = useCallback(async () => {
     try {
-      console.log('[Dashboard] Refetching dashboard data...');
-      // Try client-side fetch first (works better in Capacitor)
       await fetchDashboardData();
-      // Also refresh server-side data
-      router.refresh();
     } catch (error) {
       console.error('[Dashboard] Failed to refetch dashboard:', error);
     }
-  }, [router, fetchDashboardData]);
+  }, [fetchDashboardData]);
 
   // Subscribe to real-time order changes
   useRealtimeOrders({
-    outletId,
+    outletId: effectiveOutletId,
     onChange: (payload) => {
       console.log('[Dashboard] Realtime order change received:', payload.eventType);
-      // Refresh dashboard when orders change (this will also update inventory if order was completed)
       refetchDashboard();
     },
     onInsert: () => {
-      console.log('[Dashboard] New order inserted');
       refetchDashboard();
     },
     onUpdate: () => {
-      console.log('[Dashboard] Order updated');
-      // When order is completed, inventory is updated, so refresh dashboard
       refetchDashboard();
     },
   });
 
   // Subscribe to real-time inventory changes
   useRealtimeInventory({
-    outletId,
+    outletId: effectiveOutletId,
     onChange: (payload) => {
       console.log('[Dashboard] Realtime inventory change received:', payload.eventType);
-      // Refresh dashboard when inventory changes
       refetchDashboard();
     },
     onInsert: () => {
-      console.log('[Dashboard] New inventory item inserted');
       refetchDashboard();
     },
     onUpdate: () => {
-      console.log('[Dashboard] Inventory item updated');
       refetchDashboard();
     },
   });
 
-  // Update state when props change (from server refresh)
+  // Update state when initial props change (if provided)
   useEffect(() => {
-    setTotalSales(initialTotalSales);
-    setTotalOrders(initialTotalOrders);
-    setCompletedOrders(initialCompletedOrders);
-    setTopItem(initialTopItem);
-    setLowStockAlertsCount(initialLowStockAlertsCount);
-    setTotalInventoryItems(initialTotalInventoryItems);
+    if (initialTotalSales !== undefined) setTotalSales(initialTotalSales);
+    if (initialTotalOrders !== undefined) setTotalOrders(initialTotalOrders);
+    if (initialCompletedOrders !== undefined) setCompletedOrders(initialCompletedOrders);
+    if (initialTopItem !== undefined) setTopItem(initialTopItem);
+    if (initialLowStockAlertsCount !== undefined) setLowStockAlertsCount(initialLowStockAlertsCount);
+    if (initialTotalInventoryItems !== undefined) setTotalInventoryItems(initialTotalInventoryItems);
   }, [initialTotalSales, initialTotalOrders, initialCompletedOrders, initialTopItem, initialLowStockAlertsCount, initialTotalInventoryItems]);
-
-  // Client-side fetch fallback: trigger when server data looks incomplete or suspicious
-  // This is important for Capacitor apps where server-side cookies might not work
-  // Also helps when Vercel returns incomplete data due to timezone/auth issues
-  useEffect(() => {
-    const effectiveOutletId = currentOutletId || outletId;
-
-    // Determine if we should fetch fallback data
-    // Trigger when:
-    // 1. Both sales and orders are 0 (no data at all)
-    // 2. Sales is 0 but orders > 0 (suspicious - should have sales if there are orders)
-    // 3. Sales > 0 but orders is 0 (suspicious - can't have sales without orders)
-    const shouldFetchFallback =
-      effectiveOutletId &&
-      profile &&
-      (
-        (initialTotalSales === 0 && initialTotalOrders === 0) || // No data at all
-        (initialTotalSales === 0 && initialTotalOrders > 0) ||   // Orders but no sales (incomplete data)
-        (initialTotalSales > 0 && initialTotalOrders === 0)     // Sales but no orders (incomplete data)
-      );
-
-    if (shouldFetchFallback) {
-      console.log('[Dashboard] Server data looks incomplete, fetching client-side data...', {
-        outletId: effectiveOutletId,
-        initialSales: initialTotalSales,
-        initialOrders: initialTotalOrders,
-        reason: initialTotalSales === 0 && initialTotalOrders === 0
-          ? 'no_data'
-          : initialTotalSales === 0 && initialTotalOrders > 0
-            ? 'orders_but_no_sales'
-            : 'sales_but_no_orders',
-      });
-      fetchDashboardData();
-    }
-  }, [currentOutletId, outletId, profile, initialTotalSales, initialTotalOrders, fetchDashboardData]);
 
   // Generate alerts based on low stock and other conditions
   const alerts: Alert[] = [];
@@ -390,7 +383,7 @@ export function DashboardClient({
 
       {/* Active Orders Widget - Full Width on Mobile, Part of Grid on Desktop */}
       <div className="px-1 sm:px-0">
-        <ActiveOrdersWidget outletId={outletId} />
+        <ActiveOrdersWidget outletId={effectiveOutletId} />
       </div>
 
       {/* Charts Section */}

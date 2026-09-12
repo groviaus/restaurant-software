@@ -12,6 +12,11 @@ interface PermissionCache {
     can_delete: boolean;
 }
 
+// In-memory module cache across navigations
+let cachedPermissions: PermissionCache[] = [];
+let cachedRoleKey: string | null = null;
+let permissionsResolved = false;
+
 // Timeout constant for permission fetches (5 seconds)
 const PERMISSIONS_FETCH_TIMEOUT = 5000;
 // Maximum time for permissions initialization (8 seconds)
@@ -19,8 +24,11 @@ const PERMISSIONS_INIT_MAX_TIMEOUT = 8000;
 
 export function usePermissions() {
     const { profile, loading: authLoading } = useAuth();
-    const [permissions, setPermissions] = useState<PermissionCache[]>([]);
-    const [loading, setLoading] = useState(true);
+    const currentRoleKey = profile?.role === 'admin' ? 'admin' : profile?.role_id || profile?.role || null;
+    const isCachedForUser = permissionsResolved && cachedRoleKey === currentRoleKey;
+
+    const [permissions, setPermissions] = useState<PermissionCache[]>(() => isCachedForUser ? cachedPermissions : []);
+    const [loading, setLoading] = useState(() => !isCachedForUser && authLoading);
     const isFetchingRef = useRef(false);
     const mountedRef = useRef(true);
     const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -69,6 +77,9 @@ export function usePermissions() {
         // We have a profile, determine permissions
         if (profile.role === 'admin') {
             // Admin has full access, no need to fetch
+            cachedPermissions = [];
+            cachedRoleKey = 'admin';
+            permissionsResolved = true;
             if (mountedRef.current) {
                 setPermissions([]);
                 setLoading(false);
@@ -81,6 +92,14 @@ export function usePermissions() {
         }
 
         if (profile.role_id) {
+            // If already cached for this role, skip refetch
+            if (permissionsResolved && cachedRoleKey === profile.role_id) {
+                if (mountedRef.current) {
+                    setPermissions(cachedPermissions);
+                    setLoading(false);
+                }
+                return;
+            }
             // Fetch permissions for custom role
             if (!isFetchingRef.current) {
                 fetchPermissions(profile.role_id).finally(() => {
@@ -92,6 +111,9 @@ export function usePermissions() {
             }
         } else {
             // Legacy roles (cashier/staff) - no custom permissions to fetch
+            cachedPermissions = [];
+            cachedRoleKey = profile.role || 'legacy';
+            permissionsResolved = true;
             if (mountedRef.current) {
                 setPermissions([]);
                 setLoading(false);
@@ -147,9 +169,15 @@ export function usePermissions() {
                     }));
 
                 console.log('Fetched permissions:', perms);
+                cachedPermissions = perms;
+                cachedRoleKey = roleId;
+                permissionsResolved = true;
                 setPermissions(perms);
             } else {
                 console.warn('No permissions data returned');
+                cachedPermissions = [];
+                cachedRoleKey = roleId;
+                permissionsResolved = true;
                 setPermissions([]);
             }
         } catch (error: any) {

@@ -47,13 +47,19 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// In-memory cache across navigation transitions
+const categoriesMemoryCache: Record<string, Category[]> = {};
+let outletsMemoryCache: Outlet[] | null = null;
+
 export default function CategoriesPage() {
   const router = useRouter();
   const { currentOutlet } = useOutlet();
   const { checkPermission, loading: permLoading } = usePermissions();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [outlets, setOutlets] = useState<Outlet[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedCats = currentOutlet?.id ? categoriesMemoryCache[currentOutlet.id] : undefined;
+
+  const [categories, setCategories] = useState<Category[]>(() => cachedCats || []);
+  const [outlets, setOutlets] = useState<Outlet[]>(() => outletsMemoryCache || []);
+  const [loading, setLoading] = useState(!cachedCats);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSegment, setFilterSegment] = useState<'ALL' | 'WITH_ITEMS' | 'EMPTY'>('ALL');
@@ -99,13 +105,15 @@ export default function CategoriesPage() {
   const fetchCategories = useCallback(async (isManual = false) => {
     if (!currentOutlet) return;
     if (isManual) setIsSyncing(true);
-    else setLoading(true);
+    else if (!categoriesMemoryCache[currentOutlet.id]) setLoading(true);
 
     try {
       const response = await fetch(`/api/categories?outlet_id=${currentOutlet.id}`);
       if (response.ok) {
         const data = await response.json();
-        setCategories(data.categories || []);
+        const cats = data.categories || [];
+        setCategories(cats);
+        categoriesMemoryCache[currentOutlet.id] = cats;
         if (isManual) toast.success('Categories synced');
       } else {
         toast.error('Failed to fetch categories');
@@ -124,7 +132,9 @@ export default function CategoriesPage() {
       const response = await fetch('/api/outlets');
       if (response.ok) {
         const data = await response.json();
-        setOutlets(data.outlets || data || []);
+        const outs = data.outlets || data || [];
+        setOutlets(outs);
+        outletsMemoryCache = outs;
       }
     } catch (error) {
       console.error('Error fetching outlets:', error);

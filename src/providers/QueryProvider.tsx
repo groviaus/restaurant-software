@@ -10,11 +10,11 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 1000,
+        staleTime: 60 * 1000,      // 1 minute stale-time: instant route transitions without refetch waterfalls
         gcTime: FIVE_MINUTES,
-        refetchOnWindowFocus: true,
+        refetchOnWindowFocus: false, // avoid redundant refetches when clicking around the app
         refetchOnReconnect: true,  // re-sync stale data when network comes back
-        retry: 3,
+        retry: 2,
         networkMode: 'online',     // pause queries while offline, resume on reconnect
       },
       mutations: {

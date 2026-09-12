@@ -10,11 +10,15 @@ import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+import { useOutlet } from '@/hooks/useOutlet';
+
 interface BillsPageClientProps {
-  outletId: string;
+  outletId?: string;
 }
 
-export function BillsPageClient({ outletId }: BillsPageClientProps) {
+export function BillsPageClient({ outletId: propOutletId }: BillsPageClientProps) {
+  const { currentOutletId } = useOutlet();
+  const outletId = propOutletId || currentOutletId || '';
   const [isSyncing, setIsSyncing] = useState(false);
   const billsQuery = useOrdersQuery(outletId, { status: 'COMPLETED', limit: 200 });
   const tablesQuery = useTablesQuery(outletId);

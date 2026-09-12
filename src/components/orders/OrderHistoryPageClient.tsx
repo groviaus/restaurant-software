@@ -22,19 +22,25 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+import { useOutlet } from '@/hooks/useOutlet';
+
 interface OrderHistoryPageClientProps {
-  initialOrders: OrderWithItems[];
-  tables: Table[];
-  outletId: string;
+  initialOrders?: OrderWithItems[];
+  tables?: Table[];
+  outletId?: string;
 }
 
 export function OrderHistoryPageClient({
-  initialOrders,
-  tables,
-  outletId,
+  initialOrders = [],
+  tables: initialTables = [],
+  outletId: propOutletId,
 }: OrderHistoryPageClientProps) {
+  const { currentOutletId } = useOutlet();
+  const outletId = propOutletId || currentOutletId || '';
   const [orders, setOrders] = useState<OrderWithItems[]>(initialOrders);
+  const [tables, setTables] = useState<Table[]>(initialTables);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [loading, setLoading] = useState(initialOrders.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
@@ -59,13 +65,47 @@ export function OrderHistoryPageClient({
     }
   };
 
-  // Sync initialOrders from server
+  // Fetch orders and tables if not provided initially
   useEffect(() => {
-    setOrders(initialOrders);
-  }, [initialOrders]);
+    if (!outletId) return;
+
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [ordersRes, tablesRes] = await Promise.all([
+          fetch(`/api/orders?outlet_id=${outletId}&status=COMPLETED,CANCELLED`),
+          fetch(`/api/tables?outlet_id=${outletId}`),
+        ]);
+
+        if (ordersRes.ok && isMounted) {
+          const data = await ordersRes.json();
+          setOrders(data || []);
+        }
+        if (tablesRes.ok && isMounted) {
+          const tData = await tablesRes.json();
+          setTables(tData.tables || tData || []);
+        }
+      } catch (err) {
+        console.error('Error fetching order history:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    if (initialOrders.length === 0) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [outletId, initialOrders.length]);
 
   // Function to refetch orders from API
   const refetchOrders = useCallback(async (isManual = false) => {
+    if (!outletId) return;
     if (isManual) setIsSyncing(true);
     try {
       const response = await fetch(`/api/orders?outlet_id=${outletId}&status=COMPLETED,CANCELLED`);

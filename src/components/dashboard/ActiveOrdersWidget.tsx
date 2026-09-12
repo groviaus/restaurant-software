@@ -28,6 +28,10 @@ export function ActiveOrdersWidget({ outletId }: ActiveOrdersWidgetProps) {
     const [loading, setLoading] = useState(true);
 
     const fetchOrderCounts = useCallback(async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
         try {
             const supabase = createClient();
             const { data: orders, error } = await supabase

@@ -154,14 +154,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     }
     if (href !== pathname) {
       setNavigatingTo(href);
-      router.push(href);
-      setTimeout(() => setNavigatingTo(null), 1000);
-    }
-  };
-
-  const handleLinkHover = (href: string) => {
-    if (href !== pathname) {
-      router.prefetch(href);
+      setTimeout(() => setNavigatingTo(null), 800);
     }
   };
 
@@ -301,11 +294,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                   const linkContent = (
                     <Link
                       href={item.href}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleLinkClick(item.href);
-                      }}
-                      onMouseEnter={() => handleLinkHover(item.href)}
+                      prefetch={true}
+                      onClick={() => handleLinkClick(item.href)}
                       className={cn(
                         'group relative flex items-center gap-3 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium transition-all duration-150 cursor-pointer min-h-[40px]',
                         isCollapsed ? 'lg:justify-center lg:px-2' : 'justify-start',

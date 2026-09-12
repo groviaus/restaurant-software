@@ -15,11 +15,15 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+import { useOutlet } from '@/hooks/useOutlet';
+
 interface OrdersPageClientProps {
-  outletId: string;
+  outletId?: string;
 }
 
-export function OrdersPageClient({ outletId }: OrdersPageClientProps) {
+export function OrdersPageClient({ outletId: propOutletId }: OrdersPageClientProps) {
+  const { currentOutletId } = useOutlet();
+  const outletId = propOutletId || currentOutletId || '';
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
 

@@ -7,18 +7,22 @@ import { UserForm } from '@/components/users/UserForm';
 import { Loader2, Users, Shield, UserCheck, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
+// In-memory cache across navigations
+let usersMemoryCache: User[] | null = null;
+
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>(() => usersMemoryCache || []);
+  const [loading, setLoading] = useState(() => !usersMemoryCache);
   const [search, setSearch] = useState('');
 
   const fetchUsers = async () => {
-    setLoading(true);
+    if (!usersMemoryCache) setLoading(true);
     try {
       const res = await fetch('/api/users');
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
+        usersMemoryCache = data;
       }
     } catch (error) {
       console.error('Failed to fetch users', error);

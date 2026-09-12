@@ -98,12 +98,17 @@ const defaultSettings: OutletSettings = {
   currency_code: 'INR',
 };
 
+// In-memory cache across navigations
+const settingsMemoryCache: Record<string, OutletSettings> = {};
+
 export default function SettingsPage() {
   const router = useRouter();
   const { currentOutlet } = useOutlet();
   const { checkPermission, loading: permLoading } = usePermissions();
-  const [settings, setSettings] = useState<OutletSettings>(defaultSettings);
-  const [loading, setLoading] = useState(true);
+  const cachedSettings = currentOutlet?.id ? settingsMemoryCache[currentOutlet.id] : undefined;
+
+  const [settings, setSettings] = useState<OutletSettings>(() => cachedSettings || defaultSettings);
+  const [loading, setLoading] = useState(() => !cachedSettings);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -120,12 +125,18 @@ export default function SettingsPage() {
   }, [currentOutlet?.id]);
 
   const fetchSettings = async () => {
-    setLoading(true);
+    if (!currentOutlet?.id || !settingsMemoryCache[currentOutlet.id]) {
+      setLoading(true);
+    }
     try {
       const response = await fetch('/api/settings');
       if (response.ok) {
         const data = await response.json();
-        setSettings({ ...defaultSettings, ...data.settings });
+        const merged = { ...defaultSettings, ...data.settings };
+        setSettings(merged);
+        if (currentOutlet?.id) {
+          settingsMemoryCache[currentOutlet.id] = merged;
+        }
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -167,6 +178,9 @@ export default function SettingsPage() {
 
       toast.success('Outlet preferences saved successfully');
       setHasChanges(false);
+      if (currentOutlet?.id) {
+        settingsMemoryCache[currentOutlet.id] = settings;
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to save settings');
     } finally {
